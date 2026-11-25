@@ -4,6 +4,8 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "boxtap",
   "compatibility_date": "2026-11-23",
+  // Serve at boxtap.<account>.workers.dev (free). Explicit, so a deploy never turns the address off.
+  "workers_dev": true,
   "assets": {
     "directory": "./dist",
     // Navigations to app routes like /b/K7Q2M9XR4T or /box/<id> get index.html; missing files still 404.
