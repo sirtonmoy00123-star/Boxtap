@@ -104,3 +104,14 @@ describe('daily self-check (DATABASE_SCHEMA §5)', () => {
     expect(s.dailyCheck().ran).toBe(true);
   });
 });
+
+describe('lists on one device (C-02)', () => {
+  it('changes a list language and name, and keeps lists apart', () => {
+    const home = svc.createWorkspace({ type: 'home', name: 'Move', country: 'AU', currency: 'AUD', language: 'en' });
+    const shop = svc.createWorkspace({ type: 'seller', name: 'Shop', country: 'BD', currency: 'BDT', language: 'en' });
+    svc.setWorkspaceLanguage(shop.id, 'bn');
+    svc.renameWorkspace(home.id, 'Our move');
+    expect(svc.listWorkspaces().map((w) => [w.name, w.language])).toEqual([['Our move', 'en'], ['Shop', 'bn']]);
+    expect(() => svc.setWorkspaceLanguage(shop.id, 'fr' as 'en')).toThrow();
+  });
+});

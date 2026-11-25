@@ -19,13 +19,11 @@ export function Scan() {
     void startScanner(video.current!, async (r) => {
       if (!live) return;
       if (r.kind === 'other') { setMsg(t('scan.notBoxtap')); return; }
-      const box = await db.boxByLabel(r.code);
-      if (box && box.workspaceId === workspace?.id) {
-        handle?.stop();
-        navigate(`/box/${box.id}`, true);
-      } else {
-        setMsg(t('label.notMine'));
-      }
+      const st = await db.labelStatus(r.code);
+      if (st.kind === 'unknown') { setMsg(t('label.notMine')); return; }
+      // Own box, a spare label, or a box in another list on this phone: the label route handles each.
+      handle?.stop();
+      navigate(`/b/${r.code}`, true);
     }).then((h) => { if (live) handle = h; else h.stop(); }).catch(() => setFailed(true));
     return () => { live = false; handle?.stop(); };
   }, [db, workspace, t, attempt]);

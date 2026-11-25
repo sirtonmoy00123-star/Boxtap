@@ -209,3 +209,16 @@ describe('review findings 7 and 12', () => {
     expect(db.selectValue(`SELECT deleted_at IS NULL FROM photos WHERE id='p1'`)).toBe(0);
   });
 });
+
+describe('spare label status', () => {
+  it('tells a spare of this workspace from a used label and an unknown code', () => {
+    const ws = home();
+    const [spare] = R.createSpareLabels(ctx, ws.id, 1);
+    const box = R.createBox(ctx, ws.id, {});
+    expect(R.labelStatus(ctx, spare!)).toEqual({ kind: 'spare', workspaceId: ws.id });
+    expect(R.labelStatus(ctx, box.labelCode)).toEqual({ kind: 'box', workspaceId: ws.id, boxId: box.id });
+    expect(R.labelStatus(ctx, 'ZZZZZZZZZZ')).toEqual({ kind: 'unknown' });
+    R.assignLabel(ctx, spare!, box.id);
+    expect(R.labelStatus(ctx, spare!)).toMatchObject({ kind: 'box', boxId: box.id });
+  });
+});

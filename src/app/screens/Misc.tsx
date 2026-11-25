@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../context';
 import { navigate } from '../router';
-import { Button, Page } from '../ui';
+import { Button, Page, inputClass } from '../ui';
 import { WorkerError } from '../../core/db/client';
 import { DEFAULT_CONFIG } from '../../core/licensing/can';
-import type { BinBox, BinItem } from '../../core/repo';
+import type { BinBox, BinItem, Box } from '../../core/repo';
 import type { Key } from '../../i18n/i18n';
 
 export function Bin() {
@@ -42,18 +42,56 @@ export function Bin() {
 
 /** /b/:code opened from a camera app or link (API_CONTRACTS §5). Shows nothing about the code otherwise. */
 export function LabelRoute({ code }: { code: string }) {
-  const { db, workspace, t } = useApp();
-  const [state, setState] = useState<'looking' | 'notMine'>('looking');
+  const { db, workspace, setWorkspace, t, toast } = useApp();
+  const [state, setState] = useState<'looking' | 'notMine' | 'spare'>('looking');
+  const [boxes, setBoxes] = useState<Box[]>([]);
+  const [target, setTarget] = useState('');
+  const c = code.toUpperCase();
   useEffect(() => {
     let live = true;
-    void db.boxByLabel(code.toUpperCase()).then((b) => {
+    void (async () => {
+      const st = await db.labelStatus(c);
       if (!live) return;
-      if (b && b.workspaceId === workspace?.id) navigate(`/box/${b.id}`, true);
-      else setState('notMine');
-    });
+      if (st.kind === 'unknown') { setState('notMine'); return; }
+      // A label of another list on this phone: open that list (lists are never mixed, but they share the phone).
+      if (st.workspaceId !== workspace?.id) {
+        const other = await db.getWorkspace(st.workspaceId);
+        if (!other) { setState('notMine'); return; }
+        setWorkspace(other);
+      }
+      if (st.kind === 'box') { navigate(`/box/${st.boxId}`, true); return; }
+      setBoxes(await db.listBoxes(st.workspaceId));
+      setState('spare');
+    })();
     return () => { live = false; };
-  }, [db, code, workspace]);
+  }, [db, c, workspace?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- setWorkspace changes identity every render
   if (state === 'looking') return null;
+  if (state === 'spare') {
+    const stick = async (boxId: string) => {
+      await db.assignLabel(c, boxId);
+      toast(t('spare.done'));
+      navigate(`/box/${boxId}`, true);
+    };
+    const newBox = async () => {
+      try {
+        const b = await db.createBox(workspace!.id, {});
+        await stick(b.id);
+      } catch (e) {
+        toast(t('error.generic', { msg: (e as Error).message }));
+      }
+    };
+    return (
+      <Page title={t('spare.title')} back={() => navigate('/')}>
+        <p className="py-2">{t('spare.explain')}</p>
+        <select className={inputClass} aria-label={t('spare.pick')} value={target} onChange={(e) => setTarget(e.target.value)}>
+          <option value="">{t('spare.pick')}</option>
+          {boxes.map((b) => <option key={b.id} value={b.id}>{t('box.title', { n: b.number })}{b.name ? ` · ${b.name}` : ''}</option>)}
+        </select>
+        <Button className="mt-2 w-full" disabled={!target} onClick={() => void stick(target)}>{t('spare.stick')}</Button>
+        <Button variant="secondary" className="mt-2 w-full" onClick={() => void newBox()}>{t('spare.newBox')}</Button>
+      </Page>
+    );
+  }
   return (
     <Page title={t('label.notMine')} back={() => navigate('/')}>
       <p className="py-6">{t('label.notMine')}</p>

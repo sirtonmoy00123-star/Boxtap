@@ -7,6 +7,7 @@ import { changeRecoveryCode, checkRecoveryCode, createBackupFile, deliverFile, h
 import type { Db } from '../../core/db/client';
 import type { Key } from '../../i18n/i18n';
 import { DriveRestore, DriveSettings } from './Drive';
+import { ListSettings } from './Lists';
 import { InstallGuide } from './Install';
 import { isInstalled } from '../../core/pwa/install';
 import { removePhotoFile } from '../../core/photos/store';
@@ -239,7 +240,8 @@ export function Settings() {
 
   return (
     <Page title={t('settings.title')} back={() => navigate('/')}>
-      <h2 className="mt-2 text-lg font-semibold">{t('settings.backup')}</h2>
+      <ListSettings />
+      <h2 className="mt-6 text-lg font-semibold">{t('settings.backup')}</h2>
       <p className="text-sm text-slate-600" data-testid="last-backup">{last ? t('settings.lastBackup', { when: new Date(last).toLocaleString() }) : t('settings.never')}</p>
       <div className="mt-3 flex flex-col gap-2">
         {ready === false

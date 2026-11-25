@@ -464,3 +464,18 @@ test('Home lists: the removalist PDF is free; the family list needs the Move Pas
   await page.getByRole('button', { name: /^Family box list/ }).click();
   await expect(page.getByRole('dialog')).toContainText('This needs a paid plan.');
 });
+
+test('Settings: add a Seller list, switch between lists, change the language', async ({ page }) => {
+  await newHome(page);
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Add another list' }).click();
+  await page.getByRole('button', { name: 'Create list' }).click();
+  await expect(page.getByRole('heading', { name: 'My shop' })).toBeVisible();
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('list', { name: 'Your lists on this phone' }).getByRole('button', { name: 'Open' }).click();
+  await expect(page.getByRole('heading', { name: 'My move' })).toBeVisible();
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'বাংলা' }).click();
+  await expect(page.getByRole('heading', { name: 'সেটিংস' })).toBeVisible();
+});
+

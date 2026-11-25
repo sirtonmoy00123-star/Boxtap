@@ -305,5 +305,17 @@
   "lists.family": "Family box list (what is in each box)",
   "lists.insurance": "Insurance list (items and values)",
   "lists.ready": "List ready.",
+  "lists.this": "This list",
+  "lists.all": "Your lists on this phone",
+  "lists.current": "Open now",
+  "lists.open": "Open",
+  "lists.add": "Add another list",
+  "lists.create": "Create list",
+  "spare.title": "Spare label",
+  "spare.explain": "This is one of your blank spare labels. Which box did you stick it on?",
+  "spare.pick": "Choose a box",
+  "spare.stick": "Use this label for that box",
+  "spare.newBox": "Make a new box with this label",
+  "spare.done": "Label added to the box.",
   "error.generic": "Something went wrong: {msg}"
 }

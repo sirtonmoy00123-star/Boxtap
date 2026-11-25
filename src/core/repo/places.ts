@@ -200,3 +200,19 @@ export function assignLabel(ctx: Ctx, code: string, boxId: string): void {
 export function spareLabels(ctx: Ctx, workspaceId: string): string[] {
   return ctx.db.selectValues(`SELECT code FROM labels WHERE workspace_id=? AND location_id IS NULL AND retired_at IS NULL ORDER BY created_at`, [workspaceId]).map(String);
 }
+
+export type LabelStatus =
+  | { kind: 'box'; workspaceId: string; boxId: string }
+  | { kind: 'spare'; workspaceId: string }
+  | { kind: 'unknown' };
+
+/** What a scanned code is on this device: a live box's label, an unused spare label, or nothing we know. */
+export function labelStatus(ctx: Ctx, code: string): LabelStatus {
+  const [r] = ctx.db.selectObjects(
+    `SELECT lb.workspace_id, lb.location_id, l.deleted_at AS box_deleted FROM labels lb LEFT JOIN locations l ON l.id = lb.location_id
+      WHERE lb.code=? AND lb.retired_at IS NULL`, [code]);
+  if (!r) return { kind: 'unknown' };
+  if (r.location_id == null) return { kind: 'spare', workspaceId: String(r.workspace_id) };
+  if (r.box_deleted != null) return { kind: 'unknown' };
+  return { kind: 'box', workspaceId: String(r.workspace_id), boxId: String(r.location_id) };
+}

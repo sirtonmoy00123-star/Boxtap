@@ -35,6 +35,9 @@ export function createService(ctx: Ctx, entitlement: () => Entitlement = () => (
     listWorkspaces: () => R.listWorkspaces(ctx),
     getWorkspace: (id: string) => R.getWorkspace(ctx, id),
     renameWorkspace: (id: string, name: string) => R.renameWorkspace(ctx, id, name),
+    setWorkspaceLanguage: (id: string, language: 'en' | 'bn') => {
+      ctx.db.exec({ sql: 'UPDATE workspaces SET language=?, updated_at=? WHERE id=?', bind: [language, ctx.now(), id] });
+    },
     createRoom: (wsId: string, name: string, colour?: string) => R.createRoom(ctx, wsId, name, colour),
     listRooms: (wsId: string) => R.listRooms(ctx, wsId),
     renameRoom: (id: string, name: string) => R.renameRoom(ctx, id, name),
@@ -49,6 +52,7 @@ export function createService(ctx: Ctx, entitlement: () => Entitlement = () => (
     // H-06 (review finding 6): restoring from the bin is access to existing data, never gated.
     restoreBox: (id: string) => R.restoreBox(ctx, id),
     boxByLabel: (code: string) => R.boxByLabel(ctx, code),
+    labelStatus: (code: string) => R.labelStatus(ctx, code),
     createSpareLabels: (wsId: string, n: number) => R.createSpareLabels(ctx, wsId, n),
     spareLabels: (wsId: string) => R.spareLabels(ctx, wsId),
     assignLabel: (code: string, boxId: string) => R.assignLabel(ctx, code, boxId),
