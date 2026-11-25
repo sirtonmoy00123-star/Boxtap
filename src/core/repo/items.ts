@@ -94,8 +94,15 @@ export function updateItem(ctx: Ctx, id: string, i: Partial<Omit<ItemInput, 'wor
   write(ctx, () => ctx.db.exec({ sql: `UPDATE items SET ${cols.join(', ')} WHERE id=?`, bind: [...bind, id] }));
 }
 
+/** Items in an open order can't be binned: the order would be stuck (review finding 3). */
+export function assertNotInOpenOrder(ctx: Ctx, where: string, bind: unknown[]): void {
+  const n = ctx.db.selectValue(`SELECT count(*) FROM order_lines l JOIN orders o ON o.id = l.order_id JOIN items i ON i.id = l.item_id WHERE o.status = 'open' AND ${where}`, bind);
+  if (num(n) > 0) throw new Error('This is in an open order. Pack or cancel the order first.');
+}
+
 export function deleteItem(ctx: Ctx, id: string): void {
   const t = ctx.now();
+  assertNotInOpenOrder(ctx, 'i.id = ?', [id]);
   write(ctx, () => {
     ctx.db.exec({ sql: `UPDATE photos SET deleted_at=?, updated_at=? WHERE item_id=? AND deleted_at IS NULL`, bind: [t, t, id] });
     ctx.db.exec({ sql: `UPDATE items SET deleted_at=?, updated_at=? WHERE id=? AND deleted_at IS NULL`, bind: [t, t, id] });

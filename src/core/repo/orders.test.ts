@@ -109,3 +109,51 @@ describe('orders and Undo', () => {
     expect(stock(ring.id)).toEqual([5, 1]);
   });
 });
+
+describe('order stock stays consistent (review findings 2, 3, 9)', () => {
+  it('A: after cancelling, the old booking cannot be undone (reserved would go negative)', () => {
+    const o = R.createOrder(ctx, ws.id, { customer: 'N' });
+    R.addOrderLine(ctx, o.id, ring.id, 2);
+    R.cancelOrder(ctx, o.id);
+    const booked = R.itemHistory(ctx, ring.id).find((m) => m.reason === 'booked')!;
+    expect(() => R.undoStock(ctx, booked.id)).toThrow(/order/);
+    expect(stock(ring.id)).toEqual([5, 0]);
+  });
+  it('B: after delivery, its packing cannot be undone', () => {
+    const o = R.createOrder(ctx, ws.id, { customer: 'N' });
+    R.addOrderLine(ctx, o.id, ring.id, 2);
+    R.packOrder(ctx, o.id);
+    R.deliverOrder(ctx, o.id);
+    const shipped = R.itemHistory(ctx, ring.id).find((m) => m.reason === 'shipped')!;
+    expect(() => R.undoStock(ctx, shipped.id)).toThrow(/order/);
+  });
+  it('F: unbooking or packing by hand cannot take stock an order holds', () => {
+    const o = R.createOrder(ctx, ws.id, { customer: 'N' });
+    R.addOrderLine(ctx, o.id, ring.id, 2);
+    expect(() => R.recordStock(ctx, ring.id, 'unbooked', 1)).toThrow(R.NotEnoughStockError);
+    expect(() => R.recordStock(ctx, ring.id, 'shipped', 1)).toThrow(R.NotEnoughStockError);
+    R.recordStock(ctx, ring.id, 'booked', 1); // a manual booking can still be unbooked
+    R.recordStock(ctx, ring.id, 'unbooked', 1);
+    R.packOrder(ctx, o.id);
+    expect(stock(ring.id)).toEqual([3, 0]);
+  });
+  it('G: counting below what is booked is refused', () => {
+    const o = R.createOrder(ctx, ws.id, { customer: 'N' });
+    R.addOrderLine(ctx, o.id, ring.id, 2);
+    const boxId = R.getItem(ctx, ring.id)!.locationId;
+    expect(() => R.countBox(ctx, boxId, { [ring.id]: 1 })).toThrow(/booked/);
+  });
+  it('C: an item or box in an open order cannot be binned', () => {
+    const o = R.createOrder(ctx, ws.id, { customer: 'N' });
+    R.addOrderLine(ctx, o.id, ring.id, 1);
+    expect(() => R.deleteItem(ctx, ring.id)).toThrow(/order/);
+    expect(() => R.deleteBox(ctx, R.getItem(ctx, ring.id)!.locationId)).toThrow(/order/);
+    R.cancelOrder(ctx, o.id);
+    R.deleteItem(ctx, ring.id);
+  });
+  it('undo never leaves booked stock below zero', () => {
+    const m = R.recordStock(ctx, chain.id, 'booked', 2);
+    R.recordStock(ctx, chain.id, 'unbooked', 2);
+    expect(() => R.undoStock(ctx, m.id)).toThrow(/booked/);
+  });
+});

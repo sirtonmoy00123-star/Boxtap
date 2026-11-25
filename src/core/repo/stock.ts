@@ -13,7 +13,7 @@ export class NotEnoughStockError extends Error {
 
 export interface Movement {
   id: string; itemId: string; onHandDelta: number; reservedDelta: number; reason: string;
-  reversesId: string | null; happenedAt: string; note: string | null; undone: boolean;
+  reversesId: string | null; happenedAt: string; note: string | null; undone: boolean; orderLineId: string | null;
 }
 
 const DELTAS: Record<StockReason, (q: number) => [number, number]> = {
@@ -32,16 +32,16 @@ function qty(q: number): number {
  * Every movement keeps the item's sale price and cost at that moment (v2), so later price changes never rewrite
  * past sales or profit. An undo copies them from the movement it reverses.
  */
-function insertMovement(ctx: Ctx, m: { workspaceId: string; itemId: string; onHand: number; reserved: number; reason: string; reversesId?: string | null; note?: string | null }): string {
+function insertMovement(ctx: Ctx, m: { workspaceId: string; itemId: string; onHand: number; reserved: number; reason: string; reversesId?: string | null; note?: string | null; orderLineId?: string | null }): string {
   const id = newId();
   const priceSql = m.reversesId
     ? `(SELECT unit_price_minor FROM stock_movements WHERE id = ?), (SELECT unit_cost_minor FROM stock_movements WHERE id = ?)`
     : `(SELECT sale_price_minor FROM items WHERE id = ?), (SELECT cost_price_minor FROM items WHERE id = ?)`;
   const key = m.reversesId ?? m.itemId;
   ctx.db.exec({
-    sql: `INSERT INTO stock_movements (id,workspace_id,item_id,on_hand_delta,reserved_delta,reason,reverses_id,happened_at,note,unit_price_minor,unit_cost_minor)
-          VALUES (?,?,?,?,?,?,?,?,?,${priceSql})`,
-    bind: [id, m.workspaceId, m.itemId, m.onHand, m.reserved, m.reason, m.reversesId ?? null, ctx.now(), m.note ?? null, key, key],
+    sql: `INSERT INTO stock_movements (id,workspace_id,item_id,on_hand_delta,reserved_delta,reason,reverses_id,happened_at,note,order_line_id,unit_price_minor,unit_cost_minor)
+          VALUES (?,?,?,?,?,?,?,?,?,?,${priceSql})`,
+    bind: [id, m.workspaceId, m.itemId, m.onHand, m.reserved, m.reason, m.reversesId ?? null, ctx.now(), m.note ?? null, m.orderLineId ?? null, key, key],
   });
   return id;
 }
@@ -53,16 +53,26 @@ function liveItem(ctx: Ctx, itemId: string): Item {
 }
 
 /** One stock change. Selling below what's available needs allowNegative (the "sell anyway?" question). */
-export function recordStock(ctx: Ctx, itemId: string, reason: StockReason, quantity: number, opts: { allowNegative?: boolean; note?: string } = {}): Movement {
+/** Stock held by open orders (booked through an order line). Only the order may unbook or pack it. */
+export function orderHeld(ctx: Ctx, itemId: string): number {
+  return num(ctx.db.selectValue(
+    `SELECT coalesce(sum(l.qty),0) FROM order_lines l JOIN orders o ON o.id = l.order_id WHERE l.item_id=? AND o.status='open'`, [itemId]));
+}
+
+export function recordStock(ctx: Ctx, itemId: string, reason: StockReason, quantity: number, opts: { allowNegative?: boolean; note?: string; orderLineId?: string } = {}): Movement {
   const q = qty(quantity);
   return write(ctx, () => {
     const it = liveItem(ctx, itemId);
     const available = it.onHand - it.reserved;
     if ((reason === 'sold' || reason === 'damaged') && available < q && !opts.allowNegative) throw new NotEnoughStockError(available);
     if (reason === 'booked' && available < q) throw new NotEnoughStockError(available);
-    if ((reason === 'shipped' || reason === 'unbooked') && it.reserved < q) throw new NotEnoughStockError(it.reserved);
+    if (reason === 'shipped' || reason === 'unbooked') {
+      // By hand, only bookings that no order holds (review finding 2).
+      const free = opts.orderLineId ? it.reserved : it.reserved - orderHeld(ctx, itemId);
+      if (free < q) throw new NotEnoughStockError(Math.max(0, free));
+    }
     const [onHand, reserved] = DELTAS[reason](q);
-    const id = insertMovement(ctx, { workspaceId: it.workspaceId, itemId, onHand, reserved, reason, note: opts.note });
+    const id = insertMovement(ctx, { workspaceId: it.workspaceId, itemId, onHand, reserved, reason, note: opts.note, orderLineId: opts.orderLineId });
     return getMovement(ctx, id)!;
   });
 }
@@ -76,6 +86,7 @@ export function getMovement(ctx: Ctx, id: string): Movement | undefined {
 const toMovement = (r: Record<string, unknown>): Movement => ({
   id: String(r.id), itemId: String(r.item_id), onHandDelta: num(r.on_hand_delta), reservedDelta: num(r.reserved_delta),
   reason: String(r.reason), reversesId: str(r.reverses_id), happenedAt: String(r.happened_at), note: str(r.note), undone: num(r.undone) === 1,
+  orderLineId: str(r.order_line_id),
 });
 
 /** Undo (S-05): same item, within 24 hours, exactly reversed, once. */
@@ -86,12 +97,14 @@ export function undoStock(ctx: Ctx, movementId: string): Movement {
     if (m.reason === 'undo') throw new Error('an undo cannot be undone');
     if (m.reason === 'moved_in' || m.reason === 'moved_out') throw new Error('undo a move by moving the stock back');
     if (m.undone) throw new Error('already undone');
+    if (m.orderLineId) throw new Error('this stock belongs to an order: change it from the order instead');
     if (['booked', 'unbooked', 'shipped'].includes(m.reason) && ctx.db.selectValue(
       `SELECT 1 FROM order_lines l JOIN orders o ON o.id = l.order_id WHERE l.item_id = ? AND o.status IN ('open','packed') LIMIT 1`, [m.itemId])) {
       throw new Error('this stock belongs to an order: change it from the order instead');
     }
     if (Date.parse(ctx.now()) - Date.parse(m.happenedAt) > 24 * 3600 * 1000) throw new Error('can only undo within 24 hours');
     const it = getItem(ctx, m.itemId)!;
+    if (it.reserved - m.reservedDelta < 0) throw new Error("can't undo: that booked stock has already changed");
     const id = insertMovement(ctx, { workspaceId: it.workspaceId, itemId: m.itemId, onHand: -m.onHandDelta, reserved: -m.reservedDelta, reason: 'undo', reversesId: m.id });
     return getMovement(ctx, id)!;
   });
@@ -105,6 +118,7 @@ export function countBox(ctx: Ctx, boxId: string, counted: Record<string, number
       if (!Number.isInteger(n) || n < 0) throw new RangeError('counts must be whole numbers, 0 or more');
       const it = liveItem(ctx, itemId);
       if (it.locationId !== boxId) throw new Error('item is not in this box');
+      if (n < it.reserved) throw new RangeError(`${it.name}: ${it.reserved} are booked, so the count can't be lower`);
       const delta = n - it.onHand;
       if (delta === 0) continue;
       insertMovement(ctx, { workspaceId: it.workspaceId, itemId, onHand: delta, reserved: 0, reason: 'count' });

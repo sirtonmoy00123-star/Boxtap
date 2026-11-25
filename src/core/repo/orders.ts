@@ -52,8 +52,8 @@ export function listOrders(ctx: Ctx, workspaceId: string, status?: OrderStatus):
 export function addOrderLine(ctx: Ctx, orderId: string, itemId: string, qty: number): OrderLine {
   return write(ctx, () => {
     requireOpen(orderRow(ctx, orderId));
-    recordStock(ctx, itemId, 'booked', qty);
     const id = newId();
+    recordStock(ctx, itemId, 'booked', qty, { orderLineId: id });
     ctx.db.exec({
       sql: `INSERT INTO order_lines (id,order_id,item_id,qty,unit_price_minor,created_at) VALUES (?,?,?,?,(SELECT sale_price_minor FROM items WHERE id=?),?)`,
       bind: [id, orderId, itemId, qty, itemId, ctx.now()],
@@ -67,7 +67,7 @@ export function removeOrderLine(ctx: Ctx, lineId: string): void {
     const [l] = ctx.db.selectObjects(`SELECT * FROM order_lines WHERE id=?`, [lineId]);
     if (!l) return;
     requireOpen(orderRow(ctx, String(l.order_id)));
-    recordStock(ctx, String(l.item_id), 'unbooked', num(l.qty));
+    recordStock(ctx, String(l.item_id), 'unbooked', num(l.qty), { orderLineId: lineId });
     ctx.db.exec({ sql: `DELETE FROM order_lines WHERE id=?`, bind: [lineId] });
   });
 }
@@ -75,12 +75,12 @@ export function removeOrderLine(ctx: Ctx, lineId: string): void {
 function setStatus(ctx: Ctx, orderId: string, status: OrderStatus) {
   ctx.db.exec({ sql: `UPDATE orders SET status=?, updated_at=? WHERE id=?`, bind: [status, ctx.now(), orderId] });
 }
-const linesOf = (ctx: Ctx, orderId: string) => ctx.db.selectObjects(`SELECT item_id, qty FROM order_lines WHERE order_id=?`, [orderId]);
+const linesOf = (ctx: Ctx, orderId: string) => ctx.db.selectObjects(`SELECT id, item_id, qty FROM order_lines WHERE order_id=?`, [orderId]);
 
 export function packOrder(ctx: Ctx, orderId: string): void {
   write(ctx, () => {
     requireOpen(orderRow(ctx, orderId));
-    for (const l of linesOf(ctx, orderId)) recordStock(ctx, String(l.item_id), 'shipped', num(l.qty));
+    for (const l of linesOf(ctx, orderId)) recordStock(ctx, String(l.item_id), 'shipped', num(l.qty), { orderLineId: String(l.id) });
     setStatus(ctx, orderId, 'packed');
   });
 }
@@ -95,7 +95,7 @@ export function deliverOrder(ctx: Ctx, orderId: string): void {
 export function cancelOrder(ctx: Ctx, orderId: string): void {
   write(ctx, () => {
     requireOpen(orderRow(ctx, orderId));
-    for (const l of linesOf(ctx, orderId)) recordStock(ctx, String(l.item_id), 'unbooked', num(l.qty));
+    for (const l of linesOf(ctx, orderId)) recordStock(ctx, String(l.item_id), 'unbooked', num(l.qty), { orderLineId: String(l.id) });
     setStatus(ctx, orderId, 'cancelled');
   });
 }

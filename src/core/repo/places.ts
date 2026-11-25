@@ -1,6 +1,7 @@
 // Workspaces, rooms, boxes (locations) and labels.
 import { bool, clean, type Ctx, newId, num, optionalText, requireText, str, write } from './core';
 import { isLabelCode, newLabelCode } from './labels';
+import { assertNotInOpenOrder } from './items';
 
 export type WorkspaceType = 'home' | 'seller';
 export interface Workspace {
@@ -153,6 +154,7 @@ export function updateBox(ctx: Ctx, id: string, b: BoxInput): void {
 /** Bins the box and its live items with the same timestamp, so restore brings back exactly those. */
 export function deleteBox(ctx: Ctx, id: string): void {
   const t = ctx.now();
+  assertNotInOpenOrder(ctx, 'i.location_id = ?', [id]);
   write(ctx, () => {
     ctx.db.exec({ sql: `UPDATE items SET deleted_at=?, updated_at=? WHERE location_id=? AND deleted_at IS NULL`, bind: [t, t, id] });
     ctx.db.exec({ sql: `UPDATE photos SET deleted_at=?, updated_at=? WHERE location_id=? AND deleted_at IS NULL`, bind: [t, t, id] });

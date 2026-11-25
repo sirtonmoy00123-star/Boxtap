@@ -277,8 +277,11 @@ CREATE TRIGGER items_search_au AFTER UPDATE ON items BEGIN
 END;
 `;
 
+/** v5: movements made by an order carry its line, so they can't be undone or changed from the item page. */
+const V5 = `ALTER TABLE stock_movements ADD COLUMN order_line_id TEXT;`;
+
 /** Ordered migrations. Index i migrates user_version i -> i+1. Never edit a released entry. */
-export const MIGRATIONS: readonly Migration[] = [V1, V2, V3, V4];
+export const MIGRATIONS: readonly Migration[] = [V1, V2, V3, V4, V5];
 
 export function applyMigration(db: MigrationDb, index: number): void {
   const m = MIGRATIONS[index]!;
