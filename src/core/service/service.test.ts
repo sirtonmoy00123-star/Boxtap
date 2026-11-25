@@ -84,3 +84,23 @@ describe('Pro features need Seller Pro', () => {
     expect(svc.getItem(it.id)!.onHand).toBe(2);
   });
 });
+
+describe('daily self-check (DATABASE_SCHEMA §5)', () => {
+  it('runs at most once a day: integrity check, ledger repair, bin purge; lists every photo file to keep', async () => {
+    const db = await openTestDb();
+    let clock = '2026-11-25T08:00:00.000Z';
+    const s = createService({ db: db as unknown as SqlDb, now: () => clock });
+    const ws = s.createWorkspace({ type: 'seller', name: 'S', country: 'BD', currency: 'BDT', language: 'bn' });
+    const box = s.createBox(ws.id, {});
+    const it = s.addItem({ workspaceId: ws.id, locationId: box.id, name: 'Ring' });
+    s.recordStock(it.id, 'restock', 3);
+    const p = s.addPhoto({ workspaceId: ws.id, locationId: box.id, itemId: null, mime: 'image/webp', bytes: 10, sha256: 'b'.repeat(64) });
+    s.deletePhoto(p.id); // binned photos keep their files until the purge
+    const first = s.dailyCheck();
+    expect(first).toMatchObject({ ran: true, integrityOk: true, ledgerRepaired: 0 });
+    expect(first.keepFiles).toEqual(expect.arrayContaining([p.fileName, p.thumbName]));
+    expect(s.dailyCheck().ran).toBe(false);
+    clock = '2026-11-26T08:00:00.000Z';
+    expect(s.dailyCheck().ran).toBe(true);
+  });
+});

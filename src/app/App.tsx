@@ -16,7 +16,7 @@ import { ItemPage, LowStockPage } from './screens/Seller';
 import { CataloguePage } from './screens/Catalogue';
 import { OrderPage, OrdersPage, ReportsPage } from './screens/Pro';
 import { startSchedule } from '../core/drive/browserSync';
-import { removePhotoFile } from '../core/photos/store';
+import { removeOrphans, removePhotoFile } from '../core/photos/store';
 import type { Lang } from '../i18n/i18n';
 
 type Boot =
@@ -48,9 +48,15 @@ export function App() {
     const saved = localStorage.getItem(WS_KEY);
     setWorkspaceState(workspaces.find((w) => w.id === saved) ?? workspaces[0] ?? null);
     setBoot({ s: 'ready', db, workspaces });
-    void db.purgeBin()
-      .then((r) => Promise.all(r.photoFiles.map((f) => removePhotoFile(f))))
-      .catch((e) => console.warn('purge failed', e));
+    // Daily self-checks (DATABASE_SCHEMA §5): integrity, ledger totals, bin purge, orphan photo files.
+    void db.dailyCheck()
+      .then(async (r) => {
+        if (!r.ran) return;
+        if (!r.integrityOk || r.ledgerRepaired) console.warn('self-check', r);
+        await Promise.all(r.deleteFiles.map((f) => removePhotoFile(f)));
+        await removeOrphans(new Set(r.keepFiles));
+      })
+      .catch((e) => console.warn('self-check failed', e));
     void requestPersistence().then(() => storageStatus()).then(setStorage);
   }, []);
 

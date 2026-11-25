@@ -6,6 +6,7 @@ import { can, DEFAULT_CONFIG, type BlockReason, type Feature } from '../licensin
 import type { ConfigBody } from '../licensing/config';
 import type { Plan } from '../licensing/licence';
 import type { LinkState } from '../drive/sync';
+import { repairLedger } from '../db/ledgerCheck';
 
 export type SettingKey = 'backup_key';
 
@@ -119,6 +120,23 @@ export function createService(ctx: Ctx, entitlement: () => Entitlement = () => (
     proStatus: (wsId: string) => {
       const open = (f: Feature) => { try { gate(f, wsId); return true; } catch { return false; } };
       return { reports: open('reports'), costProfit: open('cost_profit'), orders: open('orders'), variants: open('variants') };
+    },
+
+    /**
+     * Self-checks at app start, at most once a day (DATABASE_SCHEMA §5): quick integrity check, stock totals
+     * repaired from the ledger, 30-day bin purge. Returns photo files to delete and every photo file to keep
+     * (binned photos included), so the caller can remove orphan files.
+     */
+    dailyCheck: () => {
+      const today = ctx.now().slice(0, 10);
+      const last = ctx.db.selectValue(`SELECT value FROM meta WHERE key='last_daily_check'`);
+      if (last != null && String(last) >= today) return { ran: false as const };
+      const integrityOk = ctx.db.selectValue('PRAGMA quick_check') === 'ok';
+      const ledgerRepaired = repairLedger(ctx.db);
+      const purged = R.purgeBin(ctx);
+      const keepFiles = ctx.db.selectObjects('SELECT file_name, thumb_name FROM photos').flatMap((r) => [String(r.file_name), String(r.thumb_name)]);
+      ctx.db.exec({ sql: `INSERT INTO meta (key,value) VALUES ('last_daily_check', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value`, bind: [today] });
+      return { ran: true as const, integrityOk, ledgerRepaired, deleteFiles: purged.photoFiles, keepFiles };
     },
 
     // Export, arrival check, erase (C-13): never gated
