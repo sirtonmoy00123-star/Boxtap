@@ -5,6 +5,7 @@ import { Button, Field, Page, inputClass } from '../ui';
 import { WorkerError } from '../../core/db/client';
 import type { Box, Item, Room } from '../../core/repo';
 import { PhotoStrip } from './Photos';
+import { SellerItems } from './Seller';
 
 export function BoxPage({ id }: { id: string }) {
   const { db, workspace, t, showUpgrade, toast } = useApp();
@@ -82,14 +83,18 @@ export function BoxPage({ id }: { id: string }) {
 
       <section className="mt-4">
         <h2 className="text-lg font-semibold">{t('box.items')}</h2>
-        <ul className="divide-y" aria-label="items">
-          {items.map((it) => (
-            <li key={it.id} className="flex items-center justify-between py-2">
-              <span>{it.name}</span>
-              <Button variant="ghost" onClick={() => removeItem(it.id)} aria-label={`${t('box.removeItem')} ${it.name}`}>×</Button>
-            </li>
-          ))}
-        </ul>
+        {workspace?.type === 'seller' ? (
+          <SellerItems box={box} items={items} reload={async () => setItems(await db.listItems(id))} />
+        ) : (
+          <ul className="divide-y" aria-label="items">
+            {items.map((it) => (
+              <li key={it.id} className="flex items-center justify-between py-2">
+                <span>{it.name}</span>
+                <Button variant="ghost" onClick={() => removeItem(it.id)} aria-label={`${t('box.removeItem')} ${it.name}`}>×</Button>
+              </li>
+            ))}
+          </ul>
+        )}
         <form className="mt-2 flex gap-2" onSubmit={(e) => { e.preventDefault(); void addItem(); }}>
           <input className={inputClass} value={newItem} maxLength={120} onChange={(e) => setNewItem(e.target.value)}
             placeholder={t('box.itemPlaceholder')} aria-label={t('box.addItem')} />

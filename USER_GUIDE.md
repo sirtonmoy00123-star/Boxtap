@@ -53,6 +53,22 @@ Free plan: up to 12 boxes in Home mode, or 50 items in Seller mode. When you rea
 - **Move box to bin**: removes the box and its items. Restore it from the Bin within 30 days.
 - **← (back)**: returns to your boxes.
 
+## Seller mode (Selling stock)
+
+- **On each box**: every item shows how many are in stock (and how many are booked).
+  - **−1** sells one. An **Undo** bar shows for 10 seconds. Selling more than you have asks "Sell anyway?".
+  - **+1** adds one.
+  - **Count this box**: type the real numbers, then **Save counts**. Only the ones that changed are corrected.
+- **Tap an item** for its page:
+  - **How many** + **Sold**, **Restock**, **Booked**, **Booked → Packed**, **Cancel booking**, **Damaged**, **Returned**.
+  - **Move to another box**: pick the box and the number; the stock moves over.
+  - **Photos** for the item.
+  - **Details**: name, other name (also found by search), sale price, "warn me when stock is at or below", and with jewellery fields on, weight, purity and making charge.
+  - **History**: every change, with **Undo** for 24 hours.
+- **Low stock (N)** on the home screen lists items at or below their warning level.
+- **Settings → Jewellery fields** switches the weight, purity and making-charge fields on or off.
+- Free plan: up to 50 items.
+
 ## Bin
 
 - Lists deleted boxes and deleted items, newest first.
@@ -128,5 +144,5 @@ Shown until BoxTap is installed.
 ## Not in the app yet
 
 - Paid plans: entering a licence key, and payment links on the upgrade screen.
-- Seller stock buttons (sell, restock, booked) and the catalogue image.
+- The catalogue image (share an in-stock picture to WhatsApp).
 - "Use this device instead" when another phone has taken over the Drive backup.

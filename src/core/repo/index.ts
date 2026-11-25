@@ -4,3 +4,4 @@ export * from './items';
 export * from './bin';
 export * from './photos';
 export * from './export';
+export * from './stock';

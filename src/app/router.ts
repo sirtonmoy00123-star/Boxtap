@@ -4,6 +4,8 @@ import { useSyncExternalStore } from 'react';
 export type Route =
   | { name: 'home' }
   | { name: 'box'; id: string }
+  | { name: 'item'; id: string }
+  | { name: 'low' }
   | { name: 'bin' }
   | { name: 'settings' }
   | { name: 'scan' }
@@ -15,6 +17,9 @@ export function parseRoute(path: string): Route {
   if (path === '/' || path === '') return { name: 'home' };
   if (path === '/bin') return { name: 'bin' };
   if (path === '/settings') return { name: 'settings' };
+  if (path === '/low') return { name: 'low' };
+  const im = /^\/item\/([0-9a-f-]{36})$/i.exec(path);
+  if (im) return { name: 'item', id: im[1]! };
   if (path === '/scan') return { name: 'scan' };
   if (path === '/labels') return { name: 'labels' };
   let m = /^\/box\/([0-9a-f-]{36})$/i.exec(path);

@@ -200,6 +200,13 @@ export function Settings() {
       <div className="mt-3 flex flex-col gap-2">
         <Button variant="secondary" onClick={() => navigate('/labels')}>{t('labels.title')}</Button>
       </div>
+      {workspace?.type === 'seller' && (
+        <label className="mt-6 flex min-h-12 items-center gap-3">
+          <input type="checkbox" className="h-5 w-5" checked={workspace.jewelleryFields}
+            onChange={async (e) => { await db.setJewelleryFields(workspace.id, e.target.checked); setWorkspace({ ...workspace, jewelleryFields: e.target.checked }); }} />
+          <span>{t('settings.jewellery')}</span>
+        </label>
+      )}
       <h2 className="mt-6 text-lg font-semibold">{t('settings.data')}</h2>
       <div className="mt-3 flex flex-col gap-2">
         <Button variant="secondary" onClick={exportCsv}>{t('settings.exportCsv')}</Button>

@@ -49,6 +49,8 @@ C-03–C-10, C-12 basics, C-13, H-01–H-03, G1, G5, G6, arrival check, install 
 
 ## Phase 1b — Home paid keys (~14 h, weeks 8–9)
 
+**Skipped for now (owner decision, 2026-11-25):** licence key entry, payment links and renewal reminders are postponed; build continues with Seller mode (Phase 2). The licensing core (`can()`, key and config verification, owner tools) already exists; free limits apply until 1b is built.
+
 Upgrade screen with Stripe Payment Link, key entry (paste + scan), Settings "Licensed to", stacking, `trustedNow()`, signed config live, revocation, H-07 insurance PDF, family/removalist PDFs, in-app renewal reminders. Owner runbook rehearsed with 3 test sales.
 Acceptance: critical tests 13–17.
 

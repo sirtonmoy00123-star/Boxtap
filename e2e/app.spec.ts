@@ -283,3 +283,59 @@ test('export CSV, then erase all data (asks twice) and return to the first scree
   await page.reload();
   await expect(page.getByRole('button', { name: 'New to BoxTap' })).toBeVisible();
 });
+
+test('Seller: sell, undo, book, pack, move between boxes, low stock (critical tests 19-21)', async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.goto('/');
+  await page.evaluate(() => localStorage.setItem('boxtap.installGuideSnoozedAt', String(Date.now())));
+  await page.getByRole('button', { name: 'New to BoxTap' }).click();
+  await page.getByRole('button', { name: /Selling stock/ }).click();
+  await page.getByRole('button', { name: 'Start' }).click();
+  const words = (await page.getByTestId('recovery-code').getByRole('listitem').allInnerTexts()).map((x) => x.replace(/^\d+\.\s*/, '').trim());
+  await page.getByRole('button', { name: "I've written it down" }).click();
+  for (const label of await page.locator('label span').allInnerTexts()) {
+    const n = Number(/Word (\d+)/.exec(label)?.[1]);
+    await page.getByLabel(label, { exact: true }).fill(words[n - 1]!);
+  }
+  await page.getByRole('button', { name: 'Confirm' }).click();
+  await expect(page.getByRole('heading', { name: 'My shop' })).toBeVisible({ timeout: 15_000 });
+
+  await page.getByRole('button', { name: 'Add box' }).click();
+  await page.getByLabel('Add item').fill('Gold ring');
+  await page.getByLabel('Add item').press('Enter');
+  const stock = page.getByTestId('stock-Gold ring');
+  for (let i = 0; i < 10; i++) await page.getByRole('button', { name: 'Add 1 Gold ring' }).click();
+  await expect(stock).toHaveText('10 in stock');
+  await page.getByRole('button', { name: 'Sell 1 Gold ring' }).click();
+  await expect(stock).toHaveText('9 in stock');
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(stock).toHaveText('10 in stock');
+
+  // Item page: book 2, pack them, then move 3 to a new box.
+  await page.getByRole('button', { name: /^Gold ring/ }).click();
+  await page.getByLabel('How many').fill('2');
+  await page.getByRole('button', { name: 'Booked', exact: true }).click();
+  await expect(page.getByTestId('item-stock')).toHaveText('8 in stock · 2 booked');
+  await page.getByRole('button', { name: 'Booked → Packed' }).click();
+  await expect(page.getByTestId('item-stock')).toHaveText('8 in stock');
+  await page.getByLabel('Warn me when stock is at or below').fill('5');
+  await page.getByRole('button', { name: 'Save' }).click();
+
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: 'Add box' }).click();
+  await expect(page.getByRole('heading', { name: 'Box 2' })).toBeVisible();
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('list', { name: 'boxes' }).getByText('Box 1').click();
+  await page.getByRole('button', { name: /^Gold ring/ }).click();
+  await page.getByLabel('How many').fill('3');
+  await page.getByLabel('Move to box').selectOption({ label: 'Box 2' });
+  await page.getByRole('button', { name: 'Move to another box' }).click();
+  await expect(page.getByTestId('item-stock')).toHaveText('5 in stock');
+
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: 'Back' }).click();
+  // Both boxes are now at or below 5 (the moved copy keeps the warning level).
+  await page.getByRole('button', { name: 'Low stock (2)' }).click();
+  await expect(page.getByRole('list', { name: 'low stock' }).getByRole('listitem')).toHaveCount(2);
+});

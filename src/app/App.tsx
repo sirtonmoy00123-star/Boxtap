@@ -12,6 +12,7 @@ import { BoxPage } from './screens/BoxPage';
 import { Bin, LabelRoute, NoDataLabel, Upgrade } from './screens/Misc';
 import { Settings } from './screens/Backup';
 import { PrintLabels, Scan } from './screens/ScanLabels';
+import { ItemPage, LowStockPage } from './screens/Seller';
 import { startSchedule } from '../core/drive/browserSync';
 import { removePhotoFile } from '../core/photos/store';
 import type { Lang } from '../i18n/i18n';
@@ -110,6 +111,8 @@ export function App() {
   let screen;
   if (!workspace) screen = route.name === 'label' ? <NoDataLabel /> : <Start />;
   else if (route.name === 'box') screen = <BoxPage id={route.id} />;
+  else if (route.name === 'item') screen = <ItemPage id={route.id} />;
+  else if (route.name === 'low') screen = <LowStockPage />;
   else if (route.name === 'bin') screen = <Bin />;
   else if (route.name === 'settings') screen = <Settings />;
   else if (route.name === 'scan') screen = <Scan />;

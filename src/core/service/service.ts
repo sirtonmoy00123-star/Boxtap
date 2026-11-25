@@ -82,6 +82,17 @@ export function createService(ctx: Ctx, entitlement: () => Entitlement = () => (
     queueMissingUploads: () => R.queueMissingUploads(ctx),
     setPhotoDriveFile: (id: string, fileId: string | null) => R.setPhotoDriveFile(ctx, id, fileId),
 
+    // Stock (Seller mode). The ledger is free; only Pro extras (variants, cost/profit, orders, reports) are gated.
+    recordStock: (itemId: string, reason: R.StockReason, qty: number, opts?: { allowNegative?: boolean; note?: string }) => R.recordStock(ctx, itemId, reason, qty, opts),
+    undoStock: (movementId: string) => R.undoStock(ctx, movementId),
+    countBox: (boxId: string, counted: Record<string, number>) => R.countBox(ctx, boxId, counted),
+    moveStock: (itemId: string, targetBoxId: string, qty: number) => R.moveStock(ctx, itemId, targetBoxId, qty),
+    itemHistory: (itemId: string) => R.itemHistory(ctx, itemId),
+    lowStock: (wsId: string) => R.lowStock(ctx, wsId),
+    setJewelleryFields: (wsId: string, on: boolean) => {
+      ctx.db.exec({ sql: 'UPDATE workspaces SET jewellery_fields=?, updated_at=? WHERE id=?', bind: [on ? 1 : 0, ctx.now(), wsId] });
+    },
+
     // Export, arrival check, erase (C-13): never gated
     exportCsv: (wsId: string) => R.exportCsv(ctx, wsId),
     moveSummary: (wsId: string) => R.moveSummary(ctx, wsId),

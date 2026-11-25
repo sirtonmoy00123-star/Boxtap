@@ -41,6 +41,8 @@ npx tsx tools/config.ts sign          # writes public/config/v1.json
 | 1.6 Free limits via `can()` | Done (built-in config; signed config fetch is Phase 1b) | service tests, E2E critical test 12 |
 | 1.7 Backup and restore (file), CSV export, Erase all data | Done, with photos | crypto/snapshot tests, E2E round trip |
 | 1.7b Google Drive backup (snapshots + photos) | Done against a fake Drive; real Google check on devices pending; "Use this device instead" and the iPhone redirect fallback not yet | sync/photo queue tests |
+| 1b Paid keys (licence entry, payment links, renewal reminders) | Skipped for now by the owner (2026-11-25) | |
+| 2 Seller: stock ledger (sell, restock, booked, packed, cancel, damaged, returned, undo 24 h, count, move), item details incl. jewellery fields, low-stock list | Done; catalogue image and Bangla font in PDFs not yet | stock tests, Seller E2E |
 | 1.8 Offline, update prompt, launch | Update prompt and precache done; offline E2E and launch not yet | |
 
 ## Rulings made during the build (deviations from the docs, with cost if wrong)

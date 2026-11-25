@@ -18,6 +18,7 @@ export function Home() {
   const [hits, setHits] = useState<SearchHit[] | null>(null);
   const [guide, setGuide] = useState(false);
   const [move, setMove] = useState<MoveSummary | null>(null);
+  const [low, setLow] = useState(0);
   const [persisted, setPersisted] = useState(true);
   const [backup, setBackup] = useState<{ last: string | null; drive: boolean; overAWeek: boolean } | null>(null);
 
@@ -37,6 +38,7 @@ export function Home() {
     const list = await db.listBoxes(ws.id);
     setBoxes(list);
     setMove(ws.type === 'home' ? await db.moveSummary(ws.id) : null);
+    setLow(ws.type === 'seller' ? (await db.lowStock(ws.id)).length : 0);
     const entries = await Promise.all(list.map(async (b) => [b.id, (await db.listItems(b.id)).length] as const));
     setItemCounts(Object.fromEntries(entries));
   }, [db, ws.id, ws.type]);
@@ -78,13 +80,16 @@ export function Home() {
       {move && move.total > move.none && (
         <p className="mb-2 text-sm text-slate-600" data-testid="move-summary">{t('move.summary', { moved: move.moved + move.unpacked, total: move.total, unpacked: move.unpacked })}</p>
       )}
+      {ws.type === 'seller' && (
+        <Button variant={low > 0 ? 'danger' : 'secondary'} className="mb-3 w-full" onClick={() => navigate('/low')}>{t('stock.low', { n: low })}</Button>
+      )}
       <input type="search" className={inputClass} placeholder={t('home.search')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('home.search')} />
       {q.trim() && hits ? (
         <ul className="mt-3 divide-y" aria-label="results">
           {hits.length === 0 && <li className="py-6 text-center text-slate-500">{t('home.noResults')}</li>}
           {hits.map((h) => (
             <li key={h.itemId}>
-              <button type="button" className="flex w-full justify-between py-3 text-left" onClick={() => navigate(`/box/${h.boxId}`)}>
+              <button type="button" className="flex w-full justify-between py-3 text-left" onClick={() => navigate(ws.type === 'seller' ? `/item/${h.itemId}` : `/box/${h.boxId}`)}>
                 <span>{h.itemName}</span>
                 <span className="text-slate-500">{t('box.title', { n: h.boxNumber })}{h.boxName ? ` · ${h.boxName}` : ''}</span>
               </button>
