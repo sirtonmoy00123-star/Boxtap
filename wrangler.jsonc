@@ -1,0 +1,12 @@
+// Cloudflare Workers static assets (no Worker script: every request is a free static-asset request).
+// public/_headers (CSP and security headers) is copied into dist and applied by Cloudflare.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "boxtap",
+  "compatibility_date": "2026-11-23",
+  "assets": {
+    "directory": "./dist",
+    // Navigations to app routes like /b/K7Q2M9XR4T or /box/<id> get index.html; missing files still 404.
+    "not_found_handling": "single-page-application"
+  }
+}

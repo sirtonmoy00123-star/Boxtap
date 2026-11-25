@@ -8,10 +8,10 @@ Living record of the implementation against `boxtap-architecture/IMPLEMENTATION_
 npm install
 npm run dev            # Vite dev server (note: does not apply _headers)
 npm run check          # typecheck + lint + unit tests + build
-npx vite build && npx playwright test --project=chromium --project=webkit --project=mobile-chrome
+npm run build && npx playwright test --project=chromium --project=webkit --project=mobile-chrome
 ```
 
-E2E runs against `wrangler pages dev dist`, so the real `_headers` CSP applies (audit B1).
+E2E runs against `wrangler dev` (Workers static assets, `wrangler.jsonc`), so the real `_headers` CSP applies (audit B1). Hosting: Cloudflare Workers static assets, deployed by Workers Builds from GitHub; static-asset requests are free and unlimited.
 
 Owner tools (on the owner's computer only; secrets go to `owner-private/`, which git ignores):
 
