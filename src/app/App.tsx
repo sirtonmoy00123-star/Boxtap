@@ -12,6 +12,7 @@ import { BoxPage } from './screens/BoxPage';
 import { Bin, LabelRoute, NoDataLabel, Upgrade } from './screens/Misc';
 import { Settings } from './screens/Backup';
 import { PrintLabels, Scan } from './screens/ScanLabels';
+import { startSchedule } from '../core/drive/browserSync';
 import type { Lang } from '../i18n/i18n';
 
 type Boot =
@@ -65,6 +66,13 @@ export function App() {
   }, [start]);
 
   useEffect(() => { void bootUp(false); }, [bootUp]);
+
+  // Drive backup runs only in the tab that owns the database, and only while the app is open (ADR-020).
+  const readyDb = boot.s === 'ready' ? boot.db : null;
+  useEffect(() => {
+    if (!readyDb || !workspace) return;
+    return startSchedule(readyDb, (o) => { if (o !== 'uploaded' && o !== 'up_to_date') console.info('drive backup:', o); });
+  }, [readyDb, workspace]);
 
   const lang: Lang = workspace?.language ?? guessLang();
   const t = useMemo(() => makeT(lang), [lang]);

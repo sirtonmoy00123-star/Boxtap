@@ -21,7 +21,8 @@ export interface BackupKey { cryptoKey: CryptoKey; keyId: string; wrapped: Wrapp
 
 /** What the engine needs from the app. Implemented over the DB worker in the browser, faked in tests. */
 export interface SyncHost {
-  key: BackupKey;
+  /** Null on a new device until a restore adopts the key from the backup. */
+  key: BackupKey | null;
   appVersion: string;
   schemaVersion: number;
   deviceName: string;
@@ -68,6 +69,11 @@ export class DriveSync {
 
   constructor(private readonly api: DriveApi, private readonly host: SyncHost) {}
 
+  private key(): BackupKey {
+    if (!this.host.key) throw new Error('Set up backups (recovery code) before connecting Google Drive');
+    return this.host.key;
+  }
+
   private async subfolders(folderId: string) {
     const kids = await this.api.listChildren(folderId);
     const find = (n: string) => kids.find((k) => k.name === n);
@@ -87,12 +93,12 @@ export class DriveSync {
       const sub = await this.subfolders(f.id);
       seen.push({ id: f.id, snapshots: sub.snapshots ? (await this.listSnapshots(sub.snapshots.id)).snaps : [] });
     }
-    return connectDecision(seen, this.host.key.keyId);
+    return connectDecision(seen, this.host.key?.keyId ?? '');
   }
 
   private async lockBytes(deviceId: string, generation: number): Promise<Uint8Array> {
     const body = new TextEncoder().encode(JSON.stringify({ device_id: deviceId, device_name: this.host.deviceName, generation, taken_at: new Date().toISOString() }));
-    return collect(encryptFile('BTLK1', { app_version: this.host.appVersion, schema_version: this.host.schemaVersion }, this.host.key, once(body)));
+    return collect(encryptFile('BTLK1', { app_version: this.host.appVersion, schema_version: this.host.schemaVersion }, this.key(), once(body)));
   }
 
   private async readLock(lockFileId: string): Promise<Lock | null> {
@@ -135,6 +141,7 @@ export class DriveSync {
    * folder that holds snapshots (audit B2); that folder is renamed and left alone.
    */
   async connect(googleEmail: string, opts: { startNewFolder?: boolean; now?: string } = {}): Promise<void> {
+    const key = this.key();
     const d = await this.inspect();
     let folderId: string;
     if (d.kind === 'offer_restore') {
@@ -149,7 +156,7 @@ export class DriveSync {
     const lockFileId = await this.takeLock(l.lock, folderId, deviceId, 1);
     await this.host.setLink({
       googleEmail, folderId, snapshotsFolderId: l.snapshots, photosFolderId: l.photos, lockFileId, deviceId,
-      generation: 1, lastSnapshotSeq: 0, uploadedChangeSeq: 0, keyId: this.host.key.keyId, status: 'ok', lastSnapshotAt: null,
+      generation: 1, lastSnapshotSeq: 0, uploadedChangeSeq: 0, keyId: key.keyId, status: 'ok', lastSnapshotAt: null,
     });
   }
 
@@ -182,7 +189,7 @@ export class DriveSync {
 
       const db = await this.host.exportSnapshot();
       const payload = await gzip(await collect(pack([{ name: 'db.sqlite', data: db }, { name: 'manifest.json', data: new TextEncoder().encode('{"format":1,"photos":[]}') }])), 'compress');
-      const bytes = await collect(encryptFile('BTDB1', { app_version: this.host.appVersion, schema_version: this.host.schemaVersion }, this.host.key, once(payload)));
+      const bytes = await collect(encryptFile('BTDB1', { app_version: this.host.appVersion, schema_version: this.host.schemaVersion }, this.key(), once(payload)));
       const seq = link.lastSnapshotSeq + 1;
       const [id] = await this.api.generateIds(1);
       await this.api.upload({

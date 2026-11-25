@@ -13,7 +13,7 @@ class Host implements SyncHost {
   db: Uint8Array = new TextEncoder().encode('database v1');
   restored: Uint8Array | null = null;
   totalsNow: Totals = { boxes: 10, items: 40, onHand: 0, photos: 0 };
-  constructor(public key: { cryptoKey: CryptoKey; keyId: string; wrapped: KeyMaterial['wrapped'] }, public deviceName: string) {}
+  constructor(public key: { cryptoKey: CryptoKey; keyId: string; wrapped: KeyMaterial['wrapped'] } | null, public deviceName: string) {}
   appVersion = '0.1.0';
   schemaVersion = 1;
   async exportSnapshot() { return this.db.slice(); }
@@ -111,13 +111,29 @@ describe('Drive sync engine', () => {
     await sb.restore(d.folderId, A.code, 'a@x');
     expect(new TextDecoder().decode(B.host.restored!)).toBe('the real data');
     expect(B.host.link).toMatchObject({ generation: 2, lastSnapshotSeq: 1, keyId: A.km.keyId });
-    expect(B.host.key.keyId).toBe(A.km.keyId);
+    expect(B.host.key!.keyId).toBe(A.km.keyId);
 
     A.host.change = 9;
     expect(await sa.snapshotNow()).toBe('lock_lost');
     expect(A.host.link!.status).toBe('lock_lost');
     B.host.change = 99;
     expect(await sb.snapshotNow()).toBe('uploaded');
+  });
+
+  it('a brand-new phone with no backup key yet can find and restore the backup', async () => {
+    const A = await device('A');
+    const sa = new DriveSync(api, A.host);
+    await sa.connect('a@x');
+    await sa.snapshotNow();
+    const fresh = new Host(null, 'New phone');
+    const sf = new DriveSync(api, fresh);
+    await expect(sf.connect('a@x')).rejects.toThrow(/existing backup|recovery code/);
+    const d = await sf.inspect();
+    if (d.kind !== 'offer_restore') throw new Error('expected restore offer');
+    await sf.restore(d.folderId, A.code, 'a@x');
+    expect(fresh.key!.keyId).toBe(A.km.keyId);
+    fresh.change = 50;
+    expect(await sf.snapshotNow()).toBe('uploaded');
   });
 
   it('a wrong recovery code on Drive restore changes nothing (critical test 30)', async () => {

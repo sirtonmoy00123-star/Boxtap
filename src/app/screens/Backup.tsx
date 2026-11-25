@@ -6,6 +6,7 @@ import { newRecoveryCode, normaliseRecoveryCode, WrongCodeError, BadFileError, F
 import { createBackupFile, deliverFile, hasBackupKey, restoreBackupFile, setUpBackupKey } from '../../core/backup/backupFile';
 import type { Db } from '../../core/db/client';
 import type { Key } from '../../i18n/i18n';
+import { DriveRestore, DriveSettings } from './Drive';
 
 type T = (k: Key, v?: Record<string, string | number>) => string;
 
@@ -106,7 +107,8 @@ export function Settings() {
   const { db, t, toast, setWorkspace } = useApp();
   const [last, setLast] = useState<string | null>(null);
   const [ready, setReady] = useState<boolean | null>(null);
-  const [mode, setMode] = useState<'main' | 'restore' | 'setup'>('main');
+  const [mode, setMode] = useState<'main' | 'restore' | 'setup' | 'driveRestore'>('main');
+  const [driveFolder, setDriveFolder] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -115,6 +117,15 @@ export function Settings() {
   }, [db, mode]);
 
   if (mode === 'setup') return <div className="mx-auto max-w-md px-6 py-8"><RecoveryCodeSetup db={db} t={t} onDone={() => setMode('main')} /></div>;
+  const afterRestore = async (msg: string) => {
+    const list = await db.listWorkspaces();
+    setWorkspace(list[0] ?? null);
+    toast(msg);
+    navigate('/', true);
+  };
+  if (mode === 'driveRestore') {
+    return <div className="mx-auto max-w-md px-6 py-8"><DriveRestore db={db} t={t} folderId={driveFolder} onCancel={() => setMode('main')} onDone={afterRestore} /></div>;
+  }
   if (mode === 'restore') {
     return (
       <div className="mx-auto max-w-md px-6 py-8">
@@ -157,6 +168,7 @@ export function Settings() {
           : <Button onClick={backup} disabled={busy || !ready}>{t('settings.backupNow')}</Button>}
         <Button variant="secondary" onClick={() => setMode('restore')}>{t('settings.restore')}</Button>
       </div>
+      <DriveSettings onRestore={(f) => { setDriveFolder(f); setMode('driveRestore'); }} />
       <h2 className="mt-6 text-lg font-semibold">{t('labels.title')}</h2>
       <div className="mt-3 flex flex-col gap-2">
         <Button variant="secondary" onClick={() => navigate('/labels')}>{t('labels.title')}</Button>

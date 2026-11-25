@@ -5,6 +5,7 @@ import type { Ctx } from '../repo';
 import { can, DEFAULT_CONFIG, type BlockReason, type Feature } from '../licensing/can';
 import type { ConfigBody } from '../licensing/config';
 import type { Plan } from '../licensing/licence';
+import type { LinkState } from '../drive/sync';
 
 export type SettingKey = 'backup_key';
 
@@ -69,6 +70,41 @@ export function createService(ctx: Ctx, entitlement: () => Entitlement = () => (
     changeSeq: () => R.changeSeq(ctx),
 
     /** Answers "may I?" for the UI (e.g. show the upgrade screen before opening the form). */
+    // Google Drive link (ADR-020). Device-local; never holds the access token.
+    getDriveLink: (): LinkState | null => {
+      const [r] = ctx.db.selectObjects('SELECT * FROM drive_link WHERE id=1');
+      if (!r) return null;
+      return {
+        googleEmail: String(r.google_email), folderId: String(r.folder_id), snapshotsFolderId: String(r.snapshots_folder_id),
+        photosFolderId: String(r.photos_folder_id), lockFileId: String(r.lock_file_id), deviceId: String(r.device_id),
+        generation: Number(r.generation), lastSnapshotSeq: Number(r.last_snapshot_seq), uploadedChangeSeq: Number(r.uploaded_change_seq),
+        keyId: String(r.key_id), status: r.status as LinkState['status'], lastSnapshotAt: r.last_snapshot_at == null ? null : String(r.last_snapshot_at),
+      };
+    },
+    setDriveLink: (l: LinkState | null) => {
+      if (!l) { ctx.db.exec('DELETE FROM drive_link'); return; }
+      ctx.db.exec({
+        sql: `INSERT INTO drive_link (id,google_email,folder_id,snapshots_folder_id,photos_folder_id,lock_file_id,device_id,generation,
+                last_snapshot_seq,uploaded_change_seq,key_id,status,last_snapshot_at,connected_at)
+              VALUES (1,?,?,?,?,?,?,?,?,?,?,?,?,?)
+              ON CONFLICT(id) DO UPDATE SET google_email=excluded.google_email, folder_id=excluded.folder_id,
+                snapshots_folder_id=excluded.snapshots_folder_id, photos_folder_id=excluded.photos_folder_id,
+                lock_file_id=excluded.lock_file_id, device_id=excluded.device_id, generation=excluded.generation,
+                last_snapshot_seq=excluded.last_snapshot_seq, uploaded_change_seq=excluded.uploaded_change_seq,
+                key_id=excluded.key_id, status=excluded.status, last_snapshot_at=excluded.last_snapshot_at`,
+        bind: [l.googleEmail, l.folderId, l.snapshotsFolderId, l.photosFolderId, l.lockFileId, l.deviceId, l.generation,
+          l.lastSnapshotSeq, l.uploadedChangeSeq, l.keyId, l.status, l.lastSnapshotAt, new Date().toISOString()],
+      });
+    },
+    /** All-workspace totals for the "Before big change" check (A4, §6.2 rule 8). */
+    driveTotals: () => {
+      const [r] = ctx.db.selectObjects(`SELECT (SELECT count(*) FROM locations WHERE deleted_at IS NULL) AS boxes,
+        (SELECT count(*) FROM items WHERE deleted_at IS NULL) AS items,
+        (SELECT coalesce(sum(on_hand),0) FROM items WHERE deleted_at IS NULL) AS on_hand,
+        (SELECT count(*) FROM photos WHERE deleted_at IS NULL) AS photos`);
+      return { boxes: Number(r!.boxes), items: Number(r!.items), onHand: Number(r!.on_hand), photos: Number(r!.photos) };
+    },
+
     // Small app settings in meta. Only these keys; never secrets (the wrapped key blob is safe to store).
     getSetting: (key: SettingKey) => { const v = ctx.db.selectValue('SELECT value FROM meta WHERE key=?', [key]); return v == null ? null : String(v); },
     setSetting: (key: SettingKey, value: string) => { ctx.db.exec({ sql: 'INSERT INTO meta (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', bind: [key, value] }); },

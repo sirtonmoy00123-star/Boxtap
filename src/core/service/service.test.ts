@@ -43,3 +43,21 @@ describe('service gates writes with can()', () => {
     expect(svc.search(ws.id, 'box')).toEqual([]);
   });
 });
+
+describe('drive link storage', () => {
+  it('round-trips the link and clears it on disconnect; no token column exists', async () => {
+    const link = {
+      googleEmail: 'mia@example.com', folderId: 'f', snapshotsFolderId: 's', photosFolderId: 'p', lockFileId: 'l', deviceId: 'd_1',
+      generation: 2, lastSnapshotSeq: 5, uploadedChangeSeq: 9, keyId: 'bk_1', status: 'ok' as const, lastSnapshotAt: null,
+    };
+    svc.setDriveLink(link);
+    expect(svc.getDriveLink()).toEqual(link);
+    svc.setDriveLink({ ...link, status: 'lock_lost' });
+    expect(svc.getDriveLink()!.status).toBe('lock_lost');
+    svc.setDriveLink(null);
+    expect(svc.getDriveLink()).toBeNull();
+    const db = await openTestDb();
+    const cols = db.selectValues(`SELECT name FROM pragma_table_info('drive_link')`).map(String);
+    expect(cols.some((c) => /token/i.test(c))).toBe(false);
+  });
+});

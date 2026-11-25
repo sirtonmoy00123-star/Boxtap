@@ -80,6 +80,12 @@ export class DriveApi {
     return out;
   }
 
+  /** The signed-in account email, shown in Settings. */
+  async accountEmail(): Promise<string> {
+    const body = await (await this.call(`${API}/about?fields=user(emailAddress)`)).json();
+    return String(body?.user?.emailAddress ?? '');
+  }
+
   findFolders(name: string): Promise<DriveFile[]> {
     return this.list(`name=${q(name)} and mimeType='${FOLDER_MIME}' and trashed=false`);
   }
