@@ -90,6 +90,7 @@ export function createService(ctx: Ctx, entitlement: () => Entitlement = () => (
     moveStock: (itemId: string, targetBoxId: string, qty: number) => R.moveStock(ctx, itemId, targetBoxId, qty),
     itemHistory: (itemId: string) => R.itemHistory(ctx, itemId),
     lowStock: (wsId: string) => R.lowStock(ctx, wsId),
+    catalogueCandidates: (wsId: string, boxId?: string) => R.catalogueCandidates(ctx, wsId, boxId),
     setJewelleryFields: (wsId: string, on: boolean) => {
       ctx.db.exec({ sql: 'UPDATE workspaces SET jewellery_fields=?, updated_at=? WHERE id=?', bind: [on ? 1 : 0, ctx.now(), wsId] });
     },

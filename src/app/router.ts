@@ -6,6 +6,7 @@ export type Route =
   | { name: 'box'; id: string }
   | { name: 'item'; id: string }
   | { name: 'low' }
+  | { name: 'catalogue' }
   | { name: 'bin' }
   | { name: 'settings' }
   | { name: 'scan' }
@@ -18,6 +19,7 @@ export function parseRoute(path: string): Route {
   if (path === '/bin') return { name: 'bin' };
   if (path === '/settings') return { name: 'settings' };
   if (path === '/low') return { name: 'low' };
+  if (path === '/catalogue') return { name: 'catalogue' };
   const im = /^\/item\/([0-9a-f-]{36})$/i.exec(path);
   if (im) return { name: 'item', id: im[1]! };
   if (path === '/scan') return { name: 'scan' };

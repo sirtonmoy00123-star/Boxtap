@@ -359,3 +359,36 @@ test('item photos: camera button beside each item, thumbnail, large view, surviv
   await expect(page.getByRole('heading', { name: 'Kettle' })).toBeVisible();
   await expect(page.getByRole('list', { name: 'photos' }).locator('img')).toHaveCount(1);
 });
+
+test('Seller: make and share an in-stock picture (catalogue image, ADR-015)', async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.addInitScript(() => { Object.defineProperty(navigator, 'canShare', { value: undefined }); });
+  await page.goto('/');
+  await page.evaluate(() => localStorage.setItem('boxtap.installGuideSnoozedAt', String(Date.now())));
+  await page.getByRole('button', { name: 'New to BoxTap' }).click();
+  await page.getByRole('button', { name: /Selling stock/ }).click();
+  await page.getByRole('button', { name: 'Start' }).click();
+  const words = (await page.getByTestId('recovery-code').getByRole('listitem').allInnerTexts()).map((x) => x.replace(/^\d+\.\s*/, '').trim());
+  await page.getByRole('button', { name: "I've written it down" }).click();
+  for (const label of await page.locator('label span').allInnerTexts()) {
+    const n = Number(/Word (\d+)/.exec(label)?.[1]);
+    await page.getByLabel(label, { exact: true }).fill(words[n - 1]!);
+  }
+  await page.getByRole('button', { name: 'Confirm' }).click();
+  await expect(page.getByRole('heading', { name: 'My shop' })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: 'Add box' }).click();
+  await page.getByLabel('Add item').fill('সোনার আংটি');
+  await page.getByLabel('Add item').press('Enter');
+  await page.getByRole('button', { name: 'Add 1 সোনার আংটি' }).click();
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: 'Add photo of সোনার আংটি' }).click();
+  await (await chooser).setFiles({ name: 'r.png', mimeType: 'image/png', buffer: await tinyPng(page) });
+  await expect(page.getByRole('button', { name: 'Photo of সোনার আংটি' }).locator('img')).toHaveCount(1, { timeout: 15_000 });
+  await page.getByRole('button', { name: 'Share this box as a picture' }).click();
+  await expect(page.getByRole('list', { name: 'catalogue items' }).getByRole('checkbox')).toBeChecked();
+  await page.getByRole('button', { name: 'Make picture' }).click();
+  await expect(page.getByRole('img', { name: 'In-stock picture' })).toBeVisible({ timeout: 15_000 });
+  const dl = page.waitForEvent('download');
+  await page.getByRole('button', { name: /^Share/ }).click();
+  expect((await dl).suggestedFilename()).toMatch(/^in-stock-\d{4}-\d{2}-\d{2}\.jpg$/);
+});

@@ -230,5 +230,14 @@
   "photos.of": "Photo of {name}",
   "photos.openItem": "Open item",
   "item.value": "Value (for insurance, $)",
+  "cat.title": "In-stock picture",
+  "cat.share": "Share in-stock picture",
+  "cat.shareBox": "Share this box as a picture",
+  "cat.pick": "Choose up to 12 items (only items in stock with a photo can be shown)",
+  "cat.make": "Make picture",
+  "cat.send": "Share (WhatsApp, Messenger…)",
+  "cat.none": "Nothing to show yet. Add a photo to items that are in stock.",
+  "cat.subtitle": "In stock · {date}",
+  "cat.inStock": "{n} in stock",
   "error.generic": "Something went wrong: {msg}"
 }

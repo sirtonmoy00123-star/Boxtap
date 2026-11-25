@@ -127,3 +127,17 @@ describe('stock ledger (ADR-004, S-01..S-07)', () => {
     expect(R.lowStock(ctx, ws.id).map((x) => x.name)).toEqual(['Gold ring']);
   });
 });
+
+describe('catalogue candidates', () => {
+  it('returns live items with stock, price and their first photo, for one box or the whole shop', () => {
+    const box2 = R.createBox(ctx, ws.id, {});
+    const chain = R.addItem(ctx, { workspaceId: ws.id, locationId: box2.id, name: 'Chain', salePriceMinor: 50000 });
+    R.recordStock(ctx, item.id, 'restock', 3);
+    R.recordStock(ctx, chain.id, 'restock', 1);
+    R.addPhoto(ctx, { workspaceId: ws.id, locationId: null, itemId: chain.id, mime: 'image/webp', bytes: 10, sha256: 'a'.repeat(64) });
+    const all = R.catalogueCandidates(ctx, ws.id);
+    expect(all.map((c) => [c.name, c.available, c.photoFile != null])).toEqual([['Gold ring', 3, false], ['Chain', 1, true]]);
+    expect(R.catalogueCandidates(ctx, ws.id, box2.id).map((c) => c.name)).toEqual(['Chain']);
+    expect(all[1]!.salePriceMinor).toBe(50000);
+  });
+});

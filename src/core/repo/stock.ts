@@ -151,3 +151,22 @@ export function lowStock(ctx: Ctx, workspaceId: string): LowStockRow[] {
       ORDER BY available, i.name`, [workspaceId])
     .map((r) => ({ itemId: String(r.id), name: String(r.name), available: num(r.available), level: num(r.low_stock_level), boxId: String(r.box_id), boxNumber: num(r.number) }));
 }
+
+export interface CatalogueCandidate {
+  itemId: string; name: string; available: number; salePriceMinor: number | null; photoFile: string | null; photoMime: string | null;
+}
+
+/** Live items with their available stock, price and first photo; one box or the whole shop, in box order. */
+export function catalogueCandidates(ctx: Ctx, workspaceId: string, boxId?: string): CatalogueCandidate[] {
+  return ctx.db.selectObjects(
+    `SELECT i.id, i.name, i.on_hand - i.reserved AS available, i.sale_price_minor,
+            (SELECT p.file_name FROM photos p WHERE p.item_id = i.id AND p.deleted_at IS NULL ORDER BY p.created_at LIMIT 1) AS photo_file,
+            (SELECT p.mime FROM photos p WHERE p.item_id = i.id AND p.deleted_at IS NULL ORDER BY p.created_at LIMIT 1) AS photo_mime
+       FROM items i JOIN locations l ON l.id = i.location_id
+      WHERE i.workspace_id = ? AND i.deleted_at IS NULL AND l.deleted_at IS NULL AND (? IS NULL OR l.id = ?)
+      ORDER BY l.number, i.created_at`, [workspaceId, boxId ?? null, boxId ?? null])
+    .map((r) => ({
+      itemId: String(r.id), name: String(r.name), available: num(r.available),
+      salePriceMinor: r.sale_price_minor == null ? null : num(r.sale_price_minor), photoFile: str(r.photo_file), photoMime: str(r.photo_mime),
+    }));
+}

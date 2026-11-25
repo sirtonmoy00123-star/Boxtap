@@ -89,7 +89,10 @@ export function BoxPage({ id }: { id: string }) {
       <section className="mt-4">
         <h2 className="text-lg font-semibold">{t('box.items')}</h2>
         {workspace?.type === 'seller' ? (
-          <SellerItems box={box} items={items} thumbs={thumbs} reload={reloadItems} />
+          <>
+            <SellerItems box={box} items={items} thumbs={thumbs} reload={reloadItems} />
+            <Button variant="secondary" className="mt-2 w-full" onClick={() => navigate(`/catalogue?box=${box.id}`)}>{t('cat.shareBox')}</Button>
+          </>
         ) : (
           <ul className="divide-y" aria-label="items">
             {items.map((it) => (

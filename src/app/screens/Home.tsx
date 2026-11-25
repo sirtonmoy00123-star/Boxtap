@@ -81,7 +81,10 @@ export function Home() {
         <p className="mb-2 text-sm text-slate-600" data-testid="move-summary">{t('move.summary', { moved: move.moved + move.unpacked, total: move.total, unpacked: move.unpacked })}</p>
       )}
       {ws.type === 'seller' && (
-        <Button variant={low > 0 ? 'danger' : 'secondary'} className="mb-3 w-full" onClick={() => navigate('/low')}>{t('stock.low', { n: low })}</Button>
+        <div className="mb-3 flex gap-2">
+          <Button variant={low > 0 ? 'danger' : 'secondary'} className="flex-1" onClick={() => navigate('/low')}>{t('stock.low', { n: low })}</Button>
+          <Button variant="secondary" className="flex-1" onClick={() => navigate('/catalogue')}>{t('cat.share')}</Button>
+        </div>
       )}
       <input type="search" className={inputClass} placeholder={t('home.search')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('home.search')} />
       {q.trim() && hits ? (
