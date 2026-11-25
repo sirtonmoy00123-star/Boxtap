@@ -10,6 +10,7 @@ import { Start } from './screens/Start';
 import { Home } from './screens/Home';
 import { BoxPage } from './screens/BoxPage';
 import { Bin, LabelRoute, NoDataLabel, Upgrade } from './screens/Misc';
+import { Settings } from './screens/Backup';
 import type { Lang } from '../i18n/i18n';
 
 type Boot =
@@ -98,6 +99,7 @@ export function App() {
   if (!workspace) screen = route.name === 'label' ? <NoDataLabel /> : <Start />;
   else if (route.name === 'box') screen = <BoxPage id={route.id} />;
   else if (route.name === 'bin') screen = <Bin />;
+  else if (route.name === 'settings') screen = <Settings />;
   else if (route.name === 'label') screen = <LabelRoute code={route.code} />;
   else screen = <Home />;
 

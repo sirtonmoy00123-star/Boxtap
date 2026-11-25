@@ -25,7 +25,7 @@ export default tseslint.config(
   },
   {
     // The schema itself defines the trigger that is allowed to write the totals.
-    files: ['src/core/db/schema.ts'],
+    files: ['src/core/db/schema.ts', 'src/core/db/ledgerCheck.ts', 'src/core/backup/snapshot.test.ts'],
     rules: { 'no-restricted-syntax': 'off' },
   },
 );

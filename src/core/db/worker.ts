@@ -4,34 +4,56 @@ import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 import { migrate, type SqlDb } from './migrate';
 import { SCHEMA_VERSION } from './schema';
 import { createService, BlockedError, type Service } from '../service/service';
-import type { OpenInfo, Request, Response } from './protocol';
+import { exportSnapshot, validateImport } from '../backup/snapshot';
+import type { OpenInfo, Request, Response, RestoreResult } from './protocol';
 
 declare const self: DedicatedWorkerGlobalScope;
 
+type Sqlite3 = Awaited<ReturnType<typeof sqlite3InitModule>>;
+type DB = InstanceType<Sqlite3['oo1']['DB']>;
+type Pool = Awaited<ReturnType<Sqlite3['installOpfsSAHPoolVfs']>>;
+
 const DB_FILE = '/boxtap.sqlite3';
+/** Present only while a validated restore is being swapped in; its presence at start means "finish it". */
+const RESTORE_FILE = '/restore.sqlite3';
+
+let sqlite3: Sqlite3 | undefined;
+let pool: Pool | undefined;
+let db: DB | undefined;
 let service: Service | undefined;
-let db: { close(): void } | undefined;
-let pool: { pauseVfs(): unknown } | undefined;
+let persistent = true;
+
+function attach(handle: DB): number {
+  db = handle;
+  const from = migrate(handle as unknown as SqlDb);
+  service = createService({ db: handle as unknown as SqlDb, now: () => new Date().toISOString() });
+  return from;
+}
 
 async function open(): Promise<OpenInfo> {
-  const sqlite3 = await sqlite3InitModule();
-  let handle;
-  let persistent = true;
+  sqlite3 ??= await sqlite3InitModule();
+  let handle: DB;
   try {
-    const p = await sqlite3.installOpfsSAHPoolVfs({ name: 'boxtap-pool', initialCapacity: 12 });
-    await p.reserveMinimumCapacity(12); // live DB, journal, VACUUM INTO target, safety copies (DATABASE_SCHEMA §2)
-    pool = p;
-    handle = new p.OpfsSAHPoolDb(DB_FILE);
+    if (!pool) {
+      pool = await sqlite3.installOpfsSAHPoolVfs({ name: 'boxtap-pool', initialCapacity: 12 });
+      await pool.reserveMinimumCapacity(12); // live DB, journal, restore copy, VACUUM INTO target (DATABASE_SCHEMA §2)
+    } else {
+      await pool.unpauseVfs();
+    }
+    if (pool.getFileNames().includes(RESTORE_FILE)) {
+      // A restore was interrupted after validation: finish the swap (idempotent), then drop the marker file.
+      await pool.importDb(DB_FILE, pool.exportFile(RESTORE_FILE));
+      pool.unlink(RESTORE_FILE);
+    }
+    handle = new pool.OpfsSAHPoolDb(DB_FILE);
   } catch (e) {
-    // Ruling (build): no OPFS (old browser or some private windows). Run in memory and tell the UI,
-    // which shows the "your boxes will be deleted" banner. The IndexedDB driver is a later addition.
+    // Ruling (build): no OPFS (old browser, some private windows, Playwright's Windows WebKit). Run in memory
+    // and tell the UI, which shows the "can't store data" banner. An IndexedDB driver is a later addition.
     console.warn('OPFS unavailable, using memory', e);
     persistent = false;
     handle = new sqlite3.oo1.DB(':memory:', 'c');
   }
-  db = handle;
-  const migratedFrom = migrate(handle as unknown as SqlDb);
-  service = createService({ db: handle as unknown as SqlDb, now: () => new Date().toISOString() });
+  const migratedFrom = attach(handle);
   return { persistent, schemaVersion: SCHEMA_VERSION, migratedFrom, sqliteVersion: sqlite3.version.libVersion };
 }
 
@@ -42,23 +64,61 @@ function close() {
   pool?.pauseVfs(); // release the OPFS access handles so another tab can take over (audit B13a)
 }
 
+/** Crash-safe restore (API_CONTRACTS §6.2 rule 5): validate a copy, park it, swap, reopen. */
+async function restore(bytes: Uint8Array): Promise<RestoreResult> {
+  if (!sqlite3 || !db) throw new Error('database is not open');
+  const v = validateImport(sqlite3, bytes);
+  if (persistent && pool) {
+    const est = await navigator.storage?.estimate?.();
+    if (est?.quota != null && est.usage != null && est.quota - est.usage < v.bytes.length * 2) {
+      throw new Error('Free up space on this device to restore');
+    }
+    await pool.importDb(RESTORE_FILE, v.bytes);
+    db.close();
+    db = undefined;
+    await pool.importDb(DB_FILE, v.bytes);
+    pool.unlink(RESTORE_FILE);
+    attach(new pool.OpfsSAHPoolDb(DB_FILE));
+  } else {
+    db.close();
+    const mem = new sqlite3.oo1.DB(':memory:', 'c');
+    const p = sqlite3.wasm.allocFromTypedArray(v.bytes);
+    mem.checkRc(sqlite3.capi.sqlite3_deserialize(mem, 'main', p, v.bytes.length, v.bytes.length,
+      sqlite3.capi.SQLITE_DESERIALIZE_FREEONCLOSE | sqlite3.capi.SQLITE_DESERIALIZE_RESIZEABLE));
+    attach(mem);
+  }
+  return { ...v.counts, fromVersion: v.fromVersion, ledgerRepaired: v.ledgerRepaired };
+}
+
 self.onmessage = async (ev: MessageEvent<Request>) => {
   const req = ev.data;
   let res: Response;
+  const transfer: Transferable[] = [];
   try {
     let value: unknown;
-    if (req.type === 'open') value = await open();
-    else if (req.type === 'close') value = close();
-    else {
-      if (!service) throw new Error('database is not open');
-      const fn = service[req.method] as (...a: unknown[]) => unknown;
-      if (typeof fn !== 'function') throw new Error(`unknown method ${String(req.method)}`);
-      value = fn(...req.args);
+    switch (req.type) {
+      case 'open': value = await open(); break;
+      case 'close': close(); break;
+      case 'exportSnapshot': {
+        if (!sqlite3 || !db) throw new Error('database is not open');
+        const bytes = exportSnapshot(sqlite3, db);
+        transfer.push(bytes.buffer as ArrayBuffer);
+        value = bytes;
+        break;
+      }
+      case 'restore': value = await restore(req.bytes); break;
+      case 'call': {
+        if (!service) throw new Error('database is not open');
+        const fn = service[req.method] as (...a: unknown[]) => unknown;
+        if (typeof fn !== 'function') throw new Error(`unknown method ${String(req.method)}`);
+        value = fn(...req.args);
+        break;
+      }
     }
     res = { id: req.id, ok: true, value };
   } catch (e) {
     const err = e as Error;
     res = { id: req.id, ok: false, error: { name: err.name, message: err.message, reason: e instanceof BlockedError ? e.reason : undefined } };
   }
-  self.postMessage(res);
+  self.postMessage(res, transfer);
 };

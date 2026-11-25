@@ -1,11 +1,22 @@
 import { test, expect, type Page } from '@playwright/test';
 import { needsPersistentStorage } from './env';
 
-async function newHome(page: Page) {
+/** Goes through first launch, including the recovery code check. Returns the 12-word code. */
+async function newHome(page: Page): Promise<string> {
   await page.goto('/');
   await page.getByRole('button', { name: 'New to BoxTap' }).click();
   await page.getByRole('button', { name: 'Start' }).click();
-  await expect(page.getByRole('heading', { name: 'My move' })).toBeVisible();
+  const items = await page.getByTestId('recovery-code').getByRole('listitem').allInnerTexts();
+  const words = items.map((x) => x.replace(/^\d+\.\s*/, '').trim());
+  expect(words).toHaveLength(12);
+  await page.getByRole('button', { name: "I've written it down" }).click();
+  for (const label of await page.locator('label span').allInnerTexts()) {
+    const n = Number(/Word (\d+)/.exec(label)?.[1]);
+    await page.getByLabel(label, { exact: true }).fill(words[n - 1]!);
+  }
+  await page.getByRole('button', { name: 'Confirm' }).click();
+  await expect(page.getByRole('heading', { name: 'My move' })).toBeVisible({ timeout: 15_000 });
+  return words.join(' ');
 }
 
 test('the real CSP is applied and the app still starts (SQLite WASM loads)', async ({ page }) => {
@@ -99,4 +110,42 @@ test('a browser without usable storage shows the data-loss banner instead of fai
   test.skip(!(browserName === 'webkit' && process.platform === 'win32'), 'only this build lacks OPFS');
   await page.goto('/');
   await expect(page.getByText("This browser can't store BoxTap data.")).toBeVisible();
+});
+
+test('back up, then restore on a fresh browser with the code; a wrong code changes nothing (critical tests 9, 10)', async ({ page, browser }) => {
+  needsPersistentStorage(test.info().project.name);
+  test.setTimeout(90_000);
+  await page.addInitScript(() => { Object.defineProperty(navigator, 'canShare', { value: undefined }); });
+  const code = await newHome(page);
+  await page.getByRole('button', { name: 'Add box' }).click();
+  await page.getByLabel('Add item').fill('Wedding album');
+  await page.getByLabel('Add item').press('Enter');
+  await expect(page.getByRole('list', { name: 'items' })).toContainText('Wedding album');
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: 'Settings' }).click();
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Back up now' }).click();
+  const file = await (await download).path();
+  await expect(page.getByTestId('last-backup')).toContainText('Last backup');
+
+  const other = await browser.newContext();
+  const p2 = await other.newPage();
+  await p2.goto('/');
+  await p2.getByRole('button', { name: 'Restore from a backup file' }).click();
+  await p2.getByLabel('Choose backup file').setInputFiles(file);
+  // Wrong (but valid-looking) code first: clear error, nothing created.
+  const wrong = code.split(' ').reverse().join(' ');
+  await p2.getByLabel('12-word recovery code').fill(wrong);
+  await p2.getByRole('button', { name: 'Restore' }).click();
+  await expect(p2.getByRole('alert')).toContainText(/doesn't open this backup|isn't a BoxTap backup/, { timeout: 20_000 });
+  await p2.getByLabel('12-word recovery code').fill(code.toUpperCase());
+  await p2.getByRole('button', { name: 'Restore' }).click();
+  await expect(p2.getByRole('heading', { name: 'My move' })).toBeVisible({ timeout: 30_000 });
+  await p2.getByLabel('Search items or boxes').fill('wedding');
+  await expect(p2.getByRole('list', { name: 'results' })).toContainText('Wedding album');
+  // The restored device can make its own backups with the restored key.
+  await p2.getByLabel('Search items or boxes').fill('');
+  await p2.getByRole('button', { name: 'Settings' }).click();
+  await expect(p2.getByRole('button', { name: 'Back up now' })).toBeEnabled();
+  await other.close();
 });

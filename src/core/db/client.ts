@@ -1,6 +1,6 @@
 // Main-thread client for the database worker. Typed proxy over the Service.
 import type { Service, ServiceMethod } from '../service/service';
-import type { OpenInfo, Request, Response } from './protocol';
+import type { OpenInfo, Request, Response, RestoreResult } from './protocol';
 import type { BlockReason } from '../licensing/can';
 
 export class WorkerError extends Error {
@@ -11,7 +11,12 @@ export class WorkerError extends Error {
 }
 
 type Async<S> = { [K in keyof S]: S[K] extends (...a: infer A) => infer R ? (...a: A) => Promise<Awaited<R>> : never };
-export type Db = Async<Service> & { info: OpenInfo; close(): Promise<void> };
+export type Db = Async<Service> & {
+  info: OpenInfo;
+  close(): Promise<void>;
+  exportSnapshot(): Promise<Uint8Array>;
+  restore(bytes: Uint8Array): Promise<RestoreResult>;
+};
 
 export async function openDb(): Promise<Db> {
   const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module', name: 'boxtap-db' });
@@ -32,7 +37,9 @@ export async function openDb(): Promise<Db> {
   });
   const info = (await send({ type: 'open' })) as OpenInfo;
   const close = async () => { await send({ type: 'close' }); worker.terminate(); };
-  return new Proxy({ info, close } as Db, {
+  const exportSnapshot = async () => (await send({ type: 'exportSnapshot' })) as Uint8Array;
+  const restore = async (bytes: Uint8Array) => (await send({ type: 'restore', bytes })) as RestoreResult;
+  return new Proxy({ info, close, exportSnapshot, restore } as Db, {
     get(target, prop: string) {
       if (prop in target) return (target as unknown as Record<string, unknown>)[prop];
       if (prop === 'then') return undefined;

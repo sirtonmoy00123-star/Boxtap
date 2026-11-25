@@ -1,0 +1,157 @@
+import { useEffect, useMemo, useState } from 'react';
+import { useApp } from '../context';
+import { navigate } from '../router';
+import { Button, Field, Page, inputClass } from '../ui';
+import { newRecoveryCode, normaliseRecoveryCode, WrongCodeError, BadFileError, FutureVersionError } from '../../core/backup/crypto';
+import { createBackupFile, deliverFile, hasBackupKey, restoreBackupFile, setUpBackupKey } from '../../core/backup/backupFile';
+import type { Db } from '../../core/db/client';
+import type { Key } from '../../i18n/i18n';
+
+type T = (k: Key, v?: Record<string, string | number>) => string;
+
+/** Shows a new 12-word code, asks for 3 of the words back, then makes the backup key (audit B7). */
+export function RecoveryCodeSetup({ db, t, onDone }: { db: Db; t: T; onDone: () => void }) {
+  const code = useMemo(() => newRecoveryCode(), []);
+  const words = code.split(' ');
+  const ask = useMemo(() => {
+    const picks = new Set<number>();
+    const r = crypto.getRandomValues(new Uint8Array(16));
+    for (const b of r) { if (picks.size < 3) picks.add(b % 12); }
+    while (picks.size < 3) picks.add(picks.size);
+    return [...picks].sort((a, b) => a - b);
+  }, []);
+  const [step, setStep] = useState<'show' | 'confirm' | 'making'>('show');
+  const [answers, setAnswers] = useState<string[]>(['', '', '']);
+  const [error, setError] = useState(false);
+
+  const confirm = async () => {
+    const ok = ask.every((idx, i) => normaliseRecoveryCode(answers[i] ?? '') === words[idx]);
+    if (!ok) { setError(true); return; }
+    setStep('making');
+    await setUpBackupKey(db, code);
+    onDone();
+  };
+
+  if (step === 'making') return <p className="py-10 text-center">{t('code.making')}</p>;
+  if (step === 'confirm') {
+    return (
+      <form className="flex flex-col gap-2" onSubmit={(e) => { e.preventDefault(); void confirm(); }}>
+        <h1 className="text-2xl font-bold">{t('code.confirmTitle')}</h1>
+        {ask.map((idx, i) => (
+          <Field key={idx} label={t('code.confirmWord', { n: idx + 1 })}>
+            <input className={inputClass} autoCapitalize="none" autoComplete="off" spellCheck={false} value={answers[i]}
+              onChange={(e) => { const a = [...answers]; a[i] = e.target.value; setAnswers(a); setError(false); }} />
+          </Field>
+        ))}
+        {error && <p role="alert" className="text-red-700">{t('code.mismatch')}</p>}
+        <Button type="submit">{t('code.confirm')}</Button>
+        <Button variant="ghost" onClick={() => setStep('show')}>{t('box.back')}</Button>
+      </form>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-3">
+      <h1 className="text-2xl font-bold">{t('code.title')}</h1>
+      <p className="text-slate-700">{t('code.explain')}</p>
+      <ol className="grid grid-cols-2 gap-2 rounded-xl border border-slate-300 p-3 font-mono text-lg sm:grid-cols-3" data-testid="recovery-code">
+        {words.map((w, i) => <li key={i}><span className="text-slate-400">{i + 1}.</span> {w}</li>)}
+      </ol>
+      <Button variant="secondary" onClick={() => window.print()}>{t('code.print')}</Button>
+      <Button onClick={() => setStep('confirm')}>{t('code.written')}</Button>
+    </div>
+  );
+}
+
+/** Restore from a .btbak file. Used on the first screen and in Settings. */
+export function RestoreFile({ db, t, onDone, onCancel }: { db: Db; t: T; onDone: (msg: string) => void; onCancel: () => void }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const go = async () => {
+    if (!file) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await restoreBackupFile(db, file, code);
+      onDone(t('restore.done', { boxes: r.boxes, items: r.items }));
+    } catch (e) {
+      if (e instanceof WrongCodeError) setError(t('restore.wrongCode'));
+      else if (e instanceof FutureVersionError) setError(t('restore.newer'));
+      else if (e instanceof BadFileError) setError(t('restore.badFile'));
+      else setError(/newer/.test((e as Error).message) ? t('restore.newer') : t('restore.badFile'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <form className="flex flex-col gap-2" onSubmit={(e) => { e.preventDefault(); void go(); }}>
+      <h1 className="text-2xl font-bold">{t('restore.title')}</h1>
+      <p className="text-sm text-amber-900">{t('restore.replaceWarning')}</p>
+      <Field label={t('restore.pick')}>
+        <input type="file" accept=".btbak,application/octet-stream" className="block py-2" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+      </Field>
+      <Field label={t('restore.code')}>
+        <textarea className={`${inputClass} py-2 font-mono`} rows={3} autoCapitalize="none" autoComplete="off" spellCheck={false}
+          value={code} onChange={(e) => setCode(e.target.value)} />
+      </Field>
+      {error && <p role="alert" className="text-red-700">{error}</p>}
+      <Button type="submit" disabled={!file || !code.trim() || busy}>{busy ? t('restore.working') : t('restore.go')}</Button>
+      <Button variant="ghost" onClick={onCancel}>{t('box.back')}</Button>
+    </form>
+  );
+}
+
+export function Settings() {
+  const { db, t, toast, setWorkspace } = useApp();
+  const [last, setLast] = useState<string | null>(null);
+  const [ready, setReady] = useState<boolean | null>(null);
+  const [mode, setMode] = useState<'main' | 'restore' | 'setup'>('main');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    void db.backupState().then((s) => setLast(s?.last_backup_at ? String(s.last_backup_at) : null));
+    void hasBackupKey(db).then(setReady);
+  }, [db, mode]);
+
+  if (mode === 'setup') return <div className="mx-auto max-w-md px-6 py-8"><RecoveryCodeSetup db={db} t={t} onDone={() => setMode('main')} /></div>;
+  if (mode === 'restore') {
+    return (
+      <div className="mx-auto max-w-md px-6 py-8">
+        <RestoreFile db={db} t={t} onCancel={() => setMode('main')} onDone={async (msg) => {
+          const list = await db.listWorkspaces();
+          setWorkspace(list[0] ?? null);
+          toast(msg);
+          navigate('/', true);
+        }} />
+      </div>
+    );
+  }
+
+  const backup = async () => {
+    setBusy(true);
+    try {
+      const f = await createBackupFile(db);
+      const how = await deliverFile(f);
+      if (how !== 'cancelled') toast(t('settings.backupDone'));
+      setLast(new Date().toISOString());
+    } catch (e) {
+      toast(t('error.generic', { msg: (e as Error).message }));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Page title={t('settings.title')} back={() => navigate('/')}>
+      <h2 className="mt-2 text-lg font-semibold">{t('settings.backup')}</h2>
+      <p className="text-sm text-slate-600" data-testid="last-backup">{last ? t('settings.lastBackup', { when: new Date(last).toLocaleString() }) : t('settings.never')}</p>
+      <div className="mt-3 flex flex-col gap-2">
+        {ready === false
+          ? <Button onClick={() => setMode('setup')}>{t('settings.setupBackup')}</Button>
+          : <Button onClick={backup} disabled={busy || !ready}>{t('settings.backupNow')}</Button>}
+        <Button variant="secondary" onClick={() => setMode('restore')}>{t('settings.restore')}</Button>
+      </div>
+    </Page>
+  );
+}

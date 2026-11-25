@@ -191,7 +191,7 @@ export async function* decryptFile(file: Uint8Array, code: string | { cryptoKey:
     const remaining = file.length - off;
     const isLast = remaining <= CHUNK + TAG;
     if (remaining < TAG) throw new BadFileError('backup file is cut short');
-    const ct = file.subarray(off, off + Math.min(remaining, CHUNK + TAG));
+    const ct = file.subarray(off, off + Math.min(remaining, CHUNK + TAG)) as Uint8Array<ArrayBuffer>; // never shared memory here
     let pt: ArrayBuffer;
     try {
       pt = await subtle.decrypt({ name: 'AES-GCM', iv: chunkNonce(fileNonce, i, isLast), additionalData: aad }, cryptoKey, ct);

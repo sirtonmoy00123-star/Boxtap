@@ -40,7 +40,7 @@ export function Home() {
   };
 
   return (
-    <Page title={ws.name} actions={<Button variant="ghost" onClick={() => navigate('/bin')}>{t('home.bin')}</Button>}>
+    <Page title={ws.name} actions={<><Button variant="ghost" onClick={() => navigate('/bin')}>{t('home.bin')}</Button><Button variant="ghost" onClick={() => navigate('/settings')}>{t('settings.title')}</Button></>}>
       <input type="search" className={inputClass} placeholder={t('home.search')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('home.search')} />
       {q.trim() && hits ? (
         <ul className="mt-3 divide-y" aria-label="results">

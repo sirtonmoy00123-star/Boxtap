@@ -6,6 +6,8 @@ import { can, DEFAULT_CONFIG, type BlockReason, type Feature } from '../licensin
 import type { ConfigBody } from '../licensing/config';
 import type { Plan } from '../licensing/licence';
 
+export type SettingKey = 'backup_key';
+
 export class BlockedError extends Error {
   constructor(public readonly reason: BlockReason) {
     super(`blocked:${reason}`);
@@ -74,6 +76,11 @@ export function createService(ctx: Ctx, entitlement: () => Entitlement = () => (
     changeSeq: () => R.changeSeq(ctx),
 
     /** Answers "may I?" for the UI (e.g. show the upgrade screen before opening the form). */
+    // Small app settings in meta. Only these keys; never secrets (the wrapped key blob is safe to store).
+    getSetting: (key: SettingKey) => { const v = ctx.db.selectValue('SELECT value FROM meta WHERE key=?', [key]); return v == null ? null : String(v); },
+    setSetting: (key: SettingKey, value: string) => { ctx.db.exec({ sql: 'INSERT INTO meta (key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value', bind: [key, value] }); },
+    backupState: () => ctx.db.selectObjects('SELECT last_backup_at, recovery_confirmed FROM backup_state WHERE id=1')[0] ?? null,
+    markBackedUp: (at: string) => { ctx.db.exec({ sql: 'INSERT INTO backup_state (id,last_backup_at,recovery_confirmed) VALUES (1,?,1) ON CONFLICT(id) DO UPDATE SET last_backup_at=excluded.last_backup_at', bind: [at] }); },
     check: (feature: Feature, wsId: string, photosOnParent = 0) => {
       try { gate(feature, wsId, photosOnParent); return { allowed: true as const }; } catch (e) {
         if (e instanceof BlockedError) return { allowed: false as const, reason: e.reason };

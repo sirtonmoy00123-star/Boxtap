@@ -5,12 +5,14 @@ export type Route =
   | { name: 'home' }
   | { name: 'box'; id: string }
   | { name: 'bin' }
+  | { name: 'settings' }
   | { name: 'label'; code: string }
   | { name: 'notFound' };
 
 export function parseRoute(path: string): Route {
   if (path === '/' || path === '') return { name: 'home' };
   if (path === '/bin') return { name: 'bin' };
+  if (path === '/settings') return { name: 'settings' };
   let m = /^\/box\/([0-9a-f-]{36})$/i.exec(path);
   if (m) return { name: 'box', id: m[1]! };
   m = /^\/b\/([^/]+)$/.exec(path);
