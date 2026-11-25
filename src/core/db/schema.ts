@@ -224,8 +224,32 @@ const V2: Migration = (db) => {
   db.exec('ALTER TABLE stock_movements ADD COLUMN unit_cost_minor INTEGER CHECK (unit_cost_minor >= 0)');
 };
 
+/** v3 (Pro): customer orders. Each line books stock through the ledger; packing ships it. */
+const V3 = `
+CREATE TABLE orders (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  number INTEGER NOT NULL CHECK (number > 0),
+  customer TEXT NOT NULL CHECK (length(customer) BETWEEN 1 AND 80),
+  phone TEXT CHECK (length(phone) <= 30),
+  note TEXT CHECK (length(note) <= 500),
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','packed','delivered','cancelled')),
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+  UNIQUE (workspace_id, number)
+);
+CREATE TABLE order_lines (
+  id TEXT PRIMARY KEY,
+  order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  item_id TEXT NOT NULL REFERENCES items(id),
+  qty INTEGER NOT NULL CHECK (qty > 0),
+  unit_price_minor INTEGER CHECK (unit_price_minor >= 0),
+  created_at TEXT NOT NULL
+);
+CREATE INDEX order_lines_order ON order_lines(order_id);
+`;
+
 /** Ordered migrations. Index i migrates user_version i -> i+1. Never edit a released entry. */
-export const MIGRATIONS: readonly Migration[] = [V1, V2];
+export const MIGRATIONS: readonly Migration[] = [V1, V2, V3];
 
 export function applyMigration(db: MigrationDb, index: number): void {
   const m = MIGRATIONS[index]!;

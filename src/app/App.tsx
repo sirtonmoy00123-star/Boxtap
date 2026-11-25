@@ -14,6 +14,7 @@ import { Settings } from './screens/Backup';
 import { PrintLabels, Scan } from './screens/ScanLabels';
 import { ItemPage, LowStockPage } from './screens/Seller';
 import { CataloguePage } from './screens/Catalogue';
+import { OrderPage, OrdersPage, ReportsPage } from './screens/Pro';
 import { startSchedule } from '../core/drive/browserSync';
 import { removePhotoFile } from '../core/photos/store';
 import type { Lang } from '../i18n/i18n';
@@ -115,6 +116,9 @@ export function App() {
   else if (route.name === 'item') screen = <ItemPage id={route.id} />;
   else if (route.name === 'low') screen = <LowStockPage />;
   else if (route.name === 'catalogue') screen = <CataloguePage />;
+  else if (route.name === 'reports') screen = <ReportsPage />;
+  else if (route.name === 'orders') screen = <OrdersPage />;
+  else if (route.name === 'order') screen = <OrderPage id={route.id} />;
   else if (route.name === 'bin') screen = <Bin />;
   else if (route.name === 'settings') screen = <Settings />;
   else if (route.name === 'scan') screen = <Scan />;

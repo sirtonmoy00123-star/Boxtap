@@ -80,12 +80,16 @@ export function Home() {
       {move && move.total > move.none && (
         <p className="mb-2 text-sm text-slate-600" data-testid="move-summary">{t('move.summary', { moved: move.moved + move.unpacked, total: move.total, unpacked: move.unpacked })}</p>
       )}
-      {ws.type === 'seller' && (
+      {ws.type === 'seller' && (<>
         <div className="mb-3 flex gap-2">
           <Button variant={low > 0 ? 'danger' : 'secondary'} className="flex-1" onClick={() => navigate('/low')}>{t('stock.low', { n: low })}</Button>
           <Button variant="secondary" className="flex-1" onClick={() => navigate('/catalogue')}>{t('cat.share')}</Button>
         </div>
-      )}
+        <div className="mb-3 flex gap-2">
+          <Button variant="secondary" className="flex-1" onClick={() => navigate('/orders')}>{t('ord.title')} <span className="ml-1 rounded bg-amber-100 px-1 text-xs text-amber-900">{t('pro.badge')}</span></Button>
+          <Button variant="secondary" className="flex-1" onClick={() => navigate('/reports')}>{t('rep.title')} <span className="ml-1 rounded bg-amber-100 px-1 text-xs text-amber-900">{t('pro.badge')}</span></Button>
+        </div>
+      </>)}
       <input type="search" className={inputClass} placeholder={t('home.search')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('home.search')} />
       {q.trim() && hits ? (
         <ul className="mt-3 divide-y" aria-label="results">

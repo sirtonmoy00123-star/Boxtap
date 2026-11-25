@@ -133,20 +133,23 @@ export function ItemPage({ id }: { id: string }) {
   const [target, setTarget] = useState('');
   const [undo, setUndo] = useUndo();
   const [loadedAt, setLoadedAt] = useState(0);
+  const [pro, setPro] = useState({ costProfit: false });
 
-  const load = useCallback(async () => {
+  // resetDraft: only on first load and after Save, so a stock action never wipes what is being typed.
+  const load = useCallback(async (resetDraft = false) => {
     setLoadedAt(Date.now());
     const it = await db.getItem(id);
     setItem(it && !it.deletedAt ? it : null);
     if (!it) return;
     setHistory(await db.itemHistory(id));
+    setPro(await db.proStatus(it.workspaceId));
     setBoxes((await db.listBoxes(it.workspaceId)).filter((b) => b.id !== it.locationId));
-    setDraft({
+    if (resetDraft) setDraft({
       name: it.name, altName: it.altName ?? '', price: fromMinor(it.salePriceMinor), low: it.lowStockLevel == null ? '' : String(it.lowStockLevel),
-      value: fromMinor(it.valueEstimateMinor), weight: it.weightMg == null ? '' : String(it.weightMg / 1000), purity: it.purity ?? '', making: fromMinor(it.makingChargeMinor), notes: it.notes ?? '',
+      cost: fromMinor(it.costPriceMinor), value: fromMinor(it.valueEstimateMinor), weight: it.weightMg == null ? '' : String(it.weightMg / 1000), purity: it.purity ?? '', making: fromMinor(it.makingChargeMinor), notes: it.notes ?? '',
     });
   }, [db, id]);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(true); }, [load]);
 
   if (item === undefined) return null;
   const seller = workspace?.type === 'seller';
@@ -166,12 +169,12 @@ export function ItemPage({ id }: { id: string }) {
       await db.updateItem(item.id, {
         name: draft.name, altName: draft.altName, notes: draft.notes,
         ...(workspace.type === 'seller'
-          ? { salePriceMinor: toMinor(draft.price ?? ''), lowStockLevel: toInt(draft.low ?? '') }
+          ? { salePriceMinor: toMinor(draft.price ?? ''), lowStockLevel: toInt(draft.low ?? ''), ...(pro.costProfit ? { costPriceMinor: toMinor(draft.cost ?? '') } : {}) }
           : { valueEstimateMinor: toMinor(draft.value ?? '') }),
         ...(workspace.jewelleryFields ? { weightMg: weight, purity: draft.purity, makingChargeMinor: toMinor(draft.making ?? '') } : {}),
       });
       toast(t('box.saved'));
-      await load();
+      await load(true);
     } catch (e) {
       toast(t('error.generic', { msg: (e as Error).message }));
     }
@@ -240,6 +243,7 @@ export function ItemPage({ id }: { id: string }) {
         {seller ? <>
           {field('price', workspace.currency === 'BDT' ? 'item.price' : 'item.priceAud', { numeric: true })}
           {field('low', 'item.lowLevel', { numeric: true })}
+          {pro.costProfit && field('cost', 'item.cost', { numeric: true })}
         </> : field('value', 'item.value', { numeric: true })}
         {seller && workspace.jewelleryFields && <>
           {field('weight', 'item.weight', { numeric: true })}

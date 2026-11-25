@@ -95,6 +95,23 @@ export function createService(ctx: Ctx, entitlement: () => Entitlement = () => (
       ctx.db.exec({ sql: 'UPDATE workspaces SET jewellery_fields=?, updated_at=? WHERE id=?', bind: [on ? 1 : 0, ctx.now(), wsId] });
     },
 
+    // Seller Pro extras (Phase 3): reports, cost/profit and orders need the plan.
+    salesReport: (wsId: string, fromIso: string, toIso: string) => { gate('reports', wsId); return R.salesReport(ctx, wsId, fromIso, toIso); },
+    stockValue: (wsId: string) => { gate('cost_profit', wsId); return R.stockValue(ctx, wsId); },
+    createOrder: (wsId: string, o: { customer: string; phone?: string | null; note?: string | null }) => { gate('orders', wsId); return R.createOrder(ctx, wsId, o); },
+    listOrders: (wsId: string, status?: R.OrderStatus) => { gate('orders', wsId); return R.listOrders(ctx, wsId, status); },
+    getOrder: (id: string) => R.getOrder(ctx, id),
+    addOrderLine: (orderId: string, itemId: string, qty: number) => R.addOrderLine(ctx, orderId, itemId, qty),
+    removeOrderLine: (lineId: string) => R.removeOrderLine(ctx, lineId),
+    packOrder: (orderId: string) => R.packOrder(ctx, orderId),
+    deliverOrder: (orderId: string) => R.deliverOrder(ctx, orderId),
+    cancelOrder: (orderId: string) => R.cancelOrder(ctx, orderId),
+    /** For the UI: which Pro extras are open on this workspace. */
+    proStatus: (wsId: string) => {
+      const open = (f: Feature) => { try { gate(f, wsId); return true; } catch { return false; } };
+      return { reports: open('reports'), costProfit: open('cost_profit'), orders: open('orders'), variants: open('variants') };
+    },
+
     // Export, arrival check, erase (C-13): never gated
     exportCsv: (wsId: string) => R.exportCsv(ctx, wsId),
     moveSummary: (wsId: string) => R.moveSummary(ctx, wsId),

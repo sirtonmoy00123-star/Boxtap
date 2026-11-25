@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { openTestDb } from '../db/testDb';
 import type { SqlDb } from '../db/migrate';
 import { createService, BlockedError, type Service } from './service';
+import { DEFAULT_CONFIG } from '../licensing/can';
 
 let svc: Service;
 beforeEach(async () => {
@@ -59,5 +60,27 @@ describe('drive link storage', () => {
     const db = await openTestDb();
     const cols = db.selectValues(`SELECT name FROM pragma_table_info('drive_link')`).map(String);
     expect(cols.some((c) => /token/i.test(c))).toBe(false);
+  });
+});
+
+describe('Pro features need Seller Pro', () => {
+  it('reports, orders and cost need the plan; with it they work', async () => {
+    const free = svc;
+    const ws = free.createWorkspace({ type: 'seller', name: 'S', country: 'BD', currency: 'BDT', language: 'bn' });
+    expect(() => free.salesReport(ws.id, '2026-01-01T00:00:00Z', '2027-01-01T00:00:00Z')).toThrow(/pro_only/);
+    expect(() => free.createOrder(ws.id, { customer: 'A' })).toThrow(/pro_only/);
+    const db = await openTestDb();
+    const pro = createService({ db: db as unknown as SqlDb, now: () => '2026-11-25T00:00:00.000Z' },
+      () => ({ config: DEFAULT_CONFIG, plans: new Set(['seller_pro'] as const) }));
+    const w2 = pro.createWorkspace({ type: 'seller', name: 'S', country: 'BD', currency: 'BDT', language: 'bn' });
+    expect(pro.salesReport(w2.id, '2026-01-01T00:00:00Z', '2027-01-01T00:00:00Z').unitsSold).toBe(0);
+    expect(pro.createOrder(w2.id, { customer: 'A' }).number).toBe(1);
+  });
+  it('stock still works for free sellers (only the extras are Pro)', () => {
+    const ws = svc.createWorkspace({ type: 'seller', name: 'S', country: 'BD', currency: 'BDT', language: 'bn' });
+    const box = svc.createBox(ws.id, {});
+    const it = svc.addItem({ workspaceId: ws.id, locationId: box.id, name: 'Ring' });
+    svc.recordStock(it.id, 'restock', 2);
+    expect(svc.getItem(it.id)!.onHand).toBe(2);
   });
 });

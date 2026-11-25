@@ -5,3 +5,5 @@ export * from './bin';
 export * from './photos';
 export * from './export';
 export * from './stock';
+export * from './reports';
+export * from './orders';

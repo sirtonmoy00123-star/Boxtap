@@ -7,12 +7,15 @@ export interface Item {
   // Seller fields (S-01..S-10, ADR-012 jewellery)
   lowStockLevel: number | null; salePriceMinor: number | null; pricingMode: 'per_piece' | 'by_weight';
   weightMg: number | null; purity: string | null; makingChargeMinor: number | null;
+  /** Pro: what the seller paid for one (single owner device for now). */
+  costPriceMinor: number | null;
 }
 export interface ItemInput {
   workspaceId: string; locationId: string; name: string; altName?: string | null; notes?: string | null;
   valueEstimateMinor?: number | null;
   lowStockLevel?: number | null; salePriceMinor?: number | null; pricingMode?: 'per_piece' | 'by_weight';
   weightMg?: number | null; purity?: string | null; makingChargeMinor?: number | null;
+  costPriceMinor?: number | null;
 }
 
 const toItem = (r: Record<string, unknown>): Item => ({
@@ -22,6 +25,7 @@ const toItem = (r: Record<string, unknown>): Item => ({
   lowStockLevel: r.low_stock_level == null ? null : num(r.low_stock_level), salePriceMinor: r.sale_price_minor == null ? null : num(r.sale_price_minor),
   pricingMode: (r.pricing_mode as Item['pricingMode']) ?? 'per_piece', weightMg: r.weight_mg == null ? null : num(r.weight_mg),
   purity: str(r.purity), makingChargeMinor: r.making_charge_minor == null ? null : num(r.making_charge_minor),
+  costPriceMinor: r.cost_price_minor == null ? null : num(r.cost_price_minor),
 });
 
 function wholeOrNull(v: number | null | undefined, field: string, min: number): number | null {
@@ -41,12 +45,12 @@ export function addItem(ctx: Ctx, i: ItemInput): Item {
   const t = ctx.now();
   write(ctx, () => ctx.db.exec({
     sql: `INSERT INTO items (id,workspace_id,location_id,name,alt_name,notes,value_estimate_minor,low_stock_level,sale_price_minor,
-            pricing_mode,weight_mg,purity,making_charge_minor,created_at,updated_at)
-          SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,? WHERE EXISTS (SELECT 1 FROM locations WHERE id=? AND workspace_id=? AND deleted_at IS NULL)`,
+            pricing_mode,weight_mg,purity,making_charge_minor,cost_price_minor,created_at,updated_at)
+          SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,? WHERE EXISTS (SELECT 1 FROM locations WHERE id=? AND workspace_id=? AND deleted_at IS NULL)`,
     bind: [id, i.workspaceId, i.locationId, requireText(i.name, 'name', 120), optionalText(i.altName, 'alt_name', 120),
       optionalText(i.notes, 'notes', 2000), money(i.valueEstimateMinor), wholeOrNull(i.lowStockLevel, 'low stock level', 0),
       money(i.salePriceMinor), i.pricingMode ?? 'per_piece', wholeOrNull(i.weightMg, 'weight', 1), optionalText(i.purity, 'purity', 20),
-      money(i.makingChargeMinor), t, t, i.locationId, i.workspaceId],
+      money(i.makingChargeMinor), money(i.costPriceMinor), t, t, i.locationId, i.workspaceId],
   }));
   const item = getItem(ctx, id);
   if (!item) throw new Error('box not found in this workspace');
@@ -76,6 +80,7 @@ export function updateItem(ctx: Ctx, id: string, i: Partial<Omit<ItemInput, 'wor
   if ('weightMg' in i) set('weight_mg', wholeOrNull(i.weightMg, 'weight', 1));
   if ('purity' in i) set('purity', optionalText(i.purity, 'purity', 20));
   if ('makingChargeMinor' in i) set('making_charge_minor', money(i.makingChargeMinor));
+  if ('costPriceMinor' in i) set('cost_price_minor', money(i.costPriceMinor));
   if (i.locationId) {
     // Moving an item to another box of the same workspace.
     cols.push(`location_id=(SELECT id FROM locations WHERE id=? AND workspace_id=items.workspace_id AND deleted_at IS NULL)`);

@@ -28,12 +28,20 @@ function qty(q: number): number {
   return q;
 }
 
+/**
+ * Every movement keeps the item's sale price and cost at that moment (v2), so later price changes never rewrite
+ * past sales or profit. An undo copies them from the movement it reverses.
+ */
 function insertMovement(ctx: Ctx, m: { workspaceId: string; itemId: string; onHand: number; reserved: number; reason: string; reversesId?: string | null; note?: string | null }): string {
   const id = newId();
+  const priceSql = m.reversesId
+    ? `(SELECT unit_price_minor FROM stock_movements WHERE id = ?), (SELECT unit_cost_minor FROM stock_movements WHERE id = ?)`
+    : `(SELECT sale_price_minor FROM items WHERE id = ?), (SELECT cost_price_minor FROM items WHERE id = ?)`;
+  const key = m.reversesId ?? m.itemId;
   ctx.db.exec({
-    sql: `INSERT INTO stock_movements (id,workspace_id,item_id,on_hand_delta,reserved_delta,reason,reverses_id,happened_at,note)
-          VALUES (?,?,?,?,?,?,?,?,?)`,
-    bind: [id, m.workspaceId, m.itemId, m.onHand, m.reserved, m.reason, m.reversesId ?? null, ctx.now(), m.note ?? null],
+    sql: `INSERT INTO stock_movements (id,workspace_id,item_id,on_hand_delta,reserved_delta,reason,reverses_id,happened_at,note,unit_price_minor,unit_cost_minor)
+          VALUES (?,?,?,?,?,?,?,?,?,${priceSql})`,
+    bind: [id, m.workspaceId, m.itemId, m.onHand, m.reserved, m.reason, m.reversesId ?? null, ctx.now(), m.note ?? null, key, key],
   });
   return id;
 }
@@ -121,7 +129,7 @@ export function moveStock(ctx: Ctx, itemId: string, targetBoxId: string, quantit
     if (!targetId) {
       const copy = addItem(ctx, {
         workspaceId: it.workspaceId, locationId: targetBoxId, name: it.name, altName: it.altName, notes: it.notes,
-        valueEstimateMinor: it.valueEstimateMinor, lowStockLevel: it.lowStockLevel, salePriceMinor: it.salePriceMinor,
+        valueEstimateMinor: it.valueEstimateMinor, lowStockLevel: it.lowStockLevel, salePriceMinor: it.salePriceMinor, costPriceMinor: it.costPriceMinor,
         weightMg: it.weightMg, purity: it.purity, makingChargeMinor: it.makingChargeMinor, pricingMode: it.pricingMode,
       });
       targetId = copy.id;

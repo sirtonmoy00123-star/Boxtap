@@ -6,6 +6,13 @@ import { SCHEMA_VERSION } from './schema';
 import { createService, BlockedError, type Service } from '../service/service';
 import { exportSnapshot, validateImport } from '../backup/snapshot';
 import type { OpenInfo, Request, Response, RestoreResult } from './protocol';
+import { DEFAULT_CONFIG } from '../licensing/can';
+import type { Plan } from '../licensing/licence';
+
+// Ruling (build): paid plans (licence keys) are skipped for now (owner, 2026-11-25). A build setting unlocks the
+// paid features for testing; it must stay unset for real customers. Free limits apply otherwise.
+const PREVIEW = import.meta.env.VITE_PREVIEW_PAID_PLANS === '1';
+const entitlement = () => ({ config: DEFAULT_CONFIG, plans: new Set<Plan>(PREVIEW ? ['move_pass', 'seller_pro'] : []) });
 
 declare const self: DedicatedWorkerGlobalScope;
 
@@ -40,7 +47,7 @@ let persistent = true;
 function attach(handle: DB): number {
   db = handle;
   const from = migrate(handle as unknown as SqlDb);
-  service = createService({ db: handle as unknown as SqlDb, now: () => new Date().toISOString() });
+  service = createService({ db: handle as unknown as SqlDb, now: () => new Date().toISOString() }, entitlement);
   return from;
 }
 
