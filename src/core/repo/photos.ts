@@ -53,6 +53,22 @@ export function listPhotos(ctx: Ctx, parent: { locationId?: string; itemId?: str
   return ctx.db.selectObjects(`SELECT * FROM photos WHERE ${col}=? AND deleted_at IS NULL ORDER BY created_at`, [val]).map(toPhoto);
 }
 
+export interface ItemThumb { photoId: string; thumbName: string; fileName: string }
+
+/** First live photo of each live item in a box, keyed by item id (thumbnails in the contents list). */
+export function itemThumbs(ctx: Ctx, boxId: string): Record<string, ItemThumb> {
+  const rows = ctx.db.selectObjects(
+    `SELECT p.item_id, p.id, p.thumb_name, p.file_name FROM photos p JOIN items i ON i.id = p.item_id
+      WHERE i.location_id = ? AND i.deleted_at IS NULL AND p.deleted_at IS NULL
+      ORDER BY p.item_id, p.created_at, p.id`, [boxId]);
+  const out: Record<string, ItemThumb> = {};
+  for (const r of rows) {
+    const k = String(r.item_id);
+    out[k] ??= { photoId: String(r.id), thumbName: String(r.thumb_name), fileName: String(r.file_name) };
+  }
+  return out;
+}
+
 /** Every live photo (for backups and the restore download queue). */
 export function allLivePhotos(ctx: Ctx): Photo[] {
   return ctx.db.selectObjects(`SELECT * FROM photos WHERE deleted_at IS NULL ORDER BY created_at`).map(toPhoto);

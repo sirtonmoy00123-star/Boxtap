@@ -22,12 +22,26 @@ export async function encodeWithin(encode: Encoder, maxBytes: number): Promise<B
   return out;
 }
 
+/** The photo's width from its header (load only, no full decode), or null where it can't be read. */
+function naturalWidth(file: Blob): Promise<number | null> {
+  if (typeof Image === 'undefined') return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img.naturalWidth || null); };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+    img.src = url;
+  });
+}
+
 async function bitmapAtWidth(file: Blob, width: number): Promise<ImageBitmap> {
   // Decode to the target width directly; height follows the aspect ratio. EXIF orientation is applied.
   const probe = await createImageBitmap(file, { resizeWidth: 64, imageOrientation: 'from-image' });
   const aspect = probe.height / probe.width;
   probe.close();
-  const w = Math.min(width, 4096);
+  // Never enlarge: a small photo keeps its own width.
+  const own = await naturalWidth(file);
+  const w = Math.max(1, Math.min(width, own ?? width, 4096));
   return createImageBitmap(file, { resizeWidth: w, resizeHeight: Math.max(1, Math.round(w * aspect)), resizeQuality: 'high', imageOrientation: 'from-image' });
 }
 

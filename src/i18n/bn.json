@@ -226,5 +226,9 @@
   "item.byWeight": "ওজন অনুযায়ী দাম",
   "item.delete": "জিনিসটি সরান",
   "settings.jewellery": "গয়নার ঘর (ওজন, বিশুদ্ধতা, মজুরি)",
+  "photos.addFor": "{name}-এর ছবি যোগ করুন",
+  "photos.of": "{name}-এর ছবি",
+  "photos.openItem": "জিনিসটি খুলুন",
+  "item.value": "মূল্য (বিমার জন্য)",
   "error.generic": "কিছু ভুল হয়েছে: {msg}"
 }

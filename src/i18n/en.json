@@ -226,5 +226,9 @@
   "item.byWeight": "Priced by weight",
   "item.delete": "Remove item",
   "settings.jewellery": "Jewellery fields (weight, purity, making charge)",
+  "photos.addFor": "Add photo of {name}",
+  "photos.of": "Photo of {name}",
+  "photos.openItem": "Open item",
+  "item.value": "Value (for insurance, $)",
   "error.generic": "Something went wrong: {msg}"
 }

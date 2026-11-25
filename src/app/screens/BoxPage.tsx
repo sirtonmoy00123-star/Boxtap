@@ -3,8 +3,8 @@ import { useApp } from '../context';
 import { navigate } from '../router';
 import { Button, Field, Page, inputClass } from '../ui';
 import { WorkerError } from '../../core/db/client';
-import type { Box, Item, Room } from '../../core/repo';
-import { PhotoStrip } from './Photos';
+import type { Box, Item, ItemThumb, Room } from '../../core/repo';
+import { ItemThumbButton, PhotoStrip } from './Photos';
 import { SellerItems } from './Seller';
 
 export function BoxPage({ id }: { id: string }) {
@@ -14,16 +14,21 @@ export function BoxPage({ id }: { id: string }) {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [draft, setDraft] = useState({ name: '', spot: '', notes: '' });
   const [newItem, setNewItem] = useState('');
+  const [thumbs, setThumbs] = useState<Record<string, ItemThumb>>({});
+  const reloadItems = useCallback(async () => {
+    setItems(await db.listItems(id));
+    setThumbs(await db.itemThumbs(id));
+  }, [db, id]);
 
   const load = useCallback(async () => {
     const b = await db.getBox(id);
     setBox(b && !b.deletedAt ? b : null);
     if (b) {
       setDraft({ name: b.name ?? '', spot: b.spot ?? '', notes: b.notes ?? '' });
-      setItems(await db.listItems(id));
+      await reloadItems();
       setRooms(await db.listRooms(b.workspaceId));
     }
-  }, [db, id]);
+  }, [db, id, reloadItems]);
   useEffect(() => { void load(); }, [load]);
 
   if (box === undefined) return null;
@@ -62,7 +67,7 @@ export function BoxPage({ id }: { id: string }) {
     try {
       await db.addItem({ workspaceId: box.workspaceId, locationId: id, name: newItem });
       setNewItem('');
-      setItems(await db.listItems(id));
+      await reloadItems();
     } catch (e) {
       if (e instanceof WorkerError && e.reason) showUpgrade(e.reason);
       else throw e;
@@ -70,7 +75,7 @@ export function BoxPage({ id }: { id: string }) {
   };
   const removeItem = async (itemId: string) => {
     await db.deleteItem(itemId);
-    setItems(await db.listItems(id));
+    await reloadItems();
   };
   const remove = async () => {
     await db.deleteBox(id);
@@ -84,12 +89,13 @@ export function BoxPage({ id }: { id: string }) {
       <section className="mt-4">
         <h2 className="text-lg font-semibold">{t('box.items')}</h2>
         {workspace?.type === 'seller' ? (
-          <SellerItems box={box} items={items} reload={async () => setItems(await db.listItems(id))} />
+          <SellerItems box={box} items={items} thumbs={thumbs} reload={reloadItems} />
         ) : (
           <ul className="divide-y" aria-label="items">
             {items.map((it) => (
-              <li key={it.id} className="flex items-center justify-between py-2">
-                <span>{it.name}</span>
+              <li key={it.id} className="flex items-center gap-3 py-2">
+                <ItemThumbButton workspaceId={box.workspaceId} itemId={it.id} itemName={it.name} thumb={thumbs[it.id]} onChanged={() => void reloadItems()} />
+                <button type="button" className="flex-1 text-left" onClick={() => navigate(`/item/${it.id}`)}>{it.name}</button>
                 <Button variant="ghost" onClick={() => removeItem(it.id)} aria-label={`${t('box.removeItem')} ${it.name}`}>×</Button>
               </li>
             ))}

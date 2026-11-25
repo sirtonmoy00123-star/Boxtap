@@ -132,3 +132,18 @@ describe('photo queue helpers', () => {
     expect(R.getPhoto(ctx, p.id)!.driveFileId).toBeNull();
   });
 });
+
+describe('item thumbnails in a box', () => {
+  it('gives the first live photo of each item in the box', () => {
+    const ws = svc.createWorkspace({ type: 'home', name: 'M', country: 'AU', currency: 'AUD', language: 'en' });
+    const box = svc.createBox(ws.id, {});
+    const a = svc.addItem({ workspaceId: ws.id, locationId: box.id, name: 'Kettle' });
+    const b = svc.addItem({ workspaceId: ws.id, locationId: box.id, name: 'Toaster' });
+    svc.addItem({ workspaceId: ws.id, locationId: box.id, name: 'Mugs' });
+    const pa = svc.addPhoto(photo({ workspaceId: ws.id, itemId: a.id }));
+    const pb = svc.addPhoto(photo({ workspaceId: ws.id, itemId: b.id }));
+    svc.deletePhoto(pb.id);
+    const thumbs = svc.itemThumbs(box.id);
+    expect(thumbs).toEqual({ [a.id]: { photoId: pa.id, thumbName: pa.thumbName, fileName: pa.fileName } });
+  });
+});

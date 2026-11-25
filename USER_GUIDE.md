@@ -39,6 +39,8 @@ Free plan: up to 12 boxes in Home mode, or 50 items in Seller mode. When you rea
 - **Box number and label code**: the code printed on its QR label.
 - **Contents**:
   - Type an item and tap **Add item** (or press Enter).
+  - **Camera square** beside an item: tap to add its photo (camera or library). Once it has one, the square shows the photo; tap it to see it large, then **Open item** for the full item page.
+  - Tap an item's name for its page: photos at the top (**Add photo**), other name (found by search), notes and value (for insurance).
   - **×** next to an item moves it to the Bin.
 - **Name**: for example "Kitchen 1".
 - **Photos**: **Add photo** opens the camera or your photo library. Photos are shrunk to about 200 KB. Tap a photo to see it large, or to **Delete photo**. Free plan: 1 photo per box.

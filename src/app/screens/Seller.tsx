@@ -3,10 +3,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { useApp } from '../context';
 import { navigate } from '../router';
 import { Button, Field, Page, inputClass } from '../ui';
-import { PhotoStrip } from './Photos';
+import { ItemThumbButton, PhotoStrip } from './Photos';
 import { WorkerError } from '../../core/db/client';
 import { asciiDigits, type Key } from '../../i18n/i18n';
-import type { Box, Item, LowStockRow, Movement, StockReason } from '../../core/repo';
+import type { Box, Item, ItemThumb, LowStockRow, Movement, StockReason } from '../../core/repo';
 import type { Db } from '../../core/db/client';
 
 const toInt = (s: string): number | null => {
@@ -66,7 +66,7 @@ function UndoBar({ undo, onUndo }: { undo: { id: string; label: string } | null;
 }
 
 /** The item list of a Seller box: stock per item and one-tap Sell / Add (S-02, S-03). */
-export function SellerItems({ box, items, reload }: { box: Box; items: Item[]; reload: () => Promise<void> }) {
+export function SellerItems({ box, items, thumbs, reload }: { box: Box; items: Item[]; thumbs: Record<string, ItemThumb>; reload: () => Promise<void> }) {
   const { db, t, toast } = useApp();
   const [undo, setUndo] = useUndo();
   const [counting, setCounting] = useState<Record<string, string> | null>(null);
@@ -93,6 +93,7 @@ export function SellerItems({ box, items, reload }: { box: Box; items: Item[]; r
       <ul className="divide-y" aria-label="items">
         {items.map((it) => (
           <li key={it.id} className="flex items-center gap-2 py-2">
+            <ItemThumbButton workspaceId={box.workspaceId} itemId={it.id} itemName={it.name} thumb={thumbs[it.id]} onChanged={() => void reload()} />
             <button type="button" className="flex-1 text-left" onClick={() => navigate(`/item/${it.id}`)}>
               <span className="block font-medium">{it.name}</span>
               <span className="text-sm text-slate-600" data-testid={`stock-${it.name}`}>
@@ -142,12 +143,13 @@ export function ItemPage({ id }: { id: string }) {
     setBoxes((await db.listBoxes(it.workspaceId)).filter((b) => b.id !== it.locationId));
     setDraft({
       name: it.name, altName: it.altName ?? '', price: fromMinor(it.salePriceMinor), low: it.lowStockLevel == null ? '' : String(it.lowStockLevel),
-      weight: it.weightMg == null ? '' : String(it.weightMg / 1000), purity: it.purity ?? '', making: fromMinor(it.makingChargeMinor), notes: it.notes ?? '',
+      value: fromMinor(it.valueEstimateMinor), weight: it.weightMg == null ? '' : String(it.weightMg / 1000), purity: it.purity ?? '', making: fromMinor(it.makingChargeMinor), notes: it.notes ?? '',
     });
   }, [db, id]);
   useEffect(() => { void load(); }, [load]);
 
   if (item === undefined) return null;
+  const seller = workspace?.type === 'seller';
   if (item === null || item.workspaceId !== workspace?.id) return <Page title={t('label.notMine')} back={() => navigate('/')}><p className="py-6">{t('label.notMine')}</p></Page>;
 
   const n = toInt(qty);
@@ -163,7 +165,9 @@ export function ItemPage({ id }: { id: string }) {
     try {
       await db.updateItem(item.id, {
         name: draft.name, altName: draft.altName, notes: draft.notes,
-        salePriceMinor: toMinor(draft.price ?? ''), lowStockLevel: toInt(draft.low ?? ''),
+        ...(workspace.type === 'seller'
+          ? { salePriceMinor: toMinor(draft.price ?? ''), lowStockLevel: toInt(draft.low ?? '') }
+          : { valueEstimateMinor: toMinor(draft.value ?? '') }),
         ...(workspace.jewelleryFields ? { weightMg: weight, purity: draft.purity, makingChargeMinor: toMinor(draft.making ?? '') } : {}),
       });
       toast(t('box.saved'));
@@ -198,11 +202,12 @@ export function ItemPage({ id }: { id: string }) {
 
   return (
     <Page title={item.name} back={() => navigate(`/box/${item.locationId}`)}>
-      <p className="text-lg" data-testid="item-stock">
+      <PhotoStrip workspaceId={item.workspaceId} parent={{ itemId: item.id }} />
+      {seller && <p className="mt-4 text-lg" data-testid="item-stock">
         {t('stock.inStock', { n: item.onHand - item.reserved })}{item.reserved > 0 ? ` · ${t('stock.booked', { n: item.reserved })}` : ''}
-      </p>
+      </p>}
 
-      <section className="mt-4">
+      {seller && <section className="mt-4">
         <Field label={t('stock.qty')}>
           <input className={inputClass} inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value)} />
         </Field>
@@ -213,9 +218,9 @@ export function ItemPage({ id }: { id: string }) {
             </Button>
           ))}
         </div>
-      </section>
+      </section>}
 
-      {boxes.length > 0 && (
+      {boxes.length > 0 && seller && (
         <section className="mt-6">
           <h2 className="text-lg font-semibold">{t('stock.move')}</h2>
           <div className="flex gap-2">
@@ -228,15 +233,15 @@ export function ItemPage({ id }: { id: string }) {
         </section>
       )}
 
-      <PhotoStrip workspaceId={item.workspaceId} parent={{ itemId: item.id }} />
-
       <section className="mt-6">
         <h2 className="text-lg font-semibold">{t('item.details')}</h2>
         {field('name', 'box.name')}
         {field('altName', 'item.altName')}
-        {field('price', workspace.currency === 'BDT' ? 'item.price' : 'item.priceAud', { numeric: true })}
-        {field('low', 'item.lowLevel', { numeric: true })}
-        {workspace.jewelleryFields && <>
+        {seller ? <>
+          {field('price', workspace.currency === 'BDT' ? 'item.price' : 'item.priceAud', { numeric: true })}
+          {field('low', 'item.lowLevel', { numeric: true })}
+        </> : field('value', 'item.value', { numeric: true })}
+        {seller && workspace.jewelleryFields && <>
           {field('weight', 'item.weight', { numeric: true })}
           {field('purity', 'item.purity')}
           {field('making', 'item.making', { numeric: true })}
@@ -245,7 +250,7 @@ export function ItemPage({ id }: { id: string }) {
         <Button className="w-full" onClick={() => void save()}>{t('box.save')}</Button>
       </section>
 
-      <section className="mt-6">
+      {seller && <section className="mt-6">
         <h2 className="text-lg font-semibold">{t('stock.history')}</h2>
         <ul className="divide-y" aria-label="history">
           {history.map((m) => (
@@ -258,7 +263,7 @@ export function ItemPage({ id }: { id: string }) {
             </li>
           ))}
         </ul>
-      </section>
+      </section>}
 
       <Button variant="danger" className="mt-8 w-full" onClick={async () => { await db.deleteItem(item.id); navigate(`/box/${item.locationId}`, true); }}>{t('item.delete')}</Button>
       <UndoBar undo={undo} onUndo={(mid) => void doUndo(mid)} />

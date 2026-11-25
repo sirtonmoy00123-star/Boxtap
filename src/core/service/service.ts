@@ -70,6 +70,7 @@ export function createService(ctx: Ctx, entitlement: () => Entitlement = () => (
     },
     listPhotos: (parent: { locationId?: string; itemId?: string }) => R.listPhotos(ctx, parent),
     allLivePhotos: () => R.allLivePhotos(ctx),
+    itemThumbs: (boxId: string) => R.itemThumbs(ctx, boxId),
     getPhoto: (id: string) => R.getPhoto(ctx, id),
     deletePhoto: (id: string) => R.deletePhoto(ctx, id),
     setPhotoDriveRef: (id: string, ref: string, fileId: string) => R.setPhotoDriveRef(ctx, id, ref, fileId),

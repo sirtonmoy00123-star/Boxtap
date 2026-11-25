@@ -133,7 +133,7 @@ test('back up, then restore on a fresh browser with the code; a wrong code chang
   await page.getByLabel('Add item').fill('Wedding album');
   await page.getByLabel('Add item').press('Enter');
   await expect(page.getByRole('list', { name: 'items' })).toContainText('Wedding album');
-  await page.getByLabel('Add photo').setInputFiles({ name: 'p.png', mimeType: 'image/png', buffer: await tinyPng(page) });
+  await page.getByLabel('Add photo', { exact: true }).setInputFiles({ name: 'p.png', mimeType: 'image/png', buffer: await tinyPng(page) });
   await expect(page.getByRole('list', { name: 'photos' }).locator('img')).toHaveCount(1, { timeout: 15_000 });
   await page.getByRole('button', { name: 'Back' }).click();
   await page.getByRole('button', { name: 'Settings' }).click();
@@ -222,11 +222,11 @@ test('add a photo to a box, see it after reload, and the free limit of 1 photo a
     const b: Blob = await new Promise((r) => c.toBlob((x) => r(x!), 'image/png'));
     return Array.from(new Uint8Array(await b.arrayBuffer()));
   });
-  await page.getByLabel('Add photo').setInputFiles({ name: 'photo.png', mimeType: 'image/png', buffer: Buffer.from(png) });
+  await page.getByLabel('Add photo', { exact: true }).setInputFiles({ name: 'photo.png', mimeType: 'image/png', buffer: Buffer.from(png) });
   await expect(page.getByRole('list', { name: 'photos' }).locator('img')).toHaveCount(1, { timeout: 15_000 });
   await page.reload();
   await expect(page.getByRole('list', { name: 'photos' }).locator('img')).toHaveCount(1, { timeout: 15_000 });
-  await page.getByLabel('Add photo').setInputFiles({ name: 'photo2.png', mimeType: 'image/png', buffer: Buffer.from(png) });
+  await page.getByLabel('Add photo', { exact: true }).setInputFiles({ name: 'photo2.png', mimeType: 'image/png', buffer: Buffer.from(png) });
   await expect(page.getByRole('dialog')).toContainText(/photo limit/);
 });
 
@@ -338,4 +338,24 @@ test('Seller: sell, undo, book, pack, move between boxes, low stock (critical te
   // Both boxes are now at or below 5 (the moved copy keeps the warning level).
   await page.getByRole('button', { name: 'Low stock (2)' }).click();
   await expect(page.getByRole('list', { name: 'low stock' }).getByRole('listitem')).toHaveCount(2);
+});
+
+test('item photos: camera button beside each item, thumbnail, large view, survives reload', async ({ page }) => {
+  needsPersistentStorage(test.info().project.name);
+  await newHome(page);
+  await page.getByRole('button', { name: 'Add box' }).click();
+  await page.getByLabel('Add item').fill('Kettle');
+  await page.getByLabel('Add item').press('Enter');
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: 'Add photo of Kettle' }).click();
+  await (await chooser).setFiles({ name: 'k.png', mimeType: 'image/png', buffer: await tinyPng(page) });
+  const thumb = page.getByRole('button', { name: 'Photo of Kettle' });
+  await expect(thumb.locator('img')).toHaveCount(1, { timeout: 15_000 });
+  await page.reload();
+  await expect(thumb.locator('img')).toHaveCount(1, { timeout: 15_000 });
+  await thumb.click();
+  await expect(page.getByRole('dialog').getByRole('img', { name: 'Kettle' })).toBeVisible();
+  await page.getByRole('button', { name: 'Open item' }).click();
+  await expect(page.getByRole('heading', { name: 'Kettle' })).toBeVisible();
+  await expect(page.getByRole('list', { name: 'photos' }).locator('img')).toHaveCount(1);
 });
