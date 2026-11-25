@@ -85,3 +85,24 @@ END`);
     expect(r.ledgerRepaired).toBe(1);
   });
 });
+
+describe('import validation against crafted files (review finding 3)', () => {
+  it('refuses a trigger whose name starts with "sqlite" (LIKE wildcard trick)', () => {
+    const db = liveDb();
+    db.exec(`CREATE TRIGGER sqliteXwipe AFTER INSERT ON items BEGIN DELETE FROM items WHERE id <> NEW.id; END;`);
+    expect(() => validateImport(sqlite3, exportSnapshot(sqlite3, db))).toThrow(/schema/);
+  });
+  it('refuses a sqlite_-named trigger planted with writable_schema', () => {
+    const db = liveDb();
+    db.exec(`PRAGMA writable_schema = ON`);
+    db.exec(`INSERT INTO sqlite_master (type,name,tbl_name,rootpage,sql) VALUES ('trigger','sqlite_wipe','items',0,'CREATE TRIGGER sqlite_wipe AFTER INSERT ON items BEGIN DELETE FROM items WHERE id <> NEW.id; END')`);
+    db.exec(`PRAGMA writable_schema = OFF`);
+    expect(() => validateImport(sqlite3, exportSnapshot(sqlite3, db))).toThrow(ImportRejectedError);
+  });
+  it('refuses rows that break foreign keys', () => {
+    const db = liveDb();
+    db.exec(`PRAGMA foreign_keys = OFF`);
+    db.exec(`INSERT INTO items (id,workspace_id,location_id,name,created_at,updated_at) VALUES ('orphan','nope','nope','x','t','t')`);
+    expect(() => validateImport(sqlite3, exportSnapshot(sqlite3, db))).toThrow(/damaged/);
+  });
+});

@@ -184,3 +184,28 @@ describe('counts', () => {
     expect(R.counts(ctx, ws.id)).toEqual({ boxes: 2, items: 1 });
   });
 });
+
+describe('review findings 7 and 12', () => {
+  it('a purged-but-kept box (seller stock history) keeps its label and is hidden from the bin', () => {
+    const ws = R.createWorkspace(ctx, { type: 'seller', name: 'Shop', country: 'BD', currency: 'BDT', language: 'bn' });
+    const box = R.createBox(ctx, ws.id, {});
+    const it1 = R.addItem(ctx, { workspaceId: ws.id, locationId: box.id, name: 'Ring' });
+    db.exec(`INSERT INTO stock_movements (id,workspace_id,item_id,on_hand_delta,reason,happened_at) VALUES ('m1','${ws.id}','${it1.id}',3,'opening','${clock}')`);
+    R.deleteBox(ctx, box.id);
+    clock = '2027-01-30T00:00:00.000Z';
+    R.purgeBin(ctx);
+    expect(R.getBox(ctx, box.id)?.labelCode).toBe(box.labelCode);
+    expect(R.listBin(ctx, ws.id).boxes).toEqual([]);
+  });
+
+  it('restoring an item whose box is binned does not revive its photos', () => {
+    const ws = home();
+    const box = R.createBox(ctx, ws.id, {});
+    const it1 = R.addItem(ctx, { workspaceId: ws.id, locationId: box.id, name: 'Lamp' });
+    db.exec(`INSERT INTO photos (id,workspace_id,item_id,file_name,thumb_name,mime,bytes,created_at,updated_at) VALUES ('p1','${ws.id}','${it1.id}','a','b','image/webp',10,'${clock}','${clock}')`);
+    R.deleteItem(ctx, it1.id);
+    R.deleteBox(ctx, box.id);
+    R.restoreItem(ctx, it1.id);
+    expect(db.selectValue(`SELECT deleted_at IS NULL FROM photos WHERE id='p1'`)).toBe(0);
+  });
+});

@@ -52,7 +52,7 @@ export function App() {
     try {
       if (steal) {
         let db!: Db;
-        const lock = await takeOver(async () => { db = await openDb(); });
+        const lock = await takeOver(async () => { db = await openDb(false); });
         await start(db, lock);
         return;
       }

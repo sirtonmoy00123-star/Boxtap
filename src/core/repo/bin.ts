@@ -5,7 +5,9 @@ export interface BinBox { id: string; number: number; name: string | null; delet
 export interface BinItem { id: string; name: string; boxNumber: number; deletedAt: string }
 
 export function listBin(ctx: Ctx, workspaceId: string): { boxes: BinBox[]; items: BinItem[] } {
-  const boxes = ctx.db.selectObjects(`SELECT id, number, name, deleted_at FROM locations WHERE workspace_id=? AND deleted_at IS NOT NULL ORDER BY deleted_at DESC`, [workspaceId])
+  // Boxes binned over 30 days ago that the purge had to keep (stock history) are archived: hidden, not restorable here.
+  const cutoff = daysBefore(ctx.now(), 30);
+  const boxes = ctx.db.selectObjects(`SELECT id, number, name, deleted_at FROM locations WHERE workspace_id=? AND deleted_at IS NOT NULL AND deleted_at >= ? ORDER BY deleted_at DESC`, [workspaceId, cutoff])
     .map((r) => ({ id: String(r.id), number: num(r.number), name: str(r.name), deletedAt: String(r.deleted_at) }));
   // Items binned on their own (their box is still live).
   const items = ctx.db.selectObjects(
@@ -55,9 +57,9 @@ export function purgeBin(ctx: Ctx): PurgeResult {
       write(ctx, () => {
         dropPhotos(`location_id = ?`, [id]);
         dropItems(`location_id = ?`, [id]);
-        ctx.db.exec({ sql: `UPDATE labels SET location_id=NULL, retired_at=coalesce(retired_at, ?) WHERE location_id=?`, bind: [ctx.now(), id] });
         const pointed = ctx.db.selectValue(`SELECT EXISTS (SELECT 1 FROM items WHERE location_id=?) OR EXISTS (SELECT 1 FROM photos WHERE location_id=?)`, [id, id]);
         if (!num(pointed)) {
+          ctx.db.exec({ sql: `UPDATE labels SET location_id=NULL, retired_at=coalesce(retired_at, ?) WHERE location_id=?`, bind: [ctx.now(), id] });
           ctx.db.exec({ sql: `DELETE FROM locations WHERE id=?`, bind: [id] });
           res.boxes += 1;
         }

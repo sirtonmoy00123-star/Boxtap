@@ -54,8 +54,27 @@ describe('owner tools', () => {
 
   it('revoke adds the key id once to config.json', () => {
     const src = join(dir, 'config.json');
-    revoke(src, 'lk_abc');
-    revoke(src, 'lk_abc');
-    expect(JSON.parse(readFileSync(src, 'utf8')).revoked_keys).toEqual(['lk_abc']);
+    revoke(src, 'lk_0abc');
+    revoke(src, 'lk_0abc');
+    expect(JSON.parse(readFileSync(src, 'utf8')).revoked_keys).toEqual(['lk_0abc']);
+  });
+});
+
+describe('owner tools hardening (review findings 10, 11)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'boxtap-owner2-'));
+  const keyFile = join(dir, 'owner.keys.enc');
+  it('neutralises spreadsheet formulas in licences.csv', async () => {
+    await createKeyFile(keyFile, PASS, 2026);
+    const keys = await openKeyFile(keyFile, PASS);
+    const csv = join(dir, 'licences.csv');
+    await issueLicence(keys, { plan: 'move_pass', months: 12, licensee: '=HYPERLINK("http://x")', ref: '+1', startsAt: '2026-12-01', amount: '', currency: '', note: null, csvPath: csv });
+    const row = readFileSync(csv, 'utf8').split('\n')[1]!;
+    expect(row).toContain(`"'=HYPERLINK(""http://x"")"`);
+    expect(row).toContain(`,'+1,`);
+  });
+  it('refuses to sign when config.json is missing (would restart seq and be ignored by every app)', async () => {
+    const keys = await openKeyFile(keyFile, PASS);
+    await expect(signConfig(keys, join(dir, 'missing.json'), join(dir, 'out.json'))).rejects.toThrow(/config.json/);
+    expect(() => revoke(join(dir, 'missing.json'), 'lk_01abc')).toThrow(/config.json/);
   });
 });

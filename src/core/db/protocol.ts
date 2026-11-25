@@ -1,7 +1,7 @@
 import type { ServiceMethod } from '../service/service';
 
 export type Request =
-  | { id: number; type: 'open' }
+  | { id: number; type: 'open'; allowMemory: boolean }
   | { id: number; type: 'call'; method: ServiceMethod; args: unknown[] }
   | { id: number; type: 'close' }
   | { id: number; type: 'exportSnapshot' }

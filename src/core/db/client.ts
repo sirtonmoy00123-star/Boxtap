@@ -18,7 +18,8 @@ export type Db = Async<Service> & {
   restore(bytes: Uint8Array): Promise<RestoreResult>;
 };
 
-export async function openDb(): Promise<Db> {
+/** allowMemory=false when taking over from another tab: a busy file must fail (and be retried), not fall back. */
+export async function openDb(allowMemory = true): Promise<Db> {
   const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module', name: 'boxtap-db' });
   let next = 1;
   const pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: unknown) => void }>();
@@ -35,7 +36,13 @@ export async function openDb(): Promise<Db> {
     pending.set(id, { resolve, reject });
     worker.postMessage({ ...r, id } as Request);
   });
-  const info = (await send({ type: 'open' })) as OpenInfo;
+  let info: OpenInfo;
+  try {
+    info = (await send({ type: 'open', allowMemory })) as OpenInfo;
+  } catch (e) {
+    worker.terminate(); // a fresh worker per attempt: the VFS caches a failed install
+    throw e;
+  }
   const close = async () => { await send({ type: 'close' }); worker.terminate(); };
   const exportSnapshot = async () => (await send({ type: 'exportSnapshot' })) as Uint8Array;
   const restore = async (bytes: Uint8Array) => (await send({ type: 'restore', bytes })) as RestoreResult;

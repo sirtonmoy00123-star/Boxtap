@@ -42,7 +42,8 @@ export function exportSnapshot(sqlite3: Sqlite3, live: DB): Uint8Array {
 
 const norm = (s: unknown) => String(s ?? '').replace(/\s+/g, ' ').trim();
 function schemaOf(db: DB): string[] {
-  return db.selectObjects(`SELECT type, name, tbl_name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name`)
+  // Every schema row counts (review finding 3): only SQLite's own bookkeeping tables are ignored, by exact name.
+  return db.selectObjects(`SELECT type, name, tbl_name, sql FROM sqlite_master WHERE name NOT IN ('sqlite_sequence','sqlite_stat1','sqlite_stat4') ORDER BY type, name`)
     .map((r) => `${r.type}|${r.name}|${r.tbl_name}|${norm(r.sql)}`);
 }
 
@@ -87,6 +88,7 @@ export function validateImport(sqlite3: Sqlite3, bytes: Uint8Array): ValidatedIm
     const got = schemaOf(db);
     if (want.length !== got.length || want.some((w, i) => w !== got[i])) throw new ImportRejectedError('unexpected database schema');
     if (db.selectValue('PRAGMA quick_check') !== 'ok') throw new ImportRejectedError('the backup database is damaged');
+    if (db.selectValue('SELECT count(*) FROM pragma_foreign_key_check')) throw new ImportRejectedError('the backup database is damaged (broken links)');
     migrate(db as unknown as SqlDb);
     const ledgerRepaired = repairLedger(db as unknown as SqlDb);
     db.exec(DEVICE_LOCAL);

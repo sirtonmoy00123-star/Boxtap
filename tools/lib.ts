@@ -62,7 +62,11 @@ export interface IssueInput {
   amount: string; currency: string; note: string | null; csvPath: string;
 }
 
-const csvCell = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+// Cells starting with = + - @ tab or CR run as spreadsheet formulas (review finding 10): prefix them with '.
+const csvCell = (raw: string) => {
+  const v = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
+  return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+};
 const CSV_HEADER = 'issued_at,key_id,plan,months,starts_at,ends_at,licensee,ref,amount,currency,note';
 
 export async function issueLicence(keys: OwnerKeys, i: IssueInput): Promise<{ id: string; text: string; payload: LicencePayload }> {
@@ -91,6 +95,10 @@ function readBody(src: string): ConfigBody {
 
 /** Bumps seq, sets issued_at, signs canonical JSON of the body, writes src (unsigned) and out (signed). */
 export async function signConfig(keys: OwnerKeys, src: string, out: string, initial?: ConfigBody): Promise<SignedConfig> {
+  if (!initial && !existsSync(src)) {
+    // Review finding 11: signing from defaults would restart seq at 1, and every installed app would ignore it.
+    throw new Error(`${src} (config.json) not found. Restore config.json from your backup before signing.`);
+  }
   const body: ConfigBody = initial ? structuredClone(initial) : readBody(src);
   body.seq += 1;
   body.issued_at = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
@@ -104,7 +112,8 @@ export async function signConfig(keys: OwnerKeys, src: string, out: string, init
 }
 
 export function revoke(src: string, keyId: string): void {
-  if (!/^lk_[0-9a-f-]+$/i.test(keyId) && !keyId.startsWith('lk_')) throw new Error('key id must start with lk_');
+  if (!/^lk_[0-9a-f-]+$/i.test(keyId)) throw new Error('key id must look like lk_…');
+  if (!existsSync(src)) throw new Error(`${src} (config.json) not found. Restore config.json from your backup first.`);
   const body = readBody(src);
   if (!body.revoked_keys.includes(keyId)) body.revoked_keys.push(keyId);
   mkdirSync(dirname(src), { recursive: true });

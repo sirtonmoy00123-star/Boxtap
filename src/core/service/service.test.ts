@@ -18,13 +18,15 @@ describe('service gates writes with can()', () => {
     expect(svc.listBoxes(ws.id)).toHaveLength(12);
   });
 
-  it('a binned box frees a slot, but restoring it over the limit is blocked', () => {
+  it('restoring from the bin is never blocked, even over the free limit (H-06, review finding 6)', () => {
     const ws = svc.createWorkspace({ type: 'home', name: 'Move', country: 'AU', currency: 'AUD', language: 'en' });
     const first = svc.createBox(ws.id, {});
     for (let i = 0; i < 11; i++) svc.createBox(ws.id, {});
     svc.deleteBox(first.id);
     svc.createBox(ws.id, {});
-    expect(() => svc.restoreBox(first.id)).toThrow(BlockedError);
+    svc.restoreBox(first.id);
+    expect(svc.listBoxes(ws.id)).toHaveLength(13);
+    expect(() => svc.createBox(ws.id, {})).toThrow(BlockedError);
   });
 
   it('Seller Free: item 51 is blocked with limit_items', () => {

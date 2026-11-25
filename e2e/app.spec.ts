@@ -174,3 +174,21 @@ test('scan screen without a camera explains how to allow it', async ({ page, bro
   await page.getByRole('button', { name: 'Scan' }).click();
   await expect(page.getByRole('alert')).toContainText("BoxTap can't use the camera.");
 });
+
+test('works offline after the first load (critical test 3)', async ({ page, context, browserName }) => {
+  test.skip(browserName !== 'chromium', 'service-worker offline control is reliable in Chromium only under Playwright');
+  await newHome(page);
+  await page.getByRole('button', { name: 'Add box' }).click();
+  await page.getByLabel('Add item').fill('Torch');
+  await page.getByLabel('Add item').press('Enter');
+  await expect(page.getByRole('list', { name: 'items' })).toContainText('Torch');
+  await page.evaluate(async () => { await navigator.serviceWorker.ready; });
+  await page.reload(); // now controlled by the service worker
+  await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+  await context.setOffline(true);
+  await page.goto('/');
+  await expect(page.getByRole('list', { name: 'boxes' })).toContainText('1 items');
+  await page.getByLabel('Search items or boxes').fill('torch');
+  await expect(page.getByRole('list', { name: 'results' })).toContainText('Torch');
+  await context.setOffline(false);
+});

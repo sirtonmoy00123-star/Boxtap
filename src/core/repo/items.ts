@@ -78,6 +78,7 @@ export function restoreItem(ctx: Ctx, id: string): void {
     if (at == null) return;
     // Only into a live box.
     ctx.db.exec({ sql: `UPDATE items SET deleted_at=NULL, updated_at=? WHERE id=? AND EXISTS (SELECT 1 FROM locations WHERE id=items.location_id AND deleted_at IS NULL)`, bind: [t, id] });
+    if (ctx.db.changes() === 0) return; // its box is binned: restore the box instead
     ctx.db.exec({ sql: `UPDATE photos SET deleted_at=NULL, updated_at=? WHERE item_id=? AND deleted_at=?`, bind: [t, id, at] });
   });
 }

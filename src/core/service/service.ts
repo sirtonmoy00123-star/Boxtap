@@ -26,11 +26,6 @@ export function createService(ctx: Ctx, entitlement: () => Entitlement = () => (
     const r = can(feature, { config: e.config, plans: e.plans, workspaceType: ws.type, counts: { ...R.counts(ctx, workspaceId), photosOnParent } });
     if (!r.allowed) throw new BlockedError(r.reason);
   };
-  const boxWorkspace = (boxId: string) => {
-    const b = R.getBox(ctx, boxId);
-    if (!b) throw new Error('box not found');
-    return b.workspaceId;
-  };
 
   return {
     // Workspaces and rooms
@@ -49,7 +44,8 @@ export function createService(ctx: Ctx, entitlement: () => Entitlement = () => (
     listBoxes: (wsId: string) => R.listBoxes(ctx, wsId),
     updateBox: (id: string, b: R.BoxInput) => R.updateBox(ctx, id, b),
     deleteBox: (id: string) => R.deleteBox(ctx, id),
-    restoreBox: (id: string) => { gate('add_box', boxWorkspace(id)); R.restoreBox(ctx, id); },
+    // H-06 (review finding 6): restoring from the bin is access to existing data, never gated.
+    restoreBox: (id: string) => R.restoreBox(ctx, id),
     boxByLabel: (code: string) => R.boxByLabel(ctx, code),
     createSpareLabels: (wsId: string, n: number) => R.createSpareLabels(ctx, wsId, n),
     spareLabels: (wsId: string) => R.spareLabels(ctx, wsId),
@@ -62,9 +58,6 @@ export function createService(ctx: Ctx, entitlement: () => Entitlement = () => (
     updateItem: (id: string, i: Parameters<typeof R.updateItem>[2]) => R.updateItem(ctx, id, i),
     deleteItem: (id: string) => R.deleteItem(ctx, id),
     restoreItem: (id: string) => {
-      const it = R.getItem(ctx, id);
-      if (!it) throw new Error('item not found');
-      gate('add_item', it.workspaceId);
       R.restoreItem(ctx, id);
     },
 

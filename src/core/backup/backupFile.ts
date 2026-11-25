@@ -39,7 +39,6 @@ export async function createBackupFile(db: Db): Promise<File> {
   }
   const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
   const file = new File(parts, `BoxTap-backup-${stamp}.btbak`, { type: 'application/octet-stream' });
-  await db.markBackedUp(new Date().toISOString());
   return file;
 }
 

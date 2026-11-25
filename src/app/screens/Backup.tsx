@@ -133,8 +133,13 @@ export function Settings() {
     try {
       const f = await createBackupFile(db);
       const how = await deliverFile(f);
-      if (how !== 'cancelled') toast(t('settings.backupDone'));
-      setLast(new Date().toISOString());
+      if (how !== 'cancelled') {
+        // Review finding 5: record the backup only once the file was actually shared or downloaded.
+        const at = new Date().toISOString();
+        await db.markBackedUp(at);
+        setLast(at);
+        toast(t('settings.backupDone'));
+      }
     } catch (e) {
       toast(t('error.generic', { msg: (e as Error).message }));
     } finally {

@@ -16,6 +16,20 @@ type Pool = Awaited<ReturnType<Sqlite3['installOpfsSAHPoolVfs']>>;
 const DB_FILE = '/boxtap.sqlite3';
 /** Present only while a validated restore is being swapped in; its presence at start means "finish it". */
 const RESTORE_FILE = '/restore.sqlite3';
+/** The database as it was before the last restore (API_CONTRACTS §6: safety backup first). Kept until the next restore. */
+const SAFETY_FILE = '/before-restore.sqlite3';
+
+/** Errors that mean another tab still holds the storage handles: retry, never fall back to memory (review finding 1). */
+const isHandleBusy = (e: unknown) => ['NoModificationAllowedError', 'InvalidStateError'].includes((e as Error)?.name)
+  || /access handle|locked|busy/i.test(String((e as Error)?.message));
+
+function memoryDb(reason: unknown): DB {
+  // Ruling (build, narrowed after review): only when OPFS itself cannot work here (no API, or the browser's
+  // OPFS fails outright, as in Playwright's Windows WebKit). The UI shows the "can't store data" banner.
+  console.warn('OPFS unavailable, using memory', reason);
+  persistent = false;
+  return new sqlite3!.oo1.DB(':memory:', 'c');
+}
 
 let sqlite3: Sqlite3 | undefined;
 let pool: Pool | undefined;
@@ -30,28 +44,31 @@ function attach(handle: DB): number {
   return from;
 }
 
-async function open(): Promise<OpenInfo> {
+async function open(allowMemory: boolean): Promise<OpenInfo> {
   sqlite3 ??= await sqlite3InitModule();
-  let handle: DB;
-  try {
-    if (!pool) {
-      pool = await sqlite3.installOpfsSAHPoolVfs({ name: 'boxtap-pool', initialCapacity: 12 });
-      await pool.reserveMinimumCapacity(12); // live DB, journal, restore copy, VACUUM INTO target (DATABASE_SCHEMA §2)
-    } else {
-      await pool.unpauseVfs();
+  let handle: DB | undefined;
+  const hasOpfs = typeof navigator !== 'undefined' && !!navigator.storage?.getDirectory;
+  if (!hasOpfs) {
+    handle = memoryDb('no OPFS API');
+  } else if (!pool) {
+    try {
+      pool = await sqlite3.installOpfsSAHPoolVfs({ name: 'boxtap-pool', initialCapacity: 12, preserveOnInitFailure: true });
+      await pool.reserveMinimumCapacity(12); // live DB, journal, restore copy, safety copy (DATABASE_SCHEMA §2)
+    } catch (e) {
+      if (!allowMemory || isHandleBusy(e)) throw e; // another tab still holds the files: the caller retries
+      handle = memoryDb(e);
     }
-    if (pool.getFileNames().includes(RESTORE_FILE)) {
+  } else {
+    await pool.unpauseVfs();
+  }
+  if (!handle) {
+    // Review finding 2: from here on, failures must surface. Falling back to memory would hide the real data.
+    if (pool!.getFileNames().includes(RESTORE_FILE)) {
       // A restore was interrupted after validation: finish the swap (idempotent), then drop the marker file.
-      await pool.importDb(DB_FILE, pool.exportFile(RESTORE_FILE));
-      pool.unlink(RESTORE_FILE);
+      await pool!.importDb(DB_FILE, pool!.exportFile(RESTORE_FILE));
+      pool!.unlink(RESTORE_FILE);
     }
-    handle = new pool.OpfsSAHPoolDb(DB_FILE);
-  } catch (e) {
-    // Ruling (build): no OPFS (old browser, some private windows, Playwright's Windows WebKit). Run in memory
-    // and tell the UI, which shows the "can't store data" banner. An IndexedDB driver is a later addition.
-    console.warn('OPFS unavailable, using memory', e);
-    persistent = false;
-    handle = new sqlite3.oo1.DB(':memory:', 'c');
+    handle = new pool!.OpfsSAHPoolDb(DB_FILE);
   }
   const migratedFrom = attach(handle);
   return { persistent, schemaVersion: SCHEMA_VERSION, migratedFrom, sqliteVersion: sqlite3.version.libVersion };
@@ -70,21 +87,32 @@ async function restore(bytes: Uint8Array): Promise<RestoreResult> {
   const v = validateImport(sqlite3, bytes);
   if (persistent && pool) {
     const est = await navigator.storage?.estimate?.();
-    if (est?.quota != null && est.usage != null && est.quota - est.usage < v.bytes.length * 2) {
+    if (est?.quota != null && est.usage != null && est.quota - est.usage < v.bytes.length * 3) {
       throw new Error('Free up space on this device to restore');
     }
-    await pool.importDb(RESTORE_FILE, v.bytes);
+    const safety = sqlite3.capi.sqlite3_js_db_export(db);
+    await pool.importDb(SAFETY_FILE, safety); // review finding 4: keep what was there
+    await pool.importDb(RESTORE_FILE, v.bytes); // marker: a crash from here on finishes the swap at next start
     db.close();
     db = undefined;
-    await pool.importDb(DB_FILE, v.bytes);
-    pool.unlink(RESTORE_FILE);
-    attach(new pool.OpfsSAHPoolDb(DB_FILE));
+    service = undefined;
+    try {
+      await pool.importDb(DB_FILE, v.bytes);
+      pool.unlink(RESTORE_FILE);
+      attach(new pool.OpfsSAHPoolDb(DB_FILE));
+    } catch (e) {
+      // Review finding 9: put the previous database back and stay usable.
+      pool.unlink(RESTORE_FILE);
+      await pool.importDb(DB_FILE, safety);
+      attach(new pool.OpfsSAHPoolDb(DB_FILE));
+      throw e;
+    }
   } else {
-    db.close();
     const mem = new sqlite3.oo1.DB(':memory:', 'c');
     const p = sqlite3.wasm.allocFromTypedArray(v.bytes);
     mem.checkRc(sqlite3.capi.sqlite3_deserialize(mem, 'main', p, v.bytes.length, v.bytes.length,
       sqlite3.capi.SQLITE_DESERIALIZE_FREEONCLOSE | sqlite3.capi.SQLITE_DESERIALIZE_RESIZEABLE));
+    db.close(); // only after the new copy is ready
     attach(mem);
   }
   return { ...v.counts, fromVersion: v.fromVersion, ledgerRepaired: v.ledgerRepaired };
@@ -97,7 +125,7 @@ self.onmessage = async (ev: MessageEvent<Request>) => {
   try {
     let value: unknown;
     switch (req.type) {
-      case 'open': value = await open(); break;
+      case 'open': value = await open(req.allowMemory); break;
       case 'close': close(); break;
       case 'exportSnapshot': {
         if (!sqlite3 || !db) throw new Error('database is not open');
