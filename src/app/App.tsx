@@ -13,6 +13,7 @@ import { Bin, LabelRoute, NoDataLabel, Upgrade } from './screens/Misc';
 import { Settings } from './screens/Backup';
 import { PrintLabels, Scan } from './screens/ScanLabels';
 import { startSchedule } from '../core/drive/browserSync';
+import { removePhotoFile } from '../core/photos/store';
 import type { Lang } from '../i18n/i18n';
 
 type Boot =
@@ -44,7 +45,9 @@ export function App() {
     const saved = localStorage.getItem(WS_KEY);
     setWorkspaceState(workspaces.find((w) => w.id === saved) ?? workspaces[0] ?? null);
     setBoot({ s: 'ready', db, workspaces });
-    void db.purgeBin().catch((e) => console.warn('purge failed', e));
+    void db.purgeBin()
+      .then((r) => Promise.all(r.photoFiles.map((f) => removePhotoFile(f))))
+      .catch((e) => console.warn('purge failed', e));
     void requestPersistence().then(() => storageStatus()).then(setStorage);
   }, []);
 

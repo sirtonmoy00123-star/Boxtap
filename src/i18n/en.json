@@ -136,5 +136,17 @@
   "drive.restoreTitle": "Restore from Google Drive",
   "drive.signIn": "Sign in with Google",
   "drive.permission": "BoxTap needs Drive permission to back up. Try again and keep the Drive box ticked.",
+  "photos.title": "Photos",
+  "photos.add": "Add photo",
+  "photos.adding": "Saving photo…",
+  "photos.none": "No photos yet. A photo of what's inside helps you find things fast.",
+  "photos.delete": "Delete photo",
+  "photos.close": "Close",
+  "photos.full": "This device is out of storage space. The photo was not saved; your boxes are safe.",
+  "photos.notBackedUp": "This photo wasn't backed up.",
+  "photos.downloading": "Still downloading…",
+  "photos.waiting": "{n} photos waiting to upload",
+  "room.rename": "Rename room",
+  "room.renamePrompt": "New name for the room",
   "error.generic": "Something went wrong: {msg}"
 }

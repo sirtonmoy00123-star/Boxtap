@@ -192,3 +192,22 @@ test('works offline after the first load (critical test 3)', async ({ page, cont
   await expect(page.getByRole('list', { name: 'results' })).toContainText('Torch');
   await context.setOffline(false);
 });
+
+test('add a photo to a box, see it after reload, and the free limit of 1 photo applies', async ({ page }) => {
+  needsPersistentStorage(test.info().project.name);
+  await newHome(page);
+  await page.getByRole('button', { name: 'Add box' }).click();
+  // A real 64x48 PNG made in the page, handed to the file input like a camera photo.
+  const png = await page.evaluate(async () => {
+    const c = document.createElement('canvas'); c.width = 64; c.height = 48;
+    const g = c.getContext('2d')!; g.fillStyle = '#c33'; g.fillRect(0, 0, 64, 48);
+    const b: Blob = await new Promise((r) => c.toBlob((x) => r(x!), 'image/png'));
+    return Array.from(new Uint8Array(await b.arrayBuffer()));
+  });
+  await page.getByLabel('Add photo').setInputFiles({ name: 'photo.png', mimeType: 'image/png', buffer: Buffer.from(png) });
+  await expect(page.getByRole('list', { name: 'photos' }).locator('img')).toHaveCount(1, { timeout: 15_000 });
+  await page.reload();
+  await expect(page.getByRole('list', { name: 'photos' }).locator('img')).toHaveCount(1, { timeout: 15_000 });
+  await page.getByLabel('Add photo').setInputFiles({ name: 'photo2.png', mimeType: 'image/png', buffer: Buffer.from(png) });
+  await expect(page.getByRole('dialog')).toContainText(/photo limit/);
+});

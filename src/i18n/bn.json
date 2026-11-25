@@ -136,5 +136,17 @@
   "drive.restoreTitle": "Google Drive থেকে ফিরিয়ে আনুন",
   "drive.signIn": "Google দিয়ে সাইন ইন করুন",
   "drive.permission": "ব্যাকআপের জন্য BoxTap-এর Drive অনুমতি দরকার। আবার চেষ্টা করুন এবং Drive বক্সে টিক রাখুন।",
+  "photos.title": "ছবি",
+  "photos.add": "ছবি যোগ করুন",
+  "photos.adding": "ছবি সংরক্ষণ হচ্ছে…",
+  "photos.none": "এখনো কোনো ছবি নেই। ভেতরের জিনিসের ছবি থাকলে দ্রুত খুঁজে পাবেন।",
+  "photos.delete": "ছবি মুছুন",
+  "photos.close": "বন্ধ করুন",
+  "photos.full": "এই ডিভাইসে জায়গা নেই। ছবিটি সংরক্ষণ হয়নি; আপনার বাক্সগুলো নিরাপদ আছে।",
+  "photos.notBackedUp": "এই ছবিটির ব্যাকআপ নেওয়া হয়নি।",
+  "photos.downloading": "এখনো ডাউনলোড হচ্ছে…",
+  "photos.waiting": "{n}টি ছবি আপলোডের অপেক্ষায়",
+  "room.rename": "ঘরের নাম বদলান",
+  "room.renamePrompt": "ঘরের নতুন নাম",
   "error.generic": "কিছু ভুল হয়েছে: {msg}"
 }

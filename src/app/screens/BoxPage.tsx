@@ -4,6 +4,7 @@ import { navigate } from '../router';
 import { Button, Field, Page, inputClass } from '../ui';
 import { WorkerError } from '../../core/db/client';
 import type { Box, Item, Room } from '../../core/repo';
+import { PhotoStrip } from './Photos';
 
 export function BoxPage({ id }: { id: string }) {
   const { db, workspace, t, showUpgrade, toast } = useApp();
@@ -36,6 +37,13 @@ export function BoxPage({ id }: { id: string }) {
   };
   const toggle = async (field: 'isFragile' | 'openFirst') => {
     await db.updateBox(id, { [field]: !box[field] });
+    await load();
+  };
+  const renameRoom = async (roomId: string) => {
+    const current = rooms.find((r) => r.id === roomId)?.name ?? '';
+    const name = prompt(t('room.renamePrompt'), current)?.trim();
+    if (!name || name === current) return;
+    await db.renameRoom(roomId, name);
     await load();
   };
   const setRoom = async (value: string) => {
@@ -89,6 +97,8 @@ export function BoxPage({ id }: { id: string }) {
         </form>
       </section>
 
+      <PhotoStrip workspaceId={box.workspaceId} parent={{ locationId: box.id }} />
+
       <section className="mt-6">
         <Field label={t('box.name')}>
           <input className={inputClass} value={draft.name} maxLength={80} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
@@ -99,6 +109,9 @@ export function BoxPage({ id }: { id: string }) {
             {rooms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
             <option value="__new">{t('box.newRoom')}</option>
           </select>
+          {box.roomId && (
+            <Button variant="ghost" className="mt-1" onClick={() => void renameRoom(box.roomId!)}>{t('room.rename')}</Button>
+          )}
         </Field>
         <Field label={t('box.spot')}>
           <input className={inputClass} value={draft.spot} maxLength={80} onChange={(e) => setDraft({ ...draft, spot: e.target.value })} />

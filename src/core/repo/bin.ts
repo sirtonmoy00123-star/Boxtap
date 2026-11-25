@@ -1,5 +1,6 @@
 // The 30-day bin and its daily purge (DATABASE_SCHEMA §5 step 3).
 import { type Ctx, daysBefore, num, str, write } from './core';
+import { queueDriveDelete } from './photos';
 
 export interface BinBox { id: string; number: number; name: string | null; deletedAt: string }
 export interface BinItem { id: string; name: string; boxNumber: number; deletedAt: string }
@@ -28,45 +29,51 @@ export function purgeBin(ctx: Ctx): PurgeResult {
   const cutoff = daysBefore(ctx.now(), 30);
   const res: PurgeResult = { boxes: 0, items: 0, photos: 0, photoFiles: [] };
 
-  const dropPhotos = (where: string, bind: unknown[]) => {
-    const rows = ctx.db.selectObjects(`SELECT id, file_name, thumb_name FROM photos WHERE ${where}`, bind);
-    for (const r of rows) res.photoFiles.push(String(r.file_name), String(r.thumb_name));
-    if (rows.length) ctx.db.exec({ sql: `DELETE FROM photos WHERE ${where}`, bind });
-    res.photos += rows.length;
+  // Review finding 8: file names and counts from a savepoint are merged only after it commits.
+  const step = (label: string, fn: (acc: PurgeResult) => void) => {
+    const acc: PurgeResult = { boxes: 0, items: 0, photos: 0, photoFiles: [] };
+    try {
+      write(ctx, () => fn(acc));
+    } catch (e) {
+      console.warn(label, e);
+      return;
+    }
+    res.boxes += acc.boxes; res.items += acc.items; res.photos += acc.photos; res.photoFiles.push(...acc.photoFiles);
   };
-  const dropItems = (where: string, bind: unknown[]) => {
+  const dropPhotos = (acc: PurgeResult, where: string, bind: unknown[]) => {
+    const rows = ctx.db.selectObjects(`SELECT id, file_name, thumb_name, drive_file_id FROM photos WHERE ${where}`, bind);
+    for (const r of rows) {
+      acc.photoFiles.push(String(r.file_name), String(r.thumb_name));
+      queueDriveDelete(ctx, String(r.id), str(r.drive_file_id));
+    }
+    if (rows.length) ctx.db.exec({ sql: `DELETE FROM photos WHERE ${where}`, bind });
+    acc.photos += rows.length;
+  };
+  const dropItems = (acc: PurgeResult, where: string, bind: unknown[]) => {
     const w = `${where} AND NOT EXISTS (SELECT 1 FROM stock_movements m WHERE m.item_id = items.id)`;
-    dropPhotos(`item_id IN (SELECT id FROM items WHERE ${w})`, bind);
+    dropPhotos(acc, `item_id IN (SELECT id FROM items WHERE ${w})`, bind);
     ctx.db.exec({ sql: `DELETE FROM items WHERE ${w}`, bind });
-    res.items += ctx.db.changes();
+    acc.items += ctx.db.changes();
   };
 
-  // Items binned on their own.
-  try {
-    write(ctx, () => {
-      dropPhotos(`deleted_at IS NOT NULL AND deleted_at < ? AND item_id IS NOT NULL`, [cutoff]);
-      dropItems(`deleted_at IS NOT NULL AND deleted_at < ?`, [cutoff]);
-    });
-  } catch (e) {
-    console.warn('purge items failed', e);
-  }
+  // Photos and items binned on their own.
+  step('purge items failed', (acc) => {
+    dropPhotos(acc, `deleted_at IS NOT NULL AND deleted_at < ?`, [cutoff]);
+    dropItems(acc, `deleted_at IS NOT NULL AND deleted_at < ?`, [cutoff]);
+  });
 
   const boxIds = ctx.db.selectValues(`SELECT id FROM locations WHERE deleted_at IS NOT NULL AND deleted_at < ?`, [cutoff]).map(String);
   for (const id of boxIds) {
-    try {
-      write(ctx, () => {
-        dropPhotos(`location_id = ?`, [id]);
-        dropItems(`location_id = ?`, [id]);
-        const pointed = ctx.db.selectValue(`SELECT EXISTS (SELECT 1 FROM items WHERE location_id=?) OR EXISTS (SELECT 1 FROM photos WHERE location_id=?)`, [id, id]);
-        if (!num(pointed)) {
-          ctx.db.exec({ sql: `UPDATE labels SET location_id=NULL, retired_at=coalesce(retired_at, ?) WHERE location_id=?`, bind: [ctx.now(), id] });
-          ctx.db.exec({ sql: `DELETE FROM locations WHERE id=?`, bind: [id] });
-          res.boxes += 1;
-        }
-      });
-    } catch (e) {
-      console.warn('purge box failed', id, e);
-    }
+    step(`purge box ${id} failed`, (acc) => {
+      dropPhotos(acc, `location_id = ?`, [id]);
+      dropItems(acc, `location_id = ?`, [id]);
+      const pointed = ctx.db.selectValue(`SELECT EXISTS (SELECT 1 FROM items WHERE location_id=?) OR EXISTS (SELECT 1 FROM photos WHERE location_id=?)`, [id, id]);
+      if (!num(pointed)) {
+        ctx.db.exec({ sql: `UPDATE labels SET location_id=NULL, retired_at=coalesce(retired_at, ?) WHERE location_id=?`, bind: [ctx.now(), id] });
+        ctx.db.exec({ sql: `DELETE FROM locations WHERE id=?`, bind: [id] });
+        acc.boxes += 1;
+      }
+    });
   }
   return res;
 }

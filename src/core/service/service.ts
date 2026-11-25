@@ -62,6 +62,24 @@ export function createService(ctx: Ctx, entitlement: () => Entitlement = () => (
       R.restoreItem(ctx, id);
     },
 
+    // Photos (gated by can('add_photo'); deleting and reading are never gated)
+    addPhoto: (p: R.PhotoInput) => {
+      const parent = p.locationId ? { locationId: p.locationId } : { itemId: p.itemId! };
+      gate('add_photo', p.workspaceId, R.photosOnParent(ctx, parent));
+      return R.addPhoto(ctx, p);
+    },
+    listPhotos: (parent: { locationId?: string; itemId?: string }) => R.listPhotos(ctx, parent),
+    allLivePhotos: () => R.allLivePhotos(ctx),
+    getPhoto: (id: string) => R.getPhoto(ctx, id),
+    deletePhoto: (id: string) => R.deletePhoto(ctx, id),
+    setPhotoDriveRef: (id: string, ref: string, fileId: string) => R.setPhotoDriveRef(ctx, id, ref, fileId),
+    outboxDue: (nowIso: string) => R.outboxDue(ctx, nowIso),
+    outboxCount: (op?: R.OutboxRow['op']) => R.outboxCount(ctx, op),
+    outboxReserve: (photoId: string, fileId: string) => R.outboxReserve(ctx, photoId, fileId),
+    outboxDone: (photoId: string) => R.outboxDone(ctx, photoId),
+    outboxFailed: (photoId: string, error: string) => R.outboxFailed(ctx, photoId, error),
+    queuePhotoDownloads: () => R.queuePhotoDownloads(ctx),
+
     // Reading is never gated (H-06)
     search: (wsId: string, q: string) => R.search(ctx, wsId, q),
     counts: (wsId: string) => R.counts(ctx, wsId),

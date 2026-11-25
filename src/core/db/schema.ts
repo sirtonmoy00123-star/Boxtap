@@ -88,6 +88,7 @@ CREATE TABLE photos (
   mime TEXT NOT NULL CHECK (mime IN ('image/webp','image/jpeg')),
   bytes INTEGER NOT NULL CHECK (bytes BETWEEN 1 AND 600000),
   drive_ref TEXT, sha256 TEXT,
+  drive_file_id TEXT,                 -- Ruling (build, v1 unreleased): the Drive file id, needed to delete it
   created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT,
   CHECK ((location_id IS NULL) <> (item_id IS NULL))
 );
