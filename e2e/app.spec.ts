@@ -450,3 +450,17 @@ test('change the recovery code; a new backup opens with the new code only (audit
   await p2.getByRole('button', { name: 'Restore' }).click();
   await expect(p2.getByRole('heading', { name: 'My move' })).toBeVisible({ timeout: 30_000 });
 });
+
+test('Home lists: the removalist PDF is free; the family list needs the Move Pass', async ({ page }) => {
+  await page.addInitScript(() => { Object.defineProperty(navigator, 'canShare', { value: undefined }); });
+  await newHome(page);
+  await page.getByRole('button', { name: 'Add box' }).click();
+  await page.getByRole('button', { name: 'Fragile' }).click();
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: 'Settings' }).click();
+  const dl = page.waitForEvent('download');
+  await page.getByRole('button', { name: /^Removalist list/ }).click();
+  expect((await dl).suggestedFilename()).toBe('BoxTap-removalist-list.pdf');
+  await page.getByRole('button', { name: /^Family box list/ }).click();
+  await expect(page.getByRole('dialog')).toContainText('This needs a paid plan.');
+});

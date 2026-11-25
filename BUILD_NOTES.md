@@ -62,7 +62,8 @@ npx tsx tools/config.ts sign          # writes public/config/v1.json
 
 11. **Schema versions**: v1 was released with the first live test site (2026-11-25). v2 fixes phones set up then (adds photos.drive_file_id only if missing) and stores sale price and cost on each movement; v3 adds orders; v4 adds products and variant labels. Restore validation compares tables by columns and triggers/indexes by exact SQL. Cost if wrong: a crafted backup could drop CHECK constraints on its tables; triggers can still never be added.
 12. **Paid-plan preview switch**: VITE_PREVIEW_PAID_PLANS=1 unlocks Move Pass and Seller Pro in a build, for testing while licence keys are skipped. It must not be set for real customers. Run the Pro browser tests with: VITE_PREVIEW_PAID_PLANS=1 npm run build && PRO_E2E=1 npx playwright test e2e/pro.spec.ts.
-13. **Orders and the item page**: undoing a booked movement from an item page while it belongs to an open order is not blocked yet. Cost: the order and the stock can disagree until the line is removed.
+13. **Orders and Undo**: booking, packing or unbooking an item that sits in an open or packed order can't be undone from the item page; change it from the order. Cost: also blocks undoing a manual booking of that item while such an order exists.
+14. **Lost recovery code**: the Drive link is closed and the old folder is left (renamed when the next connect starts a new folder), not deleted. Cost: old encrypted files stay in the user's Drive until they delete them.
 
 ## Independent review, 2026-11-25
 

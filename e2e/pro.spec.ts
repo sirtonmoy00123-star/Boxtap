@@ -80,3 +80,31 @@ test('Pro: add a variant (size) with its own stock', async ({ page }) => {
   await expect(page.getByRole('list', { name: 'variants' })).toContainText('Size 8');
   await expect(page.getByText('All variants: 4 in stock')).toBeVisible();
 });
+
+test('Move Pass (preview): family and insurance lists download as PDFs', async ({ page }) => {
+  test.skip(!PRO, 'needs a VITE_PREVIEW_PAID_PLANS=1 build');
+  await page.addInitScript(() => { Object.defineProperty(navigator, 'canShare', { value: undefined }); });
+  await page.goto('/');
+  await page.evaluate(() => localStorage.setItem('boxtap.installGuideSnoozedAt', String(Date.now())));
+  await page.getByRole('button', { name: 'New to BoxTap' }).click();
+  await page.getByRole('button', { name: 'Start' }).click();
+  await expect(page.getByTestId('recovery-code').getByRole('listitem')).toHaveCount(12);
+  const words = (await page.getByTestId('recovery-code').getByRole('listitem').allInnerTexts()).map((x) => x.replace(/^\d+\.\s*/, '').trim());
+  await page.getByRole('button', { name: "I've written it down" }).click();
+  for (const label of (await page.locator('label span').allInnerTexts()).filter((l) => l.startsWith('Word '))) {
+    const n = Number(/Word (\d+)/.exec(label)?.[1]);
+    await page.getByLabel(label, { exact: true }).fill(words[n - 1]!);
+  }
+  await page.getByRole('button', { name: 'Confirm' }).click();
+  await expect(page.getByRole('heading', { name: 'My move' })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: 'Add box' }).click();
+  await page.getByLabel('Add item').fill('রাইস কুকার');
+  await page.getByLabel('Add item').press('Enter');
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: 'Settings' }).click();
+  for (const [btn, file] of [[/^Family box list/, 'BoxTap-family-list.pdf'], [/^Insurance list/, 'BoxTap-insurance-list.pdf']] as const) {
+    const dl = page.waitForEvent('download');
+    await page.getByRole('button', { name: btn }).click();
+    expect((await dl).suggestedFilename()).toBe(file);
+  }
+});

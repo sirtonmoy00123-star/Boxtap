@@ -109,7 +109,7 @@ export function RestoreFile({ db, t, onDone, onCancel }: { db: Db; t: T; onDone:
 }
 
 export function Settings() {
-  const { db, t, toast, setWorkspace, workspace } = useApp();
+  const { db, t, toast, setWorkspace, workspace, showUpgrade } = useApp();
   const [last, setLast] = useState<string | null>(null);
   const [ready, setReady] = useState<boolean | null>(null);
   const [mode, setMode] = useState<'main' | 'restore' | 'setup' | 'driveRestore' | 'changeCode' | 'newCode'>('main');
@@ -179,6 +179,26 @@ export function Settings() {
     );
   }
 
+  const shareList = async (kind: 'removalist' | 'family' | 'insurance') => {
+    if (!workspace) return;
+    if (kind !== 'removalist') {
+      const ok = await db.check(kind === 'family' ? 'share_pdf' : 'insurance_pdf', workspace.id);
+      if (!ok.allowed) { showUpgrade(ok.reason); return; }
+    }
+    setBusy(true);
+    try {
+      const [{ buildListPdf }, { gatherListBoxes }, { canvasTextRenderer }] = await Promise.all([
+        import('../../core/pdf/lists'), import('../../core/pdf/gather'), import('../../core/labels/textImage')]);
+      const boxes = await gatherListBoxes(db, workspace.id, kind !== 'removalist');
+      const pdf = await buildListPdf(kind, boxes, { title: workspace.name, currency: workspace.currency, renderText: canvasTextRenderer });
+      await deliverFile(new File([new Uint8Array(pdf)], `BoxTap-${kind}-list.pdf`, { type: 'application/pdf' }));
+      toast(t('lists.ready'));
+    } catch (e) {
+      toast(t('error.generic', { msg: (e as Error).message }));
+    } finally {
+      setBusy(false);
+    }
+  };
   const exportCsv = async () => {
     if (!workspace) return;
     const csv = await db.exportCsv(workspace.id);
@@ -242,6 +262,16 @@ export function Settings() {
             onChange={async (e) => { await db.setJewelleryFields(workspace.id, e.target.checked); setWorkspace({ ...workspace, jewelleryFields: e.target.checked }); }} />
           <span>{t('settings.jewellery')}</span>
         </label>
+      )}
+      {workspace?.type === 'home' && (
+        <>
+          <h2 className="mt-6 text-lg font-semibold">{t('lists.title')}</h2>
+          <div className="mt-3 flex flex-col gap-2">
+            <Button variant="secondary" disabled={busy} onClick={() => void shareList('removalist')}>{t('lists.removalist')}</Button>
+            <Button variant="secondary" disabled={busy} onClick={() => void shareList('family')}>{t('lists.family')}</Button>
+            <Button variant="secondary" disabled={busy} onClick={() => void shareList('insurance')}>{t('lists.insurance')}</Button>
+          </div>
+        </>
       )}
       <h2 className="mt-6 text-lg font-semibold">{t('settings.data')}</h2>
       <div className="mt-3 flex flex-col gap-2">

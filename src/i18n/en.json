@@ -300,5 +300,10 @@
   "code.lost": "Lost your code? Make a new one",
   "code.lostConfirm": "This makes a new code and a new backup key. Old backups will only open with the old code. If Google Drive is connected, connect it again afterwards and choose \"Start a new backup folder\". Continue?",
   "code.replaced": "New recovery code ready. Make a new backup now.",
+  "lists.title": "Share lists (PDF)",
+  "lists.removalist": "Removalist list (boxes, rooms, fragile)",
+  "lists.family": "Family box list (what is in each box)",
+  "lists.insurance": "Insurance list (items and values)",
+  "lists.ready": "List ready.",
   "error.generic": "Something went wrong: {msg}"
 }

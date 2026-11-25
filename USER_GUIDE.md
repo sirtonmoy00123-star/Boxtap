@@ -106,6 +106,8 @@ Marked **Pro**. They need the Seller Pro plan; while paid plans are skipped they
 - **Last backup**: when you last saved a backup file.
 - **Back up now**: makes an encrypted backup file, with your photos. On a phone, the share sheet opens: save it to Files, Google Drive or iCloud, or send it to yourself. On a computer, it downloads.
 - **Set up backups**: only shown if this phone has no recovery code yet.
+- **Change recovery code**: type your current 12 words, then write down and confirm a new code. New backups open only with the new code.
+- **Lost your code? Make a new one**: makes a new code and a new backup key. Old backups need the old code. If Drive is connected, connect it again and choose **Start a new backup folder**.
 - **Restore from a backup file**: choose the file, type your 12 words, **Restore**. This replaces everything in BoxTap on this phone. With a wrong code, nothing changes.
 
 ### Google Drive backup
@@ -124,6 +126,7 @@ Marked **Pro**. They need the Seller Pro plan; while paid plans are skipped they
   - The backup folder is in the Drive trash: use **Open Drive trash** to restore it.
   - Google storage is full.
   - The folder was deleted.
+- **Use this device instead**: shown when another phone took over the backup. If Drive has a newer copy, you can **Restore the newer copy here**, or **Replace it with this device** (type REPLACE; the newer copy is kept for 30 days).
 - **Disconnect Google Drive**: stops syncing. Your files stay in Drive; delete the folder there if you don't want them.
 
 ### Install BoxTap on this device
@@ -131,6 +134,12 @@ Marked **Pro**. They need the Seller Pro plan; while paid plans are skipped they
 Shown until BoxTap is installed.
 - **iPhone**: in Safari, tap Share, then **Add to Home Screen**, then **Add**, and open BoxTap from the new icon. Boxes added in a Safari tab don't move to the icon by themselves: back up in Safari, then restore in the installed app.
 - **Android / computer**: tap **Install**, or use the browser menu → Install app.
+
+### Share lists (PDF, Home mode)
+
+- **Removalist list** (free): box number, name, room, Fragile and Open first. It never shows what is inside.
+- **Family box list** (Move Pass): what is in each box, with a picture.
+- **Insurance list** (Move Pass): items with their values, box by box, and the total. Items without a value are marked.
 
 ### Your data
 
@@ -160,4 +169,3 @@ Shown until BoxTap is installed.
 ## Not in the app yet
 
 - Paid plans: entering a licence key, and payment links on the upgrade screen.
-- "Use this device instead" when another phone has taken over the Drive backup.

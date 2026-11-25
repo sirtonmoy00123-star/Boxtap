@@ -86,6 +86,10 @@ export function undoStock(ctx: Ctx, movementId: string): Movement {
     if (m.reason === 'undo') throw new Error('an undo cannot be undone');
     if (m.reason === 'moved_in' || m.reason === 'moved_out') throw new Error('undo a move by moving the stock back');
     if (m.undone) throw new Error('already undone');
+    if (['booked', 'unbooked', 'shipped'].includes(m.reason) && ctx.db.selectValue(
+      `SELECT 1 FROM order_lines l JOIN orders o ON o.id = l.order_id WHERE l.item_id = ? AND o.status IN ('open','packed') LIMIT 1`, [m.itemId])) {
+      throw new Error('this stock belongs to an order: change it from the order instead');
+    }
     if (Date.parse(ctx.now()) - Date.parse(m.happenedAt) > 24 * 3600 * 1000) throw new Error('can only undo within 24 hours');
     const it = getItem(ctx, m.itemId)!;
     const id = insertMovement(ctx, { workspaceId: it.workspaceId, itemId: m.itemId, onHand: -m.onHandDelta, reserved: -m.reservedDelta, reason: 'undo', reversesId: m.id });

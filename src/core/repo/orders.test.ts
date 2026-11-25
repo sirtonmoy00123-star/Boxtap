@@ -91,3 +91,21 @@ describe('orders (Pro)', () => {
     expect(() => R.createOrder(ctx, ws.id, { customer: ' ' })).toThrow(/customer/);
   });
 });
+
+describe('orders and Undo', () => {
+  it('a booking made by an order cannot be undone from the item page while the order is open', () => {
+    const o = R.createOrder(ctx, ws.id, { customer: 'Nusrat' });
+    R.addOrderLine(ctx, o.id, ring.id, 2);
+    const booked = R.itemHistory(ctx, ring.id).find((m) => m.reason === 'booked')!;
+    expect(() => R.undoStock(ctx, booked.id)).toThrow(/order/);
+    R.cancelOrder(ctx, o.id);
+    expect(stock(ring.id)).toEqual([5, 0]);
+  });
+  it('a sale of the same item can still be undone', () => {
+    const o = R.createOrder(ctx, ws.id, { customer: 'Nusrat' });
+    R.addOrderLine(ctx, o.id, ring.id, 1);
+    const sale = R.recordStock(ctx, ring.id, 'sold', 1);
+    R.undoStock(ctx, sale.id);
+    expect(stock(ring.id)).toEqual([5, 1]);
+  });
+});
