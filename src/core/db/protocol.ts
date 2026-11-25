@@ -5,7 +5,8 @@ export type Request =
   | { id: number; type: 'call'; method: ServiceMethod; args: unknown[] }
   | { id: number; type: 'close' }
   | { id: number; type: 'exportSnapshot' }
-  | { id: number; type: 'restore'; bytes: Uint8Array };
+  | { id: number; type: 'restore'; bytes: Uint8Array }
+  | { id: number; type: 'rescueExport' };
 
 export interface RestoreResult { boxes: number; items: number; fromVersion: number; ledgerRepaired: number }
 

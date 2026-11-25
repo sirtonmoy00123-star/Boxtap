@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { openDb, type Db } from '../core/db/client';
+import { openDb, rescueExport, type Db } from '../core/db/client';
+import { deliverFile } from '../core/backup/backupFile';
 import { tryAcquire, takeOver, type TabLock } from '../core/pwa/tabLock';
 import { requestPersistence, storageStatus, type StorageStatus } from '../core/pwa/storage';
 import type { Workspace } from '../core/repo';
@@ -131,6 +132,21 @@ export function App() {
       <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-4 px-6 text-center" data-boot={boot.s}>
         <p className="text-lg">{msg}</p>
         {boot.s === 'failed' && <p className="text-sm text-slate-500">{boot.msg}</p>}
+        {boot.s === 'failed' && (
+          <>
+            <p className="text-sm">{t('rescue.explain')}</p>
+            <Button variant="secondary" onClick={async () => {
+              try {
+                const bytes = await rescueExport();
+                const stamp = new Date().toISOString().slice(0, 10);
+                await deliverFile(new File([new Uint8Array(bytes)], `BoxTap-rescue-${stamp}.sqlite3`, { type: 'application/octet-stream' }));
+              } catch (e) {
+                alert(t('error.generic', { msg: (e as Error).message }));
+              }
+            }}>{t('rescue.save')}</Button>
+            <Button variant="ghost" onClick={() => location.reload()}>{t('rescue.retry')}</Button>
+          </>
+        )}
         {(boot.s === 'otherTab' || boot.s === 'lost') && (
           <Button onClick={() => bootUp(true)}>{boot.s === 'otherTab' ? t('boot.useHere') : t('boot.reload')}</Button>
         )}

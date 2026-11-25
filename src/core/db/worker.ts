@@ -142,6 +142,18 @@ self.onmessage = async (ev: MessageEvent<Request>) => {
         break;
       }
       case 'restore': value = await restore(req.bytes); break;
+      case 'rescueExport': {
+        // Rescue (DATABASE_SCHEMA §2, audit L9): the raw database file straight from storage, even when it can't open.
+        sqlite3 ??= await sqlite3InitModule();
+        pool ??= await sqlite3.installOpfsSAHPoolVfs({ name: 'boxtap-pool', initialCapacity: 12, preserveOnInitFailure: true });
+        const names = pool.getFileNames();
+        const file = names.includes(DB_FILE) ? DB_FILE : names.includes(SAFETY_FILE) ? SAFETY_FILE : null;
+        if (!file) throw new Error('no BoxTap database file on this device');
+        const bytes = pool.exportFile(file);
+        transfer.push(bytes.buffer as ArrayBuffer);
+        value = bytes;
+        break;
+      }
       case 'call': {
         if (!service) throw new Error('database is not open');
         const fn = service[req.method] as (...a: unknown[]) => unknown;

@@ -19,6 +19,19 @@ export type Db = Async<Service> & {
 };
 
 /** allowMemory=false when taking over from another tab: a busy file must fail (and be retried), not fall back. */
+/** Rescue copy of the raw database file, from a fresh worker that doesn't try to open it. */
+export async function rescueExport(): Promise<Uint8Array> {
+  const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module', name: 'boxtap-rescue' });
+  try {
+    return await new Promise<Uint8Array>((resolve, reject) => {
+      worker.onmessage = (ev: MessageEvent<Response>) => (ev.data.ok ? resolve(ev.data.value as Uint8Array) : reject(new Error(ev.data.error.message)));
+      worker.postMessage({ id: 1, type: 'rescueExport' } as Request);
+    });
+  } finally {
+    worker.terminate();
+  }
+}
+
 export async function openDb(allowMemory = true): Promise<Db> {
   const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module', name: 'boxtap-db' });
   let next = 1;

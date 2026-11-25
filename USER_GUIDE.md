@@ -85,6 +85,15 @@ Marked **Pro**. They need the Seller Pro plan; while paid plans are skipped they
   - **Send order to customer** shares the order as text (for example on WhatsApp).
 - **Variants** on the item page: **Add variant** (e.g. Size 8, Red) makes a separate item with its own stock, linked to the others. The item page lists all variants and the total in stock. Search finds variant names.
 
+## Spare labels
+
+- Scanning a blank spare label (or opening its link) asks which box you stuck it on: pick a box, or **Make a new box with this label**. A box can have more than one label.
+- Scanning a label from your other list on this phone opens that list.
+
+## If BoxTap can't open
+
+- If the app ever can't open its storage, it offers **Save a rescue copy** (the raw database file, not encrypted) and **Try again**. Keep the copy; it can be used to recover your data.
+
 ## Bin
 
 - Lists deleted boxes and deleted items, newest first.
@@ -101,6 +110,13 @@ Marked **Pro**. They need the Seller Pro plan; while paid plans are skipped they
 
 ## Settings
 
+### This list and your lists
+
+- **Name**: rename this list, then **Save**.
+- **English / বাংলা**: change the language of this list.
+- **Your lists on this phone**: every Home and Seller list on this phone. **Open** switches to another list. Lists are never mixed.
+- **Add another list**: make a new Home or Seller list (it uses the same recovery code and backups).
+
 ### Backup (a file you keep)
 
 - **Last backup**: when you last saved a backup file.
@@ -112,12 +128,14 @@ Marked **Pro**. They need the Seller Pro plan; while paid plans are skipped they
 
 ### Google Drive backup
 
+- On iPhone (home-screen app), or if Google's pop-up is blocked, BoxTap opens Google's sign-in page and comes back. Then tap the Drive button again to continue.
 - **Connect Google Drive**: sign in with Google and allow Drive. BoxTap then keeps an encrypted copy in a "BoxTap Backup" folder in *your* Drive. Nobody can read it without your 12 words.
   - If your Drive already has a BoxTap backup, you choose:
     - **Restore it**: bring it to this phone.
     - **Start a new backup folder**: the old folder is renamed and left alone.
 - **Status**: "Backed up to Google Drive · time", or "not backed up yet", plus the Google account.
 - **Back up to Drive now**: saves a copy straight away, then sends waiting photos.
+- **Pause photo uploads**: photos wait (for example while on mobile data; iPhone can't tell Wi-Fi from mobile data). Boxes and items still back up.
 - **N photos waiting to upload**: photos go to Drive once each, encrypted. On Android they wait for Wi-Fi.
 - **Changes not backed up · Tap to back up**: Google needs one tap each time you open the app (and after an hour) before BoxTap can save.
 - While the app is open, BoxTap saves by itself about 2 minutes after your last change, at most every 15 minutes.

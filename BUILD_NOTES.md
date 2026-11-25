@@ -65,6 +65,16 @@ npx tsx tools/config.ts sign          # writes public/config/v1.json
 13. **Orders and Undo**: booking, packing or unbooking an item that sits in an open or packed order can't be undone from the item page; change it from the order. Cost: also blocks undoing a manual booking of that item while such an order exists.
 14. **Lost recovery code**: the Drive link is closed and the old folder is left (renamed when the next connect starts a new folder), not deleted. Cost: old encrypted files stay in the user's Drive until they delete them.
 
+15. **Full-page sign-in hand-off**: /oauth puts the checked token in sessionStorage (same tab) for the seconds until the app starts and removes it. Cost: a deviation from "token never in storage"; the window is seconds and same-tab only.
+16. **Rescue copy** is the raw, unencrypted database file, offered only when the database can't open. Not tested in a browser (a broken database can't be forced in the E2E suite).
+17. **Sales before schema v2** have no stored price or cost, so reports count them with no revenue. The ledger is append-only, so they can't be backfilled. Only affects test data from 2026-11-25.
+18. **WebKit E2E retry**: Playwright's Windows WebKit build sometimes drops the tap on Print labels after scrolling; one retry is allowed there only. Chromium and phone-sized Chrome pass without retries.
+19. **Owner step for the full-page sign-in**: the Google client needs the redirect URI <site>/oauth (for example https://boxtap.sirtonmoy00123.workers.dev/oauth) under Authorized redirect URIs.
+
+## Second independent review, 2026-11-26
+
+A fresh reviewer found 19 issues. Fixed with tests: photos in Drive not recorded in snapshots (critical); order and item stock drifting (critical; schema v5 links order movements); binning items in open orders; variants mixed when moved and missing names; v1 backups from the in-between build refused; erase leaving the before-restore copy; box page losing typing; count below booked; binned photos blocking the queue; UTC report days; Seller CSV columns and file name; double taps; uncaught errors; no confirm before deleting; iPhone safe areas; touch targets and labels; silent self-check failures; iPhone share after long work. Not fixable: finding 12 (see ruling 17).
+
 ## Independent review, 2026-11-25
 
 A separate reviewer read the whole codebase against the docs. It reported 13 findings. Fixed, each with a test that failed first, or a browser check where only a browser can show it:
