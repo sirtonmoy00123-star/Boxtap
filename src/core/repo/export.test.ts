@@ -49,3 +49,15 @@ describe('erase all data (C-13)', () => {
     }
   });
 });
+
+describe('Seller CSV (review finding 15)', () => {
+  it('includes stock, booked and price for Seller lists', () => {
+    const ws = svc.createWorkspace({ type: 'seller', name: 'S', country: 'BD', currency: 'BDT', language: 'bn' });
+    const box = svc.createBox(ws.id, {});
+    const it = svc.addItem({ workspaceId: ws.id, locationId: box.id, name: 'Ring', salePriceMinor: 129900 });
+    svc.recordStock(it.id, 'restock', 3);
+    const lines = svc.exportCsv(ws.id).trim().split('\r\n');
+    expect(lines[0]).toBe('box_number,box_name,item,variant,alt_name,in_stock,booked,price,low_stock_level,notes');
+    expect(lines[1]).toBe('1,,Ring,,,3,0,1299.00,,');
+  });
+});

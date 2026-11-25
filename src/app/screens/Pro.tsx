@@ -42,7 +42,7 @@ export function ReportsPage() {
 
   useEffect(() => {
     const [from, to] = periodRange(period, Date.now());
-    void db.salesReport(ws.id, from, to).then(setRep).catch((e) => { if (!blocked(e)) throw e; });
+    void db.salesReport(ws.id, from, to, -new Date().getTimezoneOffset()).then(setRep).catch((e) => { if (!blocked(e)) throw e; });
     void db.stockValue(ws.id).then(setValue).catch(() => setValue(null));
   }, [db, ws.id, period]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -84,7 +84,7 @@ export function ReportsPage() {
               <ul className="mt-2 space-y-1" aria-label="sales by day">
                 {rep.byDay.map((d) => (
                   <li key={d.day} className="flex items-center gap-2 text-sm">
-                    <span className="w-24 shrink-0 text-slate-600">{d.day}</span>
+                    <span className="w-24 shrink-0 text-slate-600">{new Date(`${d.day}T12:00:00`).toLocaleDateString(ws.language === 'bn' ? 'bn-BD' : 'en-AU', { day: 'numeric', month: 'short' })}</span>
                     <span className="h-4 rounded bg-blue-600" style={{ width: `${Math.max(2, (d.revenueMinor / maxDay) * 60)}%` }} />
                     <span>{money(d.revenueMinor)}</span>
                   </li>

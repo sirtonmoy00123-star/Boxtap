@@ -10,8 +10,26 @@ const cell = (raw: string | null | undefined): string => {
 const money = (minor: unknown) => (minor == null ? '' : (num(minor) / 100).toFixed(2));
 const yesNo = (v: unknown) => (num(v) ? 'yes' : 'no');
 
+/** Seller lists: one row per live item with stock and price. */
+function exportSellerCsv(ctx: Ctx, workspaceId: string): string {
+  const rows = ctx.db.selectObjects(
+    `SELECT l.number, l.name AS box_name, i.name AS item, i.variant_label, i.alt_name, i.on_hand, i.reserved,
+            i.sale_price_minor, i.low_stock_level, i.notes
+       FROM items i JOIN locations l ON l.id = i.location_id
+      WHERE i.workspace_id = ? AND i.deleted_at IS NULL AND l.deleted_at IS NULL
+      ORDER BY l.number, i.created_at`, [workspaceId]);
+  const header = 'box_number,box_name,item,variant,alt_name,in_stock,booked,price,low_stock_level,notes';
+  const lines = rows.map((r) => [
+    String(num(r.number)), cell(str(r.box_name)), cell(str(r.item)), cell(str(r.variant_label)), cell(str(r.alt_name)),
+    String(num(r.on_hand) - num(r.reserved)), String(num(r.reserved)), money(r.sale_price_minor),
+    r.low_stock_level == null ? '' : String(num(r.low_stock_level)), cell(str(r.notes)),
+  ].join(','));
+  return '\uFEFF' + [header, ...lines].join('\r\n') + '\r\n';
+}
+
 /** One row per live item; boxes with no items get one row too. UTF-8 with a BOM so Excel shows Bangla. */
 export function exportCsv(ctx: Ctx, workspaceId: string): string {
+  if (ctx.db.selectValue(`SELECT type FROM workspaces WHERE id=?`, [workspaceId]) === 'seller') return exportSellerCsv(ctx, workspaceId);
   const rows = ctx.db.selectObjects(
     `SELECT l.number, l.name AS box_name, r.name AS room, l.spot, l.is_fragile, l.open_first, l.move_status,
             i.name AS item, i.alt_name, i.notes, i.value_estimate_minor

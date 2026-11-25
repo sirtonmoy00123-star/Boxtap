@@ -101,7 +101,7 @@ export function createService(ctx: Ctx, entitlement: () => Entitlement = () => (
     },
 
     // Seller Pro extras (Phase 3): reports, cost/profit and orders need the plan.
-    salesReport: (wsId: string, fromIso: string, toIso: string) => { gate('reports', wsId); return R.salesReport(ctx, wsId, fromIso, toIso); },
+    salesReport: (wsId: string, fromIso: string, toIso: string, tzOffsetMinutes = 0) => { gate('reports', wsId); return R.salesReport(ctx, wsId, fromIso, toIso, tzOffsetMinutes); },
     stockValue: (wsId: string) => { gate('cost_profit', wsId); return R.stockValue(ctx, wsId); },
     createOrder: (wsId: string, o: { customer: string; phone?: string | null; note?: string | null }) => { gate('orders', wsId); return R.createOrder(ctx, wsId, o); },
     listOrders: (wsId: string, status?: R.OrderStatus) => { gate('orders', wsId); return R.listOrders(ctx, wsId, status); },

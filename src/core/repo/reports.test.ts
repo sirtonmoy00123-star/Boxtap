@@ -76,3 +76,14 @@ describe('sales report (Pro)', () => {
     ]);
   });
 });
+
+describe('report days are local (review finding 11)', () => {
+  it('groups a 7 am Sydney sale on its local day, not the UTC day before', () => {
+    const ring = item('Ring', 1000, 500);
+    R.recordStock(ctx, ring.id, 'restock', 5);
+    clock = '2026-11-20T20:00:00.000Z'; // 21 Nov, 07:00 in Sydney (UTC+11)
+    R.recordStock(ctx, ring.id, 'sold', 1);
+    const r = R.salesReport(ctx, ws.id, '2026-11-20T00:00:00Z', '2026-11-22T00:00:00Z', 660);
+    expect(r.byDay.map((d) => d.day)).toEqual(['2026-11-21']);
+  });
+});

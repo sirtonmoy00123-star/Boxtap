@@ -24,7 +24,8 @@ const SALES = `
    WHERE m.workspace_id = ? AND m.happened_at >= ? AND m.happened_at < ?
      AND (m.reason IN ('sold','shipped','returned') OR (m.reason = 'undo' AND o.reason IN ('sold','shipped','returned')))`;
 
-export function salesReport(ctx: Ctx, workspaceId: string, fromIso: string, toIso: string): SalesReport {
+/** tzOffsetMinutes: the phone's offset from UTC (east positive), so days are the seller's own days (review finding 11). */
+export function salesReport(ctx: Ctx, workspaceId: string, fromIso: string, toIso: string, tzOffsetMinutes = 0): SalesReport {
   const bind = [workspaceId, fromIso, toIso];
   const [t] = ctx.db.selectObjects(
     `SELECT coalesce(sum(units),0) AS units, coalesce(sum(units * coalesce(price,0)),0) AS revenue,
@@ -37,8 +38,8 @@ export function salesReport(ctx: Ctx, workspaceId: string, fromIso: string, toIs
        FROM (${SALES}) s JOIN items i ON i.id = s.item_id
       GROUP BY s.item_id HAVING sum(s.units) > 0 ORDER BY units DESC, revenue DESC, i.name LIMIT 10`, bind);
   const days = ctx.db.selectObjects(
-    `SELECT substr(happened_at, 1, 10) AS day, sum(units) AS units, sum(units * coalesce(price,0)) AS revenue
-       FROM (${SALES}) GROUP BY day ORDER BY day`, bind);
+    `SELECT date(happened_at, ? || ' minutes') AS day, sum(units) AS units, sum(units * coalesce(price,0)) AS revenue
+       FROM (${SALES}) GROUP BY day ORDER BY day`, [(tzOffsetMinutes >= 0 ? '+' : '') + Math.round(tzOffsetMinutes), ...bind]);
   return {
     unitsSold: num(t!.units), revenueMinor: num(t!.revenue), costMinor: num(t!.cost), profitMinor: num(t!.profit),
     unitsWithoutCost: num(t!.no_cost),
