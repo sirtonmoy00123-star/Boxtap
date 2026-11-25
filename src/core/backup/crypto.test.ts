@@ -29,10 +29,11 @@ describe('recovery code', () => {
     const code = newRecoveryCode();
     expect(normaliseRecoveryCode(`  ${code.toUpperCase().replace(/ /g, ',  ')}\n`)).toBe(code);
   });
-  it('rejects a code with a typo (checksum)', () => {
-    const words = newRecoveryCode().split(' ');
-    words[3] = words[3] === 'abandon' ? 'ability' : 'abandon';
-    expect(isValidRecoveryCode(words.join(' '))).toBe(false);
+  it('rejects a code whose checksum does not match (typo)', () => {
+    // Known BIP39 vectors: 11 x abandon + about is valid; 12 x abandon fails the checksum.
+    expect(isValidRecoveryCode(Array(11).fill('abandon').join(' ') + ' about')).toBe(true);
+    expect(isValidRecoveryCode(Array(12).fill('abandon').join(' '))).toBe(false);
+    expect(isValidRecoveryCode('abandon abandon')).toBe(false);
   });
 });
 

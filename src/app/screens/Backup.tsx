@@ -152,6 +152,10 @@ export function Settings() {
           : <Button onClick={backup} disabled={busy || !ready}>{t('settings.backupNow')}</Button>}
         <Button variant="secondary" onClick={() => setMode('restore')}>{t('settings.restore')}</Button>
       </div>
+      <h2 className="mt-6 text-lg font-semibold">{t('labels.title')}</h2>
+      <div className="mt-3 flex flex-col gap-2">
+        <Button variant="secondary" onClick={() => navigate('/labels')}>{t('labels.title')}</Button>
+      </div>
     </Page>
   );
 }

@@ -6,6 +6,8 @@ export type Route =
   | { name: 'box'; id: string }
   | { name: 'bin' }
   | { name: 'settings' }
+  | { name: 'scan' }
+  | { name: 'labels' }
   | { name: 'label'; code: string }
   | { name: 'notFound' };
 
@@ -13,6 +15,8 @@ export function parseRoute(path: string): Route {
   if (path === '/' || path === '') return { name: 'home' };
   if (path === '/bin') return { name: 'bin' };
   if (path === '/settings') return { name: 'settings' };
+  if (path === '/scan') return { name: 'scan' };
+  if (path === '/labels') return { name: 'labels' };
   let m = /^\/box\/([0-9a-f-]{36})$/i.exec(path);
   if (m) return { name: 'box', id: m[1]! };
   m = /^\/b\/([^/]+)$/.exec(path);

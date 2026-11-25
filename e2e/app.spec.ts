@@ -149,3 +149,28 @@ test('back up, then restore on a fresh browser with the code; a wrong code chang
   await expect(p2.getByRole('button', { name: 'Back up now' })).toBeEnabled();
   await other.close();
 });
+
+test('print labels for all boxes produces a PDF (Phase 1 step 3)', async ({ page }) => {
+  await page.addInitScript(() => { Object.defineProperty(navigator, 'canShare', { value: undefined }); });
+  await newHome(page);
+  await page.getByRole('button', { name: 'Add box' }).click();
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Print labels' }).click();
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Make PDF' }).click();
+  const d = await download;
+  expect(d.suggestedFilename()).toBe('BoxTap-labels-L7165.pdf');
+  const { readFileSync } = await import('node:fs');
+  expect(readFileSync(await d.path()).subarray(0, 5).toString()).toBe('%PDF-');
+});
+
+test('scan screen without a camera explains how to allow it', async ({ page, browserName }) => {
+  test.skip(browserName !== 'chromium', 'camera denial is simulated in Chromium only');
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator.mediaDevices, 'getUserMedia', { value: () => Promise.reject(new DOMException('denied', 'NotAllowedError')) });
+  });
+  await newHome(page);
+  await page.getByRole('button', { name: 'Scan' }).click();
+  await expect(page.getByRole('alert')).toContainText("BoxTap can't use the camera.");
+});
