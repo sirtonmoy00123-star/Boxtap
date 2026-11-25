@@ -317,6 +317,8 @@
   "spare.stick": "Use this label for that box",
   "spare.newBox": "Make a new box with this label",
   "spare.done": "Label added to the box.",
+  "drive.pause": "Pause photo uploads",
+  "drive.pauseHint": "Photos wait until you switch this off, e.g. while on mobile data. Boxes and items still back up.",
   "error.generic": "Something went wrong: {msg}",
   "home.items.one": "{n} item",
   "rep.stockUnits.one": "{n} item",

@@ -115,3 +115,14 @@ describe('lists on one device (C-02)', () => {
     expect(() => svc.setWorkspaceLanguage(shop.id, 'fr' as 'en')).toThrow();
   });
 });
+
+describe('pause photo uploads', () => {
+  it('is stored on the Drive link and off by default', () => {
+    svc.setDriveLink({ googleEmail: 'a@b', folderId: 'f', snapshotsFolderId: 's', photosFolderId: 'p', lockFileId: 'l', deviceId: 'd', generation: 1, lastSnapshotSeq: 0, uploadedChangeSeq: 0, keyId: 'k', status: 'ok', lastSnapshotAt: null });
+    expect(svc.photoUploadsPaused()).toBe(false);
+    svc.setPhotoUploadsPaused(true);
+    expect(svc.photoUploadsPaused()).toBe(true);
+    svc.setDriveLink({ ...svc.getDriveLink()!, status: 'quota_full' });
+    expect(svc.photoUploadsPaused()).toBe(true);
+  });
+});

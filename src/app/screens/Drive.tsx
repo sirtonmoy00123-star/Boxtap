@@ -93,9 +93,11 @@ export function DriveSettings({ onRestore }: { onRestore: (folderId: string) => 
   const [error, setError] = useState<string | null>(null);
 
   const [waiting, setWaiting] = useState(0);
+  const [paused, setPaused] = useState(false);
   const refresh = useCallback(async () => {
     setLink(await db.getDriveLink());
     setWaiting(await db.outboxCount('upload'));
+    setPaused(await db.photoUploadsPaused());
   }, [db]);
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => onTokenChange(() => setHasToken(!!currentToken())), []);
@@ -176,6 +178,10 @@ export function DriveSettings({ onRestore }: { onRestore: (folderId: string) => 
             {link.lastSnapshotAt ? t('drive.backedUp', { when: new Date(link.lastSnapshotAt).toLocaleString() }) : t('drive.notYet')}
           </p>
           {link.googleEmail && <p className="text-sm text-slate-600">{t('drive.account', { email: link.googleEmail })}</p>}
+          <label className="flex min-h-12 items-center gap-3">
+            <input type="checkbox" className="h-5 w-5" checked={paused} onChange={async (e) => { await db.setPhotoUploadsPaused(e.target.checked); setPaused(e.target.checked); }} />
+            <span>{t('drive.pause')}<span className="block text-xs text-slate-500">{t('drive.pauseHint')}</span></span>
+          </label>
           {waiting > 0 && <p className="text-sm text-slate-600" data-testid="photos-waiting">{t('photos.waiting', { n: waiting })}</p>}
           {status === 'lock_lost' && <p role="alert" className="text-amber-900">{t('drive.lockLost')}</p>}
           {status === 'lock_lost' && !newer && <Button variant="secondary" onClick={useHere} disabled={busy}>{t('drive.useHere')}</Button>}

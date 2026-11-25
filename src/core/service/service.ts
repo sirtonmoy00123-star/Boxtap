@@ -182,6 +182,9 @@ export function createService(ctx: Ctx, entitlement: () => Entitlement = () => (
           l.lastSnapshotSeq, l.uploadedChangeSeq, l.keyId, l.status, l.lastSnapshotAt, new Date().toISOString()],
       });
     },
+    /** "Pause photo uploads" (iPhone Safari can't tell Wi-Fi from mobile data). Kept across Drive link updates. */
+    photoUploadsPaused: () => Number(ctx.db.selectValue('SELECT paused FROM drive_link WHERE id=1') ?? 0) === 1,
+    setPhotoUploadsPaused: (on: boolean) => { ctx.db.exec({ sql: 'UPDATE drive_link SET paused=? WHERE id=1', bind: [on ? 1 : 0] }); },
     /** All-workspace totals for the "Before big change" check (A4, §6.2 rule 8). */
     driveTotals: () => {
       const [r] = ctx.db.selectObjects(`SELECT (SELECT count(*) FROM locations WHERE deleted_at IS NULL) AS boxes,

@@ -72,7 +72,8 @@ async function photoHost(db: Db): Promise<PhotoHost> {
       await writePhotoFile(p.thumbName, await makeThumb(blob)).catch(() => {});
     },
     setDriveFile: (id, fileId) => db.setPhotoDriveFile(id, fileId),
-    mayUploadPhotos: async () => !onMobileData(), // "Upload photos only on Wi-Fi" is on by default (assumption 9)
+    // "Upload photos only on Wi-Fi" is on by default where the browser can tell (assumption 9); anyone can pause.
+    mayUploadPhotos: async () => !onMobileData() && !(await db.photoUploadsPaused()),
   };
 }
 
