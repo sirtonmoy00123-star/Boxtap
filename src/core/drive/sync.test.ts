@@ -207,3 +207,44 @@ describe('Drive sync engine', () => {
     expect(fake.files.size).toBe(n);
   });
 });
+
+describe('Use this device instead (audit B5 rule 3, critical test 32)', () => {
+  it('when Drive is newer, takeover is refused unless forced, and the newer copy is kept as "Before big change"', async () => {
+    const A = await device('A');
+    const sa = new DriveSync(api, A.host);
+    await sa.connect('a@x');
+    await sa.snapshotNow();
+    const B = new Host(null, 'B');
+    const sb = new DriveSync(api, B);
+    const d = await sb.inspect();
+    if (d.kind !== 'offer_restore') throw new Error('expected restore offer');
+    await sb.restore(d.folderId, A.code, 'a@x');
+    B.change = 77;
+    await sb.snapshotNow();
+    // Old phone A comes back.
+    A.host.change = 5;
+    expect(await sa.snapshotNow()).toBe('lock_lost');
+    expect(await sa.takeoverCheck()).toEqual({ driveIsNewer: true });
+    await expect(sa.takeOver()).rejects.toThrow(/newer/);
+    await sa.takeOver({ replaceNewer: true });
+    expect(A.host.link).toMatchObject({ status: 'ok', generation: 3 });
+    expect(await sa.snapshotNow()).toBe('uploaded');
+    const kept = [...fake.files.values()].filter((f) => f.appProperties.generation === '2' && f.appProperties.before_big_change === '1');
+    expect(kept.length).toBe(1);
+    expect(await sb.snapshotNow()).toBe('lock_lost');
+  });
+
+  it('when this device is the newest, takeover just takes the lock back', async () => {
+    const A = await device('A');
+    const sa = new DriveSync(api, A.host);
+    await sa.connect('a@x');
+    await sa.snapshotNow();
+    const lockId = A.host.link!.lockFileId;
+    fake.files.get(lockId)!.appProperties = { generation: '1', device_id: 'someone-else' };
+    A.host.change = 9;
+    expect(await sa.snapshotNow()).toBe('lock_lost');
+    expect(await sa.takeoverCheck()).toEqual({ driveIsNewer: false });
+    await sa.takeOver();
+    expect(await sa.snapshotNow()).toBe('uploaded');
+  });
+});

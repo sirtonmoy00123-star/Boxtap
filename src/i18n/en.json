@@ -285,5 +285,11 @@
   "var.add": "Add variant",
   "var.new": "New variant, e.g. Size 8",
   "var.total": "All variants: {n} in stock",
+  "drive.useHere": "Use this device instead",
+  "drive.useHereConfirm": "Make this device the one that backs up to Google Drive? The other device will stop syncing.",
+  "drive.newerThere": "Google Drive has a newer copy than this device.",
+  "drive.restoreNewer": "Restore the newer copy here",
+  "drive.replaceNewer": "Replace it with this device",
+  "drive.replacePrompt": "This replaces the newer copy (it is kept for 30 days). Type REPLACE to continue.",
   "error.generic": "Something went wrong: {msg}"
 }

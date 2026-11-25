@@ -1,7 +1,7 @@
 // Google Drive backup engine (ADR-020, ADR-022; API_CONTRACTS §6.1 and §6.2). Runs only in the tab holding the
 // Web Lock, only while the app is open and a token is held. The device stays the main store.
 import { DriveApi, DriveError, type DriveFile } from './api';
-import { connectDecision, isBigChange, lockState, newest, toPrune, type ConnectDecision, type Lock, type Snap, type Totals } from './rules';
+import { connectDecision, isBigChange, lockState, newest, takeoverDefault, toPrune, type ConnectDecision, type Lock, type Snap, type Totals } from './rules';
 import { decryptFile, encryptFile, importBackupKey, readHeader, unwrapBackupKey, type WrappedKey } from '../backup/crypto';
 import { pack, unpack } from '../backup/pack';
 import { bytesToHex } from '../util/encoding';
@@ -258,6 +258,34 @@ export class DriveSync {
       lastSnapshotSeq: pick.seq, uploadedChangeSeq: await this.host.changeSeq(), keyId: key.keyId, status: 'ok', lastSnapshotAt: null,
     });
     return result;
+  }
+
+  /** Before "Use this device instead": is the copy in Drive newer than what this device last uploaded? */
+  async takeoverCheck(): Promise<{ driveIsNewer: boolean }> {
+    const link = await this.host.getLink();
+    if (!link) throw new Error('not connected');
+    const { snaps } = await this.listSnapshots(link.snapshotsFolderId);
+    return { driveIsNewer: takeoverDefault({ generation: link.generation, seq: link.lastSnapshotSeq }, newest(snaps)) === 'restore_newer' };
+  }
+
+  /**
+   * "Use this device instead" (audit B5 rule 3). If Drive holds a newer copy, the default is to restore it here;
+   * replacing it needs replaceNewer (the UI asks the user to type REPLACE), and the newer copy is kept as
+   * "Before big change" for 30 days. Then this device takes the lock with a higher generation.
+   */
+  async takeOver(opts: { replaceNewer?: boolean } = {}): Promise<void> {
+    const link = await this.host.getLink();
+    if (!link) throw new Error('not connected');
+    const { snaps } = await this.listSnapshots(link.snapshotsFolderId);
+    const top = newest(snaps);
+    if (takeoverDefault({ generation: link.generation, seq: link.lastSnapshotSeq }, top) === 'restore_newer') {
+      if (!opts.replaceNewer) throw new Error('Google Drive has a newer copy. Restore it here, or confirm replacing it.');
+      await this.api.setProperties(top!.id, { before_big_change: '1' });
+    }
+    const lock = await this.readLock(link.lockFileId);
+    const generation = Math.max(lock?.generation ?? 0, link.generation, ...snaps.map((s) => s.generation)) + 1;
+    const lockFileId = await this.takeLock(lock ? link.lockFileId : undefined, link.folderId, link.deviceId, generation);
+    await this.host.setLink({ ...link, generation, lockFileId, status: 'ok', uploadedChangeSeq: -1 });
   }
 
   /** Stops syncing and forgets the folder. Files stay in the user's Drive. */

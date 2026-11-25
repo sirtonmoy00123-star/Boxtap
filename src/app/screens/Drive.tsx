@@ -88,6 +88,7 @@ export function DriveSettings({ onRestore }: { onRestore: (folderId: string) => 
   const [link, setLink] = useState<LinkState | null | undefined>(undefined);
   const [hasToken, setHasToken] = useState(!!currentToken());
   const [found, setFound] = useState<{ folderId: string; email: string } | null>(null);
+  const [newer, setNewer] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -132,6 +133,22 @@ export function DriveSettings({ onRestore }: { onRestore: (folderId: string) => 
     await runPhotoQueue(db);
     if (out === 'uploaded' || out === 'up_to_date') toast(t('settings.backupDone'));
   });
+  const useHere = () => act(async () => {
+    if (!currentToken()) await signIn(link?.googleEmail);
+    const sync = await makeSync(db);
+    if ((await sync.takeoverCheck()).driveIsNewer) { setNewer(true); return; }
+    if (!confirm(t('drive.useHereConfirm'))) return;
+    await sync.takeOver();
+    await sync.snapshotNow();
+  });
+  const replaceNewer = () => act(async () => {
+    if (prompt(t('drive.replacePrompt'))?.trim().toUpperCase() !== 'REPLACE') return;
+    if (!currentToken()) await signIn(link?.googleEmail);
+    const sync = await makeSync(db);
+    await sync.takeOver({ replaceNewer: true });
+    await sync.snapshotNow();
+    setNewer(false);
+  });
   const disconnect = () => act(async () => {
     await (await makeSync(db)).disconnect();
     await revokeAccess();
@@ -161,6 +178,14 @@ export function DriveSettings({ onRestore }: { onRestore: (folderId: string) => 
           {link.googleEmail && <p className="text-sm text-slate-600">{t('drive.account', { email: link.googleEmail })}</p>}
           {waiting > 0 && <p className="text-sm text-slate-600" data-testid="photos-waiting">{t('photos.waiting', { n: waiting })}</p>}
           {status === 'lock_lost' && <p role="alert" className="text-amber-900">{t('drive.lockLost')}</p>}
+          {status === 'lock_lost' && !newer && <Button variant="secondary" onClick={useHere} disabled={busy}>{t('drive.useHere')}</Button>}
+          {status === 'lock_lost' && newer && (
+            <>
+              <p role="status">{t('drive.newerThere')}</p>
+              <Button onClick={() => onRestore(link.folderId)}>{t('drive.restoreNewer')}</Button>
+              <Button variant="danger" onClick={replaceNewer} disabled={busy}>{t('drive.replaceNewer')}</Button>
+            </>
+          )}
           {status === 'folder_trashed' && (
             <p role="alert" className="text-amber-900">{t('drive.trashed')} <a className="underline" href="https://drive.google.com/drive/trash" target="_blank" rel="noreferrer noopener">{t('drive.openTrash')}</a></p>
           )}

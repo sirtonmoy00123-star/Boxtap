@@ -285,5 +285,11 @@
   "var.add": "ধরন যোগ করুন",
   "var.new": "নতুন ধরন, যেমন: সাইজ ৮",
   "var.total": "সব ধরন মিলিয়ে স্টকে {n}টি",
+  "drive.useHere": "এই ডিভাইস ব্যবহার করুন",
+  "drive.useHereConfirm": "এই ডিভাইসকে Google Drive-এ ব্যাকআপ নেওয়ার ডিভাইস করবেন? অন্য ডিভাইসের সিঙ্ক বন্ধ হবে।",
+  "drive.newerThere": "Google Drive-এ এই ডিভাইসের চেয়ে নতুন কপি আছে।",
+  "drive.restoreNewer": "নতুন কপিটি এখানে ফিরিয়ে আনুন",
+  "drive.replaceNewer": "এই ডিভাইস দিয়ে বদলে দিন",
+  "drive.replacePrompt": "এটি নতুন কপিটি বদলে দেবে (৩০ দিন রাখা থাকবে)। চালিয়ে যেতে REPLACE লিখুন।",
   "error.generic": "কিছু ভুল হয়েছে: {msg}"
 }
