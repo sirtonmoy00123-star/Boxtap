@@ -123,6 +123,19 @@ export function BoxPage({ id }: { id: string }) {
           <Button variant={box.isFragile ? 'primary' : 'secondary'} aria-pressed={box.isFragile} onClick={() => toggle('isFragile')}>{t('box.fragile')}</Button>
           <Button variant={box.openFirst ? 'primary' : 'secondary'} aria-pressed={box.openFirst} onClick={() => toggle('openFirst')}>{t('box.openFirst')}</Button>
         </div>
+        {workspace?.type === 'home' && (
+          <fieldset className="py-2">
+            <legend className="mb-1 text-sm text-slate-600">{t('move.title')}</legend>
+            <div className="flex gap-2">
+              {(['packed', 'moved', 'unpacked'] as const).map((s) => (
+                <Button key={s} variant={box.moveStatus === s ? 'primary' : 'secondary'} aria-pressed={box.moveStatus === s} className="flex-1 px-2"
+                  onClick={async () => { await db.updateBox(id, { moveStatus: box.moveStatus === s ? null : s }); await load(); }}>
+                  {t(`move.${s}`)}
+                </Button>
+              ))}
+            </div>
+          </fieldset>
+        )}
         <Button onClick={save} className="w-full">{t('box.save')}</Button>
       </section>
 

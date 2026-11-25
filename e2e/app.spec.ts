@@ -247,3 +247,39 @@ test('before the 5th box, BoxTap asks to install it first; Not now carries on (B
   await page.getByRole('button', { name: 'Add box' }).click();
   await expect(page.getByRole('heading', { name: 'Box 6' })).toBeVisible(); // asked once a day at most
 });
+
+test('arrival check: mark boxes arrived and see the count on home', async ({ page }) => {
+  await newHome(page);
+  for (let i = 0; i < 2; i++) {
+    await page.getByRole('button', { name: 'Add box' }).click();
+    await expect(page.getByRole('heading', { name: `Box ${i + 1}` })).toBeVisible();
+    const which = page.getByRole('button', { name: i === 0 ? 'Arrived' : 'Packed', exact: true });
+    await which.click();
+    await expect(which).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('button', { name: 'Back' }).click();
+  }
+  await expect(page.getByTestId('move-summary')).toHaveText('1 of 2 boxes arrived · 0 unpacked');
+});
+
+test('export CSV, then erase all data (asks twice) and return to the first screen (C-13)', async ({ page }) => {
+  await page.addInitScript(() => { Object.defineProperty(navigator, 'canShare', { value: undefined }); });
+  await newHome(page);
+  await page.getByRole('button', { name: 'Add box' }).click();
+  await page.getByLabel('Add item').fill('Lamp');
+  await page.getByLabel('Add item').press('Enter');
+  await expect(page.getByRole('list', { name: 'items' })).toContainText('Lamp');
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: 'Settings' }).click();
+  const dl = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export as spreadsheet (CSV)' }).click();
+  const { readFileSync } = await import('node:fs');
+  expect(readFileSync(await (await dl).path(), 'utf8')).toContain('Lamp');
+
+  let n = 0; // first dialog: confirm; second: type ERASE
+  page.on('dialog', (d) => { n++; void (n === 1 ? d.accept() : d.accept('ERASE')); });
+  await page.getByRole('button', { name: 'Erase all data' }).click();
+  await expect(page.getByRole('button', { name: 'New to BoxTap' })).toBeVisible();
+  expect(n).toBe(2);
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'New to BoxTap' })).toBeVisible();
+});

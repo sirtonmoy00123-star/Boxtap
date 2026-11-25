@@ -164,5 +164,16 @@
   "home.neverBackedUp": "এখনো ব্যাকআপ নেওয়া হয়নি",
   "home.backupDue": "বাক্সগুলোর ব্যাকআপ নিন: এক সপ্তাহের বেশি হয়ে গেছে।",
   "home.backupNow": "এখনই ব্যাকআপ নিন",
+  "move.title": "বাসা বদল",
+  "move.packed": "প্যাক করা",
+  "move.moved": "পৌঁছেছে",
+  "move.unpacked": "খোলা হয়েছে",
+  "move.summary": "{total}টির মধ্যে {moved}টি বাক্স পৌঁছেছে · {unpacked}টি খোলা হয়েছে",
+  "settings.data": "আপনার তথ্য",
+  "settings.exportCsv": "স্প্রেডশিট হিসেবে এক্সপোর্ট করুন (CSV)",
+  "settings.erase": "সব তথ্য মুছুন",
+  "settings.eraseConfirm1": "এই ডিভাইস থেকে সব বাক্স, জিনিস, ছবি ও সেটিংস মুছবেন? এটি ফেরানো যাবে না।",
+  "settings.eraseConfirm2": "শেষবার নিশ্চিত করুন: সবকিছু মুছতে ERASE লিখুন।",
+  "settings.erased": "এই ডিভাইস থেকে সবকিছু মুছে ফেলা হয়েছে। আপনার Google Drive ব্যাকআপ (যদি থাকে) রেখে দেওয়া হয়েছে।",
   "error.generic": "কিছু ভুল হয়েছে: {msg}"
 }

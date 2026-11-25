@@ -9,6 +9,9 @@ import type { Key } from '../../i18n/i18n';
 import { DriveRestore, DriveSettings } from './Drive';
 import { InstallGuide } from './Install';
 import { isInstalled } from '../../core/pwa/install';
+import { removePhotoFile } from '../../core/photos/store';
+import { clearBackupKey } from '../../core/backup/keystore';
+import { forgetToken } from '../../core/drive/googleAuth';
 
 type T = (k: Key, v?: Record<string, string | number>) => string;
 
@@ -106,7 +109,7 @@ export function RestoreFile({ db, t, onDone, onCancel }: { db: Db; t: T; onDone:
 }
 
 export function Settings() {
-  const { db, t, toast, setWorkspace } = useApp();
+  const { db, t, toast, setWorkspace, workspace } = useApp();
   const [last, setLast] = useState<string | null>(null);
   const [ready, setReady] = useState<boolean | null>(null);
   const [mode, setMode] = useState<'main' | 'restore' | 'setup' | 'driveRestore'>('main');
@@ -142,6 +145,25 @@ export function Settings() {
     );
   }
 
+  const exportCsv = async () => {
+    if (!workspace) return;
+    const csv = await db.exportCsv(workspace.id);
+    const name = `BoxTap-${workspace.name.replace(/[^p{L}p{N}]+/gu, '-').slice(0, 40) || 'export'}.csv`;
+    await deliverFile(new File([csv], name, { type: 'text/csv;charset=utf-8' }));
+  };
+  // Asks twice (DATABASE_SCHEMA §6). Sync stops first: the Drive link goes in the same transaction, so an empty
+  // database is never uploaded (§6.1). Ruling (build): the Drive backup is always kept; deleting it is manual.
+  const eraseAll = async () => {
+    if (!confirm(t('settings.eraseConfirm1'))) return;
+    if (prompt(t('settings.eraseConfirm2'))?.trim().toUpperCase() !== 'ERASE') return;
+    const files = await db.eraseAll();
+    await Promise.all(files.map((f) => removePhotoFile(f)));
+    await clearBackupKey().catch(() => {});
+    forgetToken();
+    toast(t('settings.erased'));
+    setWorkspace(null);
+    navigate('/', true);
+  };
   const backup = async () => {
     setBusy(true);
     try {
@@ -177,6 +199,11 @@ export function Settings() {
       <h2 className="mt-6 text-lg font-semibold">{t('labels.title')}</h2>
       <div className="mt-3 flex flex-col gap-2">
         <Button variant="secondary" onClick={() => navigate('/labels')}>{t('labels.title')}</Button>
+      </div>
+      <h2 className="mt-6 text-lg font-semibold">{t('settings.data')}</h2>
+      <div className="mt-3 flex flex-col gap-2">
+        <Button variant="secondary" onClick={exportCsv}>{t('settings.exportCsv')}</Button>
+        <Button variant="danger" onClick={eraseAll}>{t('settings.erase')}</Button>
       </div>
     </Page>
   );

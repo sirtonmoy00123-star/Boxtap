@@ -3,7 +3,7 @@ import { useApp } from '../context';
 import { navigate } from '../router';
 import { Button, Page, inputClass } from '../ui';
 import { WorkerError } from '../../core/db/client';
-import type { Box, SearchHit } from '../../core/repo';
+import type { Box, MoveSummary, SearchHit } from '../../core/repo';
 import { shouldOfferInstall } from '../../core/pwa/install';
 import { InstallGuide } from './Install';
 
@@ -17,6 +17,7 @@ export function Home() {
   const [q, setQ] = useState('');
   const [hits, setHits] = useState<SearchHit[] | null>(null);
   const [guide, setGuide] = useState(false);
+  const [move, setMove] = useState<MoveSummary | null>(null);
   const [persisted, setPersisted] = useState(true);
   const [backup, setBackup] = useState<{ last: string | null; drive: boolean; overAWeek: boolean } | null>(null);
 
@@ -35,9 +36,10 @@ export function Home() {
   const load = useCallback(async () => {
     const list = await db.listBoxes(ws.id);
     setBoxes(list);
+    setMove(ws.type === 'home' ? await db.moveSummary(ws.id) : null);
     const entries = await Promise.all(list.map(async (b) => [b.id, (await db.listItems(b.id)).length] as const));
     setItemCounts(Object.fromEntries(entries));
-  }, [db, ws.id]);
+  }, [db, ws.id, ws.type]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -72,6 +74,9 @@ export function Home() {
           <span>{t('home.backupDue')}</span>
           <Button variant="secondary" onClick={() => navigate('/settings')}>{t('home.backupNow')}</Button>
         </div>
+      )}
+      {move && move.total > move.none && (
+        <p className="mb-2 text-sm text-slate-600" data-testid="move-summary">{t('move.summary', { moved: move.moved + move.unpacked, total: move.total, unpacked: move.unpacked })}</p>
       )}
       <input type="search" className={inputClass} placeholder={t('home.search')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('home.search')} />
       {q.trim() && hits ? (

@@ -164,5 +164,16 @@
   "home.neverBackedUp": "Not backed up yet",
   "home.backupDue": "Back up your boxes: it's been over a week.",
   "home.backupNow": "Back up now",
+  "move.title": "Move",
+  "move.packed": "Packed",
+  "move.moved": "Arrived",
+  "move.unpacked": "Unpacked",
+  "move.summary": "{moved} of {total} boxes arrived · {unpacked} unpacked",
+  "settings.data": "Your data",
+  "settings.exportCsv": "Export as spreadsheet (CSV)",
+  "settings.erase": "Erase all data",
+  "settings.eraseConfirm1": "Erase ALL boxes, items, photos and settings from this device? This can't be undone.",
+  "settings.eraseConfirm2": "Last check: type ERASE to delete everything on this device.",
+  "settings.erased": "Everything was erased from this device. Your Google Drive backup, if any, was kept.",
   "error.generic": "Something went wrong: {msg}"
 }

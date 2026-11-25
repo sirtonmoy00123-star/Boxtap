@@ -82,6 +82,11 @@ export function createService(ctx: Ctx, entitlement: () => Entitlement = () => (
     queueMissingUploads: () => R.queueMissingUploads(ctx),
     setPhotoDriveFile: (id: string, fileId: string | null) => R.setPhotoDriveFile(ctx, id, fileId),
 
+    // Export, arrival check, erase (C-13): never gated
+    exportCsv: (wsId: string) => R.exportCsv(ctx, wsId),
+    moveSummary: (wsId: string) => R.moveSummary(ctx, wsId),
+    eraseAll: () => R.eraseAll(ctx),
+
     // Reading is never gated (H-06)
     search: (wsId: string, q: string) => R.search(ctx, wsId, q),
     counts: (wsId: string) => R.counts(ctx, wsId),

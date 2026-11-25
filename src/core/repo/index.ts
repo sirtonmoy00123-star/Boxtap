@@ -3,3 +3,4 @@ export * from './places';
 export * from './items';
 export * from './bin';
 export * from './photos';
+export * from './export';
