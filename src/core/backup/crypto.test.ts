@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   newRecoveryCode, normaliseRecoveryCode, isValidRecoveryCode, createKeyMaterial, unwrapBackupKey,
-  encryptFile, decryptFile, readHeader, WrongCodeError, FutureVersionError, BadFileError, CHUNK, rewrapBackupKey,
+  encryptFile, decryptFile, decryptBlob, readHeader, WrongCodeError, FutureVersionError, BadFileError, CHUNK, rewrapBackupKey,
   type KdfParams,
 } from './crypto';
 
@@ -135,5 +135,24 @@ describe('changing the recovery code (audit B7)', () => {
   it('refuses when the old code is wrong', async () => {
     const km = await createKeyMaterial(newRecoveryCode(), FAST);
     await expect(rewrapBackupKey(km.wrapped, newRecoveryCode(), newRecoveryCode())).rejects.toBeInstanceOf(WrongCodeError);
+  });
+});
+
+describe('reading a backup from a Blob chunk by chunk (review finding 13)', () => {
+  it('decrypts the same bytes as the in-memory reader, without loading the whole file', async () => {
+    const code = newRecoveryCode();
+    const km = await createKeyMaterial(code, FAST);
+    const plain = bytes(CHUNK * 2 + 777, 5);
+    const file = await collect(encryptFile('BTBAK2', { app_version: '0.1.0', schema_version: 1 }, km, chunks(plain)));
+    const blob = new Blob([new Uint8Array(file)]);
+    let biggestRead = 0;
+    const out = await collect(decryptBlob(blob, code, { maxSchema: 1, onRead: (n) => { biggestRead = Math.max(biggestRead, n); } }));
+    expect(out).toEqual(plain);
+    expect(biggestRead).toBeLessThanOrEqual(CHUNK + 16);
+  });
+  it('a wrong code fails before any plaintext', async () => {
+    const km = await createKeyMaterial(newRecoveryCode(), FAST);
+    const file = await collect(encryptFile('BTBAK2', { app_version: '0.1.0', schema_version: 1 }, km, chunks(bytes(10))));
+    await expect(collect(decryptBlob(new Blob([new Uint8Array(file)]), newRecoveryCode(), { maxSchema: 1 }))).rejects.toBeInstanceOf(WrongCodeError);
   });
 });

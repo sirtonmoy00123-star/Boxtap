@@ -2,14 +2,15 @@
 import type { Db } from '../db/client';
 import { SCHEMA_VERSION } from '../db/schema';
 import {
-  createKeyMaterial, decryptFile, encryptFile, importBackupKey, readHeader, rewrapBackupKey, unwrapBackupKey, type WrappedKey,
+  createKeyMaterial, decryptBlob, encryptFile, importBackupKey, readHeader, rewrapBackupKey, unwrapBackupKey, type WrappedKey,
 } from './crypto';
-import { pack, unpack } from './pack';
+import { pack, unpackStream } from './pack';
 import { loadBackupKey, saveBackupKey } from './keystore';
 import type { RestoreResult } from '../db/protocol';
 import { readPhotoFile, removeOrphans, writePhotoFile } from '../photos/store';
 import { makeThumb } from '../photos/encode';
 import type { Entry } from './pack';
+import type { Photo } from '../repo/photos';
 
 interface StoredWrapped { keyId: string; wrapped: WrappedKey }
 
@@ -112,26 +113,25 @@ export async function deliverFile(file: File): Promise<'shared' | 'downloaded' |
  * file is valid (critical tests 9 and 10). The backup key from the file becomes this device's key.
  */
 export async function restoreBackupFile(db: Db, file: Blob, recoveryCode: string): Promise<RestoreResult> {
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  const { header } = readHeader(bytes);
-  const parts: Uint8Array[] = [];
-  for await (const c of decryptFile(bytes, recoveryCode, { maxSchema: SCHEMA_VERSION })) parts.push(c);
-  const payload = new Uint8Array(await new Blob(parts.map((p) => new Uint8Array(p))).arrayBuffer());
-  const entries = await unpack(payload);
-  const dbEntry = entries.find((e) => e.name === 'db.sqlite');
-  if (!dbEntry) throw new Error('This backup has no database in it');
-  const result = await db.restore(dbEntry.data);
-  // Photos: write each file back, rebuild its thumbnail, then drop files no restored row points at.
-  const live = await db.allLivePhotos();
-  const byFile = new Map(live.map((p) => [p.fileName, p]));
-  for (const e of entries) {
+  // Read the backup in 1 MB pieces (review finding 13). The database comes first in the file: it is validated and
+  // swapped in (crash-safe, with a safety copy) before any photo is written; photos then go straight to storage.
+  const { header } = readHeader(new Uint8Array(await file.slice(0, 10 + 64 * 1024).arrayBuffer()));
+  let result: RestoreResult | null = null;
+  let byFile = new Map<string, Photo>();
+  await unpackStream(decryptBlob(file, recoveryCode, { maxSchema: SCHEMA_VERSION }), async (e) => {
+    if (e.name === 'db.sqlite') {
+      result = await db.restore(e.data);
+      byFile = new Map((await db.allLivePhotos()).map((p) => [p.fileName, p]));
+      return;
+    }
     const p = byFile.get(e.name);
-    if (!p) continue;
+    if (!result || !p) return;
     const blob = new Blob([new Uint8Array(e.data)], { type: p.mime });
     await writePhotoFile(p.fileName, blob);
     await writePhotoFile(p.thumbName, await makeThumb(blob)).catch(() => {});
-  }
-  await removeOrphans(new Set(live.flatMap((p) => [p.fileName, p.thumbName])));
+  });
+  if (!result) throw new Error('This backup has no database in it');
+  await removeOrphans(new Set([...byFile.values()].flatMap((p) => [p.fileName, p.thumbName])));
   const wrapped: WrappedKey = { kdf: header.kdf, ...header.wrapped_key_by_recovery };
   const raw = await unwrapBackupKey(wrapped, recoveryCode);
   await saveBackupKey({ keyId: header.key_id, cryptoKey: await importBackupKey(raw) });

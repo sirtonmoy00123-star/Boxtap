@@ -45,3 +45,57 @@ export async function unpack(bytes: Uint8Array): Promise<Entry[]> {
     off += dl;
   }
 }
+
+/**
+ * Streaming unpack: parses entries as chunks arrive and hands each complete entry to onEntry. Each entry is filled
+ * into one buffer of its own size, so memory stays at about one entry plus one chunk.
+ */
+export async function unpackStream(chunks: AsyncIterable<Uint8Array>, onEntry: (e: Entry) => Promise<void>): Promise<void> {
+  let head = new Uint8Array(0); // bytes of the magic or an entry header still being assembled (small)
+  let started = false;
+  let done = false;
+  let entry: { name: string; data: Uint8Array; fill: number } | null = null;
+
+  const feed = async (c: Uint8Array) => {
+    let off = 0;
+    while (off < c.length && !done) {
+      if (entry) {
+        const n = Math.min(entry.data.length - entry.fill, c.length - off);
+        entry.data.set(c.subarray(off, off + n), entry.fill);
+        entry.fill += n;
+        off += n;
+        if (entry.fill === entry.data.length) { const e = entry; entry = null; await onEntry({ name: e.name, data: e.data }); }
+        continue;
+      }
+      // Assemble a small header in 'head' one byte at a time from this chunk.
+      const h = new Uint8Array(head.length + 1);
+      h.set(head);
+      h[head.length] = c[off]!;
+      head = h;
+      off++;
+      if (!started) {
+        if (head.length === 5) {
+          if (fromUtf8(head) !== 'BTPK1') throw new Error('not a BoxTap backup payload');
+          started = true;
+          head = new Uint8Array(0);
+        }
+        continue;
+      }
+      if (head.length < 2) continue;
+      const nl = new DataView(head.buffer).getUint16(0);
+      if (nl === 0) { done = true; return; }
+      if (head.length < 2 + nl + 4) continue;
+      const name = fromUtf8(head.subarray(2, 2 + nl));
+      if (!okName(name)) throw new Error('bad entry name in backup');
+      const size = new DataView(head.buffer).getUint32(2 + nl);
+      head = new Uint8Array(0);
+      entry = { name, data: new Uint8Array(size), fill: 0 };
+      if (size === 0) { entry = null; await onEntry({ name, data: new Uint8Array(0) }); }
+    }
+  };
+  for await (const c of chunks) {
+    await feed(c);
+    if (done) return;
+  }
+  if (!done) throw new Error('backup payload is cut short');
+}

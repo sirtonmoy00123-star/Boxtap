@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
-import { pack, unpack } from './pack';
+import { pack, unpack, unpackStream } from './pack';
 import { exportSnapshot, validateImport, ImportRejectedError } from './snapshot';
 import { migrate, type SqlDb } from '../db/migrate';
 import { MIGRATIONS, SCHEMA_VERSION } from '../db/schema';
@@ -120,5 +120,18 @@ describe('import validation across equivalent schema texts', () => {
     const db = liveDb();
     db.exec('ALTER TABLE items ADD COLUMN sneaky TEXT');
     expect(() => validateImport(sqlite3, exportSnapshot(sqlite3, db))).toThrow(/schema/);
+  });
+});
+
+describe('streaming unpack', () => {
+  it('yields every entry even when chunks split names and data at odd places', async () => {
+    const files = [{ name: 'db.sqlite', data: new Uint8Array(5000).fill(1) }, { name: 'photos/a.webp', data: new Uint8Array(3333).fill(2) }, { name: 'manifest.json', data: new Uint8Array([123, 125]) }];
+    const packed: Uint8Array[] = [];
+    for await (const c of pack(files)) packed.push(c);
+    const all = await new Blob(packed.map((c) => new Uint8Array(c))).bytes();
+    async function* odd() { for (let i = 0; i < all.length; i += 7) yield all.subarray(i, i + 7); }
+    const got: { name: string; size: number }[] = [];
+    await unpackStream(odd(), async (e) => { got.push({ name: e.name, size: e.data.length }); });
+    expect(got).toEqual([{ name: 'db.sqlite', size: 5000 }, { name: 'photos/a.webp', size: 3333 }, { name: 'manifest.json', size: 2 }]);
   });
 });

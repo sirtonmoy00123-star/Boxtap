@@ -220,3 +220,41 @@ export async function* decryptFile(file: Uint8Array, code: string | { cryptoKey:
     if (isLast) return;
   }
 }
+
+/**
+ * Same as decryptFile, but reads the backup from a Blob one chunk at a time (review finding 13), so a 60 MB
+ * photo backup never sits in memory several times over on a phone.
+ */
+export async function* decryptBlob(blob: Blob, code: string, opts: { maxSchema: number; onRead?: (bytes: number) => void }): AsyncGenerator<Uint8Array> {
+  const read = async (off: number, len: number) => {
+    opts.onRead?.(len);
+    return new Uint8Array(await blob.slice(off, off + len).arrayBuffer());
+  };
+  const first = await read(0, 10);
+  if (first.length < 10) throw new BadFileError('not a BoxTap backup');
+  const len = new DataView(first.buffer).getUint32(6);
+  if (len > 64 * 1024) throw new BadFileError('damaged backup header');
+  const prefix = await read(0, 10 + len);
+  const { header, aad, payloadOffset } = readHeader(prefix);
+  if (header.schema_version > opts.maxSchema) throw new FutureVersionError(header.schema_version);
+  const raw = await unwrapBackupKey({ kdf: header.kdf, ...header.wrapped_key_by_recovery }, code);
+  const cryptoKey = await importBackupKey(raw);
+  raw.fill(0);
+  const fileNonce = b64urlDecode(header.nonce);
+  let off = payloadOffset;
+  for (let i = 0; ; i++) {
+    const remaining = blob.size - off;
+    if (remaining < TAG) throw new BadFileError('backup file is cut short');
+    const isLast = remaining <= CHUNK + TAG;
+    const ct = await read(off, Math.min(remaining, CHUNK + TAG));
+    let pt: ArrayBuffer;
+    try {
+      pt = await subtle.decrypt({ name: 'AES-GCM', iv: chunkNonce(fileNonce, i, isLast), additionalData: aad }, cryptoKey, ct);
+    } catch {
+      throw new BadFileError(isLast ? 'backup file is damaged or cut short' : 'backup file is damaged');
+    }
+    yield new Uint8Array(pt);
+    off += ct.length;
+    if (isLast) return;
+  }
+}
