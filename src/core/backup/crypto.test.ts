@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   newRecoveryCode, normaliseRecoveryCode, isValidRecoveryCode, createKeyMaterial, unwrapBackupKey,
-  encryptFile, decryptFile, readHeader, WrongCodeError, FutureVersionError, BadFileError, CHUNK,
+  encryptFile, decryptFile, readHeader, WrongCodeError, FutureVersionError, BadFileError, CHUNK, rewrapBackupKey,
   type KdfParams,
 } from './crypto';
 
@@ -120,5 +120,20 @@ describe('.btbak file format', () => {
     const secret = new TextEncoder().encode('Grandma gold necklace');
     const file = await collect(encryptFile('BTBAK2', meta, km, chunks(secret)));
     expect(new TextDecoder().decode(file)).not.toContain('Grandma');
+  });
+});
+
+describe('changing the recovery code (audit B7)', () => {
+  it('re-wraps the same key: new files open with the new code, the key id stays', async () => {
+    const oldCode = newRecoveryCode();
+    const km = await createKeyMaterial(oldCode, FAST);
+    const newCode = newRecoveryCode();
+    const wrapped = await rewrapBackupKey(km.wrapped, oldCode, newCode);
+    expect(await unwrapBackupKey(wrapped, newCode)).toEqual(km.raw);
+    await expect(unwrapBackupKey(wrapped, oldCode)).rejects.toBeInstanceOf(WrongCodeError);
+  });
+  it('refuses when the old code is wrong', async () => {
+    const km = await createKeyMaterial(newRecoveryCode(), FAST);
+    await expect(rewrapBackupKey(km.wrapped, newRecoveryCode(), newRecoveryCode())).rejects.toBeInstanceOf(WrongCodeError);
   });
 });

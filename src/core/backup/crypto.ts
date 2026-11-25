@@ -82,6 +82,22 @@ export async function unwrapBackupKey(w: WrappedKey, code: string): Promise<Uint
   }
 }
 
+/**
+ * "Change recovery code" (audit B7): unwrap with the old code, wrap the same key with the new one (fresh salt and
+ * nonce). Files made from now on open with the new code; the key id, and so every existing Drive file, stays valid.
+ */
+export async function rewrapBackupKey(w: WrappedKey, oldCode: string, newCode: string): Promise<WrappedKey> {
+  const raw = await unwrapBackupKey(w, oldCode);
+  try {
+    const kdf: KdfParams = { ...w.kdf, salt: b64urlEncode(rand(16)) };
+    const nonce = rand(12);
+    const ct = new Uint8Array(await subtle.encrypt({ name: 'AES-GCM', iv: nonce, additionalData: utf8('boxtap-key-wrap-v1') }, await kek(newCode, kdf), raw));
+    return { kdf, nonce: b64urlEncode(nonce), ct: b64urlEncode(ct) };
+  } finally {
+    raw.fill(0);
+  }
+}
+
 /** Non-extractable copy for daily use (kept in IndexedDB by the caller). */
 export const importBackupKey = (raw: Uint8Array<ArrayBuffer>, extractable = false): Promise<CryptoKey> =>
   subtle.importKey('raw', raw, 'AES-GCM', extractable, ['encrypt', 'decrypt']);

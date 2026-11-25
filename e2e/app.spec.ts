@@ -408,3 +408,45 @@ test('labels: a Bangla box name prints as drawn text, not "?"', async ({ page })
   const pdf = readFileSync(await (await dl).path()).toString('latin1');
   expect(pdf).toMatch(/\/Subtype\s*\/Image/);
 });
+
+test('change the recovery code; a new backup opens with the new code only (audit B7, critical test 40)', async ({ page, browser }) => {
+  needsPersistentStorage(test.info().project.name);
+  test.setTimeout(90_000);
+  await page.addInitScript(() => { Object.defineProperty(navigator, 'canShare', { value: undefined }); });
+  const oldCode = await newHome(page);
+  await page.getByRole('button', { name: 'Add box' }).click();
+  await page.getByLabel('Add item').fill('Passport');
+  await page.getByLabel('Add item').press('Enter');
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Change recovery code' }).click();
+  await page.getByLabel('Your current 12 words').fill(oldCode.split(' ').reverse().join(' '));
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByRole('alert')).toContainText("isn't this device's recovery code");
+  await page.getByLabel('Your current 12 words').fill(oldCode);
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByTestId('recovery-code').getByRole('listitem')).toHaveCount(12);
+  const words = (await page.getByTestId('recovery-code').getByRole('listitem').allInnerTexts()).map((x) => x.replace(/^\d+\.\s*/, '').trim());
+  const newCode = words.join(' ');
+  await page.getByRole('button', { name: "I've written it down" }).click();
+  for (const label of (await page.locator('label span').allInnerTexts()).filter((l) => l.startsWith('Word '))) {
+    const n = Number(/Word (\d+)/.exec(label)?.[1]);
+    await page.getByLabel(label, { exact: true }).fill(words[n - 1]!);
+  }
+  await page.getByRole('button', { name: 'Confirm' }).click();
+  await expect(page.getByText('Recovery code changed.')).toBeVisible({ timeout: 15_000 });
+  const dl = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Back up now' }).click();
+  const file = await (await dl).path();
+
+  const p2 = await (await browser.newContext()).newPage();
+  await p2.goto('/');
+  await p2.getByRole('button', { name: 'Restore from a backup file' }).click();
+  await p2.getByLabel('Choose backup file').setInputFiles(file);
+  await p2.getByLabel('12-word recovery code').fill(oldCode);
+  await p2.getByRole('button', { name: 'Restore' }).click();
+  await expect(p2.getByRole('alert')).toContainText("doesn't open this backup", { timeout: 20_000 });
+  await p2.getByLabel('12-word recovery code').fill(newCode);
+  await p2.getByRole('button', { name: 'Restore' }).click();
+  await expect(p2.getByRole('heading', { name: 'My move' })).toBeVisible({ timeout: 30_000 });
+});

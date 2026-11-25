@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context';
 import { navigate } from '../router';
 import { Button, Field, Page, inputClass } from '../ui';
-import { newRecoveryCode, normaliseRecoveryCode, WrongCodeError, BadFileError, FutureVersionError } from '../../core/backup/crypto';
-import { createBackupFile, deliverFile, hasBackupKey, restoreBackupFile, setUpBackupKey } from '../../core/backup/backupFile';
+import { isValidRecoveryCode, newRecoveryCode, normaliseRecoveryCode, WrongCodeError, BadFileError, FutureVersionError } from '../../core/backup/crypto';
+import { changeRecoveryCode, checkRecoveryCode, createBackupFile, deliverFile, hasBackupKey, replaceRecoveryCode, restoreBackupFile, setUpBackupKey } from '../../core/backup/backupFile';
 import type { Db } from '../../core/db/client';
 import type { Key } from '../../i18n/i18n';
 import { DriveRestore, DriveSettings } from './Drive';
@@ -16,7 +16,7 @@ import { forgetToken } from '../../core/drive/googleAuth';
 type T = (k: Key, v?: Record<string, string | number>) => string;
 
 /** Shows a new 12-word code, asks for 3 of the words back, then makes the backup key (audit B7). */
-export function RecoveryCodeSetup({ db, t, onDone }: { db: Db; t: T; onDone: () => void }) {
+export function RecoveryCodeSetup({ db, t, onDone, apply }: { db: Db; t: T; onDone: () => void; apply?: (code: string) => Promise<void> }) {
   const code = useMemo(() => newRecoveryCode(), []);
   const words = code.split(' ');
   const ask = useMemo(() => {
@@ -34,7 +34,7 @@ export function RecoveryCodeSetup({ db, t, onDone }: { db: Db; t: T; onDone: () 
     const ok = ask.every((idx, i) => normaliseRecoveryCode(answers[i] ?? '') === words[idx]);
     if (!ok) { setError(true); return; }
     setStep('making');
-    await setUpBackupKey(db, code);
+    await (apply ? apply(code) : setUpBackupKey(db, code));
     onDone();
   };
 
@@ -112,7 +112,10 @@ export function Settings() {
   const { db, t, toast, setWorkspace, workspace } = useApp();
   const [last, setLast] = useState<string | null>(null);
   const [ready, setReady] = useState<boolean | null>(null);
-  const [mode, setMode] = useState<'main' | 'restore' | 'setup' | 'driveRestore'>('main');
+  const [mode, setMode] = useState<'main' | 'restore' | 'setup' | 'driveRestore' | 'changeCode' | 'newCode'>('main');
+  const [oldCode, setOldCode] = useState('');
+  const [codeStep, setCodeStep] = useState<'old' | 'new'>('old');
+  const [codeError, setCodeError] = useState<string | null>(null);
   const [driveFolder, setDriveFolder] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [guide, setGuide] = useState(false);
@@ -122,6 +125,37 @@ export function Settings() {
     void hasBackupKey(db).then(setReady);
   }, [db, mode]);
 
+  if (mode === 'changeCode') {
+    return (
+      <div className="mx-auto max-w-md px-6 py-8">
+        {codeStep === 'old' ? (
+          <form className="flex flex-col gap-2" onSubmit={async (e) => {
+            e.preventDefault();
+            const ok = isValidRecoveryCode(oldCode) && (await checkRecoveryCode(db, oldCode));
+            if (ok) { setCodeError(null); setCodeStep('new'); } else setCodeError(t('code.wrongOld'));
+          }}>
+            <h1 className="text-2xl font-bold">{t('code.changeTitle')}</h1>
+            <Field label={t('code.oldCode')}>
+              <textarea className={`${inputClass} py-2 font-mono`} rows={3} autoCapitalize="none" autoComplete="off" spellCheck={false} value={oldCode} onChange={(e) => setOldCode(e.target.value)} />
+            </Field>
+            {codeError && <p role="alert" className="text-red-700">{codeError}</p>}
+            <Button type="submit" disabled={!oldCode.trim()}>{t('code.next')}</Button>
+            <Button variant="ghost" onClick={() => { setMode('main'); setOldCode(''); }}>{t('box.back')}</Button>
+          </form>
+        ) : (
+          <RecoveryCodeSetup db={db} t={t} apply={(code) => changeRecoveryCode(db, oldCode, code)}
+            onDone={() => { setOldCode(''); setCodeStep('old'); setMode('main'); toast(t('code.changed')); }} />
+        )}
+      </div>
+    );
+  }
+  if (mode === 'newCode') {
+    return (
+      <div className="mx-auto max-w-md px-6 py-8">
+        <RecoveryCodeSetup db={db} t={t} apply={(code) => replaceRecoveryCode(db, code)} onDone={() => { setMode('main'); toast(t('code.replaced')); }} />
+      </div>
+    );
+  }
   if (mode === 'setup') return <div className="mx-auto max-w-md px-6 py-8"><RecoveryCodeSetup db={db} t={t} onDone={() => setMode('main')} /></div>;
   const afterRestore = async (msg: string) => {
     const list = await db.listWorkspaces();
@@ -192,6 +226,8 @@ export function Settings() {
           ? <Button onClick={() => setMode('setup')}>{t('settings.setupBackup')}</Button>
           : <Button onClick={backup} disabled={busy || !ready}>{t('settings.backupNow')}</Button>}
         <Button variant="secondary" onClick={() => setMode('restore')}>{t('settings.restore')}</Button>
+        {ready && <Button variant="ghost" onClick={() => setMode('changeCode')}>{t('code.change')}</Button>}
+        {ready && <Button variant="ghost" onClick={() => { if (confirm(t('code.lostConfirm'))) setMode('newCode'); }}>{t('code.lost')}</Button>}
       </div>
       {!isInstalled() && <Button variant="secondary" className="mt-6 w-full" onClick={() => setGuide(true)}>{t('install.settings')}</Button>}
       {guide && <InstallGuide onClose={() => setGuide(false)} />}

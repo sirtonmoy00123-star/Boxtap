@@ -291,5 +291,14 @@
   "drive.restoreNewer": "Restore the newer copy here",
   "drive.replaceNewer": "Replace it with this device",
   "drive.replacePrompt": "This replaces the newer copy (it is kept for 30 days). Type REPLACE to continue.",
+  "code.change": "Change recovery code",
+  "code.changeTitle": "Change your recovery code",
+  "code.oldCode": "Your current 12 words",
+  "code.next": "Next",
+  "code.wrongOld": "That isn't this device's recovery code.",
+  "code.changed": "Recovery code changed. Use the new code from now on.",
+  "code.lost": "Lost your code? Make a new one",
+  "code.lostConfirm": "This makes a new code and a new backup key. Old backups will only open with the old code. If Google Drive is connected, connect it again afterwards and choose \"Start a new backup folder\". Continue?",
+  "code.replaced": "New recovery code ready. Make a new backup now.",
   "error.generic": "Something went wrong: {msg}"
 }

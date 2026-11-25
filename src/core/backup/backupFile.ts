@@ -2,7 +2,7 @@
 import type { Db } from '../db/client';
 import { SCHEMA_VERSION } from '../db/schema';
 import {
-  createKeyMaterial, decryptFile, encryptFile, importBackupKey, readHeader, unwrapBackupKey, type WrappedKey,
+  createKeyMaterial, decryptFile, encryptFile, importBackupKey, readHeader, rewrapBackupKey, unwrapBackupKey, type WrappedKey,
 } from './crypto';
 import { pack, unpack } from './pack';
 import { loadBackupKey, saveBackupKey } from './keystore';
@@ -19,6 +19,36 @@ export async function setUpBackupKey(db: Db, recoveryCode: string): Promise<void
   await saveBackupKey({ keyId: km.keyId, cryptoKey: await importBackupKey(km.raw) });
   km.raw.fill(0);
   await db.setSetting('backup_key', JSON.stringify({ keyId: km.keyId, wrapped: km.wrapped } satisfies StoredWrapped));
+}
+
+/** True if the code opens this device's backup key (checked before asking for a new code). */
+export async function checkRecoveryCode(db: Db, code: string): Promise<boolean> {
+  const stored = await db.getSetting('backup_key');
+  if (!stored) return false;
+  try {
+    (await unwrapBackupKey((JSON.parse(stored) as StoredWrapped).wrapped, code)).fill(0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Change recovery code (B7): the old code re-wraps the same key; nothing else changes. */
+export async function changeRecoveryCode(db: Db, oldCode: string, newCode: string): Promise<void> {
+  const stored = await db.getSetting('backup_key');
+  if (!stored) throw new Error('Backups are not set up on this device yet');
+  const s = JSON.parse(stored) as StoredWrapped;
+  const wrapped = await rewrapBackupKey(s.wrapped, oldCode, newCode);
+  await db.setSetting('backup_key', JSON.stringify({ keyId: s.keyId, wrapped } satisfies StoredWrapped));
+}
+
+/**
+ * New recovery code when the old one is lost (B7): a new backup key. Old backups need the old code, so the
+ * Drive link is closed; connecting again then offers "Start a new backup folder" (the old folder is kept, renamed).
+ */
+export async function replaceRecoveryCode(db: Db, newCode: string): Promise<void> {
+  await setUpBackupKey(db, newCode);
+  if (await db.getDriveLink()) await db.setDriveLink(null);
 }
 
 export async function hasBackupKey(db: Db): Promise<boolean> {
