@@ -205,7 +205,7 @@ test('works offline after the first load (critical test 3)', async ({ page, cont
   await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
   await context.setOffline(true);
   await page.goto('/');
-  await expect(page.getByRole('list', { name: 'boxes' })).toContainText('1 items');
+  await expect(page.getByRole('list', { name: 'boxes' })).toContainText('1 item');
   await page.getByLabel('Search items or boxes').fill('torch');
   await expect(page.getByRole('list', { name: 'results' })).toContainText('Torch');
   await context.setOffline(false);

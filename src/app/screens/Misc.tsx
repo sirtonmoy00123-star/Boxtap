@@ -111,7 +111,7 @@ export function NoDataLabel() {
 }
 
 export function Upgrade({ reason, onClose }: { reason: string; onClose: () => void }) {
-  const { t } = useApp();
+  const { t, workspace } = useApp();
   const limits = DEFAULT_CONFIG.free_limits;
   const n = reason === 'limit_boxes' ? limits.home_boxes : limits.seller_items;
   return (
@@ -119,7 +119,8 @@ export function Upgrade({ reason, onClose }: { reason: string; onClose: () => vo
       <div className="w-full max-w-md rounded-t-2xl bg-white p-6 sm:rounded-2xl">
         <h2 id="upgrade-title" className="text-xl font-semibold">{t('upgrade.title')}</h2>
         <p className="mt-2" data-testid="upgrade-reason">{t(`upgrade.${reason}` as Key, { n })}</p>
-        <p className="mt-2">{t('upgrade.movePass')}</p>
+        <p className="mt-2">{t(workspace?.type === 'seller' ? 'upgrade.sellerPro' : 'upgrade.movePass')}</p>
+        <p className="mt-2 text-sm font-medium text-amber-900">{t('upgrade.soon')}</p>
         <p className="mt-3 text-sm text-slate-600">{t('upgrade.never')}</p>
         <Button variant="secondary" className="mt-4 w-full" onClick={onClose}>{t('upgrade.later')}</Button>
       </div>

@@ -18,3 +18,11 @@ describe('i18n', () => {
     expect(asciiDigits('বাক্স ১২০')).toBe('বাক্স 120');
   });
 });
+
+describe('singular forms', () => {
+  it('uses the .one form when n is 1', () => {
+    expect(translate('en', 'home.items', { n: 1 })).toBe('1 item');
+    expect(translate('en', 'home.items', { n: 3 })).toBe('3 items');
+    expect(translate('bn', 'home.items', { n: 1 })).toBe('১টি জিনিস'.replace('১', '1'));
+  });
+});

@@ -317,5 +317,10 @@
   "spare.stick": "Use this label for that box",
   "spare.newBox": "Make a new box with this label",
   "spare.done": "Label added to the box.",
-  "error.generic": "Something went wrong: {msg}"
+  "error.generic": "Something went wrong: {msg}",
+  "home.items.one": "{n} item",
+  "rep.stockUnits.one": "{n} item",
+  "ord.lines.one": "{n} item",
+  "upgrade.sellerPro": "Seller Pro: unlimited items, 5 photos per item, plus reports, profit, orders and variants.",
+  "upgrade.soon": "Paid plans are not on sale yet. They are coming soon."
 }
