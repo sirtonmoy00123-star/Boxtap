@@ -20,16 +20,17 @@ export function BoxPage({ id }: { id: string }) {
     setThumbs(await db.itemThumbs(id));
   }, [db, id]);
 
-  const load = useCallback(async () => {
+  // resetDraft only on first load and after Save, so tapping Fragile etc. never wipes typing (review finding 8).
+  const load = useCallback(async (resetDraft = false) => {
     const b = await db.getBox(id);
     setBox(b && !b.deletedAt ? b : null);
     if (b) {
-      setDraft({ name: b.name ?? '', spot: b.spot ?? '', notes: b.notes ?? '' });
+      if (resetDraft) setDraft({ name: b.name ?? '', spot: b.spot ?? '', notes: b.notes ?? '' });
       await reloadItems();
       setRooms(await db.listRooms(b.workspaceId));
     }
   }, [db, id, reloadItems]);
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(true); }, [load]);
 
   if (box === undefined) return null;
   if (box === null || box.workspaceId !== workspace?.id) {
@@ -39,7 +40,7 @@ export function BoxPage({ id }: { id: string }) {
   const save = async () => {
     await db.updateBox(id, { name: draft.name, spot: draft.spot, notes: draft.notes });
     toast(t('box.saved'));
-    await load();
+    await load(true);
   };
   const toggle = async (field: 'isFragile' | 'openFirst') => {
     await db.updateBox(id, { [field]: !box[field] });

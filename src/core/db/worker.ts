@@ -147,6 +147,11 @@ self.onmessage = async (ev: MessageEvent<Request>) => {
         const fn = service[req.method] as (...a: unknown[]) => unknown;
         if (typeof fn !== 'function') throw new Error(`unknown method ${String(req.method)}`);
         value = fn(...req.args);
+        if (req.method === 'eraseAll') {
+          // Review finding 7: no copy of the erased data may stay behind (before-restore copy, free pages).
+          if (pool) { pool.unlink(SAFETY_FILE); pool.unlink(RESTORE_FILE); }
+          db?.exec('VACUUM');
+        }
         break;
       }
     }

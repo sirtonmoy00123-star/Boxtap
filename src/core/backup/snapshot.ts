@@ -55,10 +55,11 @@ function schemaOf(db: DB): string[] {
     });
 }
 
-function referenceSchema(sqlite3: Sqlite3, version: number): string[] {
+function referenceSchema(sqlite3: Sqlite3, version: number, extra?: (ref: DB) => void): string[] {
   const ref = new sqlite3.oo1.DB(':memory:', 'c');
   try {
     for (let v = 0; v < version; v++) applyMigration(ref, v);
+    extra?.(ref);
     return schemaOf(ref);
   } finally {
     ref.close();
@@ -92,9 +93,12 @@ export function validateImport(sqlite3: Sqlite3, bytes: Uint8Array): ValidatedIm
     const version = Number(db.selectValue('PRAGMA user_version'));
     if (version > SCHEMA_VERSION) throw new ImportRejectedError('this backup was made by a newer BoxTap; update BoxTap first');
     if (version < 1) throw new ImportRejectedError('not a BoxTap database');
-    const want = referenceSchema(sqlite3, version);
     const got = schemaOf(db);
-    if (want.length !== got.length || want.some((w, i) => w !== got[i])) throw new ImportRejectedError('unexpected database schema');
+    const same = (want: string[]) => want.length === got.length && want.every((w, i) => w === got[i]);
+    // v1 also existed with photos.drive_file_id inline (a build on 2026-11-25; review finding 6).
+    const variants = [referenceSchema(sqlite3, version)];
+    if (version === 1) variants.push(referenceSchema(sqlite3, 1, (ref) => ref.exec('ALTER TABLE photos ADD COLUMN drive_file_id TEXT')));
+    if (!variants.some(same)) throw new ImportRejectedError('unexpected database schema');
     if (db.selectValue('PRAGMA quick_check') !== 'ok') throw new ImportRejectedError('the backup database is damaged');
     if (db.selectValue('SELECT count(*) FROM pragma_foreign_key_check')) throw new ImportRejectedError('the backup database is damaged (broken links)');
     migrate(db as unknown as SqlDb);

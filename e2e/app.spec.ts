@@ -479,3 +479,12 @@ test('Settings: add a Seller list, switch between lists, change the language', a
   await expect(page.getByRole('heading', { name: 'সেটিংস' })).toBeVisible();
 });
 
+
+test('box page keeps what you typed when you tap Fragile (review finding 8)', async ({ page }) => {
+  await newHome(page);
+  await page.getByRole('button', { name: 'Add box' }).click();
+  await page.getByLabel('Name', { exact: true }).fill('Books');
+  await page.getByRole('button', { name: 'Fragile' }).click();
+  await expect(page.getByRole('button', { name: 'Fragile' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Books');
+});

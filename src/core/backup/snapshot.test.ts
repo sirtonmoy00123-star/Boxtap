@@ -135,3 +135,13 @@ describe('streaming unpack', () => {
     expect(got).toEqual([{ name: 'db.sqlite', size: 5000 }, { name: 'photos/a.webp', size: 3333 }, { name: 'manifest.json', size: 2 }]);
   });
 });
+
+describe('v1 backups from the in-between build (review finding 6)', () => {
+  it('accepts a v1 database that has photos.drive_file_id inline, and migrates it', () => {
+    const db = new sqlite3.oo1.DB(':memory:', 'c');
+    db.exec((MIGRATIONS[0] as string).replace('  drive_ref TEXT, sha256 TEXT,', '  drive_ref TEXT, sha256 TEXT,\n  drive_file_id TEXT,'));
+    db.exec('PRAGMA user_version = 1');
+    const r = validateImport(sqlite3, exportSnapshot(sqlite3, db));
+    expect(r.fromVersion).toBe(1);
+  });
+});
