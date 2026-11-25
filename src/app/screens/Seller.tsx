@@ -6,7 +6,7 @@ import { Button, Field, Page, inputClass } from '../ui';
 import { ItemThumbButton, PhotoStrip } from './Photos';
 import { WorkerError } from '../../core/db/client';
 import { asciiDigits, type Key } from '../../i18n/i18n';
-import type { Box, Item, ItemThumb, LowStockRow, Movement, StockReason } from '../../core/repo';
+import type { Box, Item, ItemThumb, LowStockRow, Movement, StockReason, VariantRow } from '../../core/repo';
 import type { Db } from '../../core/db/client';
 
 const toInt = (s: string): number | null => {
@@ -95,7 +95,7 @@ export function SellerItems({ box, items, thumbs, reload }: { box: Box; items: I
           <li key={it.id} className="flex items-center gap-2 py-2">
             <ItemThumbButton workspaceId={box.workspaceId} itemId={it.id} itemName={it.name} thumb={thumbs[it.id]} onChanged={() => void reload()} />
             <button type="button" className="flex-1 text-left" onClick={() => navigate(`/item/${it.id}`)}>
-              <span className="block font-medium">{it.name}</span>
+              <span className="block font-medium">{it.name}{it.variantLabel ? ` · ${it.variantLabel}` : ''}</span>
               <span className="text-sm text-slate-600" data-testid={`stock-${it.name}`}>
                 {t('stock.inStock', { n: it.onHand - it.reserved })}{it.reserved > 0 ? ` · ${t('stock.booked', { n: it.reserved })}` : ''}
               </span>
@@ -124,7 +124,7 @@ const ACTIONS: StockReason[] = ['sold', 'restock', 'booked', 'shipped', 'unbooke
 
 /** One Seller item: stock actions, details, history with Undo, move to another box, photos. */
 export function ItemPage({ id }: { id: string }) {
-  const { db, workspace, t, toast } = useApp();
+  const { db, workspace, t, toast, showUpgrade } = useApp();
   const [item, setItem] = useState<Item | null | undefined>(undefined);
   const [history, setHistory] = useState<Movement[]>([]);
   const [boxes, setBoxes] = useState<Box[]>([]);
@@ -133,7 +133,9 @@ export function ItemPage({ id }: { id: string }) {
   const [target, setTarget] = useState('');
   const [undo, setUndo] = useUndo();
   const [loadedAt, setLoadedAt] = useState(0);
-  const [pro, setPro] = useState({ costProfit: false });
+  const [pro, setPro] = useState({ costProfit: false, variants: false });
+  const [variants, setVariants] = useState<VariantRow[]>([]);
+  const [newVariant, setNewVariant] = useState('');
 
   // resetDraft: only on first load and after Save, so a stock action never wipes what is being typed.
   const load = useCallback(async (resetDraft = false) => {
@@ -143,9 +145,10 @@ export function ItemPage({ id }: { id: string }) {
     if (!it) return;
     setHistory(await db.itemHistory(id));
     setPro(await db.proStatus(it.workspaceId));
+    setVariants(it.productId ? await db.productVariants(it.productId) : []);
     setBoxes((await db.listBoxes(it.workspaceId)).filter((b) => b.id !== it.locationId));
     if (resetDraft) setDraft({
-      name: it.name, altName: it.altName ?? '', price: fromMinor(it.salePriceMinor), low: it.lowStockLevel == null ? '' : String(it.lowStockLevel),
+      name: it.name, variant: it.variantLabel ?? '', altName: it.altName ?? '', price: fromMinor(it.salePriceMinor), low: it.lowStockLevel == null ? '' : String(it.lowStockLevel),
       cost: fromMinor(it.costPriceMinor), value: fromMinor(it.valueEstimateMinor), weight: it.weightMg == null ? '' : String(it.weightMg / 1000), purity: it.purity ?? '', making: fromMinor(it.makingChargeMinor), notes: it.notes ?? '',
     });
   }, [db, id]);
@@ -166,6 +169,7 @@ export function ItemPage({ id }: { id: string }) {
   const save = async () => {
     const weight = draft.weight?.trim() ? Math.round(Number(asciiDigits(draft.weight)) * 1000) : null;
     try {
+      if (pro.variants && (draft.variant ?? '') !== (item.variantLabel ?? '')) await db.setVariantLabel(item.id, draft.variant || null);
       await db.updateItem(item.id, {
         name: draft.name, altName: draft.altName, notes: draft.notes,
         ...(workspace.type === 'seller'
@@ -204,7 +208,7 @@ export function ItemPage({ id }: { id: string }) {
   );
 
   return (
-    <Page title={item.name} back={() => navigate(`/box/${item.locationId}`)}>
+    <Page title={item.variantLabel ? `${item.name} · ${item.variantLabel}` : item.name} back={() => navigate(`/box/${item.locationId}`)}>
       <PhotoStrip workspaceId={item.workspaceId} parent={{ itemId: item.id }} />
       {seller && <p className="mt-4 text-lg" data-testid="item-stock">
         {t('stock.inStock', { n: item.onHand - item.reserved })}{item.reserved > 0 ? ` · ${t('stock.booked', { n: item.reserved })}` : ''}
@@ -236,9 +240,40 @@ export function ItemPage({ id }: { id: string }) {
         </section>
       )}
 
+      {seller && pro.variants && (
+        <section className="mt-6">
+          <h2 className="text-lg font-semibold">{t('var.title')}</h2>
+          {variants.length > 1 && (
+            <>
+              <ul className="divide-y" aria-label="variants">
+                {variants.map((v) => (
+                  <li key={v.itemId}>
+                    <button type="button" disabled={v.itemId === item.id} className="flex w-full justify-between py-2 text-left disabled:font-semibold" onClick={() => navigate(`/item/${v.itemId}`)}>
+                      <span>{v.variantLabel ?? item.name}</span>
+                      <span className="text-sm text-slate-600">{t('stock.inStock', { n: v.onHand - v.reserved })} · {t('box.title', { n: v.boxNumber })}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-sm text-slate-600">{t('var.total', { n: variants.reduce((s, v) => s + v.onHand - v.reserved, 0) })}</p>
+            </>
+          )}
+          <form className="mt-2 flex gap-2" onSubmit={async (e) => {
+            e.preventDefault();
+            if (!newVariant.trim()) return;
+            try { const v = await db.addVariant(item.id, newVariant); setNewVariant(''); navigate(`/item/${v.id}`); }
+            catch (err) { if (err instanceof WorkerError && err.reason) showUpgrade(err.reason); else toast(t('error.generic', { msg: (err as Error).message })); }
+          }}>
+            <input className={inputClass} maxLength={40} placeholder={t('var.new')} aria-label={t('var.new')} value={newVariant} onChange={(e) => setNewVariant(e.target.value)} />
+            <Button type="submit" disabled={!newVariant.trim()}>{t('var.add')}</Button>
+          </form>
+        </section>
+      )}
+
       <section className="mt-6">
         <h2 className="text-lg font-semibold">{t('item.details')}</h2>
         {field('name', 'box.name')}
+        {seller && pro.variants && field('variant', 'var.label')}
         {field('altName', 'item.altName')}
         {seller ? <>
           {field('price', workspace.currency === 'BDT' ? 'item.price' : 'item.priceAud', { numeric: true })}

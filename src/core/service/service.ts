@@ -106,6 +106,15 @@ export function createService(ctx: Ctx, entitlement: () => Entitlement = () => (
     packOrder: (orderId: string) => R.packOrder(ctx, orderId),
     deliverOrder: (orderId: string) => R.deliverOrder(ctx, orderId),
     cancelOrder: (orderId: string) => R.cancelOrder(ctx, orderId),
+    addVariant: (itemId: string, label: string, boxId?: string) => {
+      const it = R.getItem(ctx, itemId);
+      if (!it) throw new Error('item not found');
+      gate('variants', it.workspaceId);
+      gate('add_item', it.workspaceId);
+      return R.addVariant(ctx, itemId, label, boxId);
+    },
+    setVariantLabel: (itemId: string, label: string | null) => R.setVariantLabel(ctx, itemId, label),
+    productVariants: (productId: string) => R.productVariants(ctx, productId),
     /** For the UI: which Pro extras are open on this workspace. */
     proStatus: (wsId: string) => {
       const open = (f: Feature) => { try { gate(f, wsId); return true; } catch { return false; } };

@@ -64,3 +64,19 @@ test('Pro: cost price, an order that books and packs stock, then the report show
   await expect(page.getByTestId('report-totals')).toContainText('৳2,000');
   await expect(page.getByTestId('report-totals')).toContainText('৳800');
 });
+
+test('Pro: add a variant (size) with its own stock', async ({ page }) => {
+  test.skip(!PRO, 'needs a VITE_PREVIEW_PAID_PLANS=1 build');
+  await newShop(page);
+  await page.getByRole('button', { name: 'Add box' }).click();
+  await page.getByLabel('Add item').fill('Ring');
+  await page.getByLabel('Add item').press('Enter');
+  await page.getByRole('button', { name: /^Ring/ }).click();
+  await page.getByLabel('New variant, e.g. Size 8').fill('Size 8');
+  await page.getByRole('button', { name: 'Add variant' }).click();
+  await expect(page.getByRole('heading', { name: 'Ring · Size 8' })).toBeVisible();
+  await page.getByLabel('How many').fill('4');
+  await page.getByRole('button', { name: 'Restock', exact: true }).click();
+  await expect(page.getByRole('list', { name: 'variants' })).toContainText('Size 8');
+  await expect(page.getByText('All variants: 4 in stock')).toBeVisible();
+});

@@ -248,8 +248,37 @@ CREATE TABLE order_lines (
 CREATE INDEX order_lines_order ON order_lines(order_id);
 `;
 
+/** v4 (Pro): product variants. Each variant stays its own stock item (ADR-006), grouped by items.product_id. */
+const V4 = `
+CREATE TABLE products (
+  id TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 120),
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+);
+ALTER TABLE items ADD COLUMN variant_label TEXT CHECK (length(variant_label) BETWEEN 1 AND 40);
+CREATE INDEX items_product ON items(product_id) WHERE product_id IS NOT NULL;
+DROP TRIGGER items_search_ai;
+DROP TRIGGER items_search_au;
+CREATE TRIGGER items_search_ai AFTER INSERT ON items WHEN NEW.deleted_at IS NULL BEGIN
+  INSERT INTO item_search (name, alt_name, notes, location_label, item_id, workspace_id)
+  SELECT NEW.name || coalesce(' ' || NEW.variant_label, ''), NEW.alt_name, NEW.notes,
+         'Box ' || l.number || coalesce(' ' || l.name, '') || coalesce(' ' || l.spot, ''),
+         NEW.id, NEW.workspace_id
+    FROM locations l WHERE l.id = NEW.location_id;
+END;
+CREATE TRIGGER items_search_au AFTER UPDATE ON items BEGIN
+  DELETE FROM item_search WHERE item_id = OLD.id;
+  INSERT INTO item_search (name, alt_name, notes, location_label, item_id, workspace_id)
+  SELECT NEW.name || coalesce(' ' || NEW.variant_label, ''), NEW.alt_name, NEW.notes,
+         'Box ' || l.number || coalesce(' ' || l.name, '') || coalesce(' ' || l.spot, ''),
+         NEW.id, NEW.workspace_id
+    FROM locations l WHERE l.id = NEW.location_id AND NEW.deleted_at IS NULL;
+END;
+`;
+
 /** Ordered migrations. Index i migrates user_version i -> i+1. Never edit a released entry. */
-export const MIGRATIONS: readonly Migration[] = [V1, V2, V3];
+export const MIGRATIONS: readonly Migration[] = [V1, V2, V3, V4];
 
 export function applyMigration(db: MigrationDb, index: number): void {
   const m = MIGRATIONS[index]!;

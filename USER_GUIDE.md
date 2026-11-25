@@ -72,6 +72,19 @@ Free plan: up to 12 boxes in Home mode, or 50 items in Seller mode. When you rea
 - **Settings → Jewellery fields** switches the weight, purity and making-charge fields on or off.
 - Free plan: up to 50 items.
 
+## Seller Pro extras
+
+Marked **Pro**. They need the Seller Pro plan; while paid plans are skipped they are only switched on in test builds.
+
+- **Cost price** on the item page: what you paid for one. Each sale remembers its price and cost, so changing a price later never changes past profit.
+- **Reports**: Today, 7 days, 30 days or This month. Items sold, sales, profit, best sellers, sales by day, and the value of the stock you hold (at cost and at sale price). Items without a cost price are counted in sales but not in profit, and the report says how many.
+- **Orders**: **New order** with the customer's name (phone and note optional), then **Add item** with a number. Adding an item books that stock.
+  - **Mark packed** takes the stock out and counts it as sold.
+  - **Mark delivered** when it has reached the customer.
+  - **Cancel order** puts the booked stock back.
+  - **Send order to customer** shares the order as text (for example on WhatsApp).
+- **Variants** on the item page: **Add variant** (e.g. Size 8, Red) makes a separate item with its own stock, linked to the others. The item page lists all variants and the total in stock. Search finds variant names.
+
 ## Bin
 
 - Lists deleted boxes and deleted items, newest first.

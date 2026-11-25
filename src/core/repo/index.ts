@@ -7,3 +7,4 @@ export * from './export';
 export * from './stock';
 export * from './reports';
 export * from './orders';
+export * from './variants';

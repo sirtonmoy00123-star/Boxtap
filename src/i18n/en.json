@@ -280,5 +280,10 @@
   "ord.remove": "Remove",
   "ord.share": "Send order to customer",
   "ord.lines": "{n} items",
+  "var.title": "Variants (sizes, colours)",
+  "var.label": "This variant (e.g. Size 7, Red)",
+  "var.add": "Add variant",
+  "var.new": "New variant, e.g. Size 8",
+  "var.total": "All variants: {n} in stock",
   "error.generic": "Something went wrong: {msg}"
 }

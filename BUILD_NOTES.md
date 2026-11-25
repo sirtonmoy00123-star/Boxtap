@@ -43,6 +43,7 @@ npx tsx tools/config.ts sign          # writes public/config/v1.json
 | 1.7b Google Drive backup (snapshots + photos) | Done against a fake Drive; real Google check on devices pending; "Use this device instead" and the iPhone redirect fallback not yet | sync/photo queue tests |
 | 1b Paid keys (licence entry, payment links, renewal reminders) | Skipped for now by the owner (2026-11-25) | |
 | 2 Seller: stock ledger (sell, restock, booked, packed, cancel, damaged, returned, undo 24 h, count, move), item details incl. jewellery fields, low-stock list | Done, with the in-stock catalogue picture and Bangla text on labels (drawn by the browser, placed in the PDF) | stock tests, Seller E2E |
+| 3 Seller Pro extras: cost/profit, reports, orders, variants | Built ahead of the pilot at the owner's request (2026-11-26); Excel export not built (config switch is off) | reports/orders/variants tests; Pro E2E on a preview build |
 | 1.8 Offline, update prompt, launch | Update prompt and precache done; offline E2E and launch not yet | |
 
 ## Rulings made during the build (deviations from the docs, with cost if wrong)
@@ -58,6 +59,10 @@ npx tsx tools/config.ts sign          # writes public/config/v1.json
 
 9. **Restoring from the bin is never gated by free limits** (H-06). A Home Free user can end up with 13 boxes after a restore; new boxes stay blocked.
 10. **Memory fallback is narrowed**: only when OPFS is missing or fails outright. A file held by another tab is retried; a failed restore swap or a failed open of the real file shows an error instead of an empty app.
+
+11. **Schema versions**: v1 was released with the first live test site (2026-11-25). v2 fixes phones set up then (adds photos.drive_file_id only if missing) and stores sale price and cost on each movement; v3 adds orders; v4 adds products and variant labels. Restore validation compares tables by columns and triggers/indexes by exact SQL. Cost if wrong: a crafted backup could drop CHECK constraints on its tables; triggers can still never be added.
+12. **Paid-plan preview switch**: VITE_PREVIEW_PAID_PLANS=1 unlocks Move Pass and Seller Pro in a build, for testing while licence keys are skipped. It must not be set for real customers. Run the Pro browser tests with: VITE_PREVIEW_PAID_PLANS=1 npm run build && PRO_E2E=1 npx playwright test e2e/pro.spec.ts.
+13. **Orders and the item page**: undoing a booked movement from an item page while it belongs to an open order is not blocked yet. Cost: the order and the stock can disagree until the line is removed.
 
 ## Independent review, 2026-11-25
 

@@ -9,6 +9,8 @@ export interface Item {
   weightMg: number | null; purity: string | null; makingChargeMinor: number | null;
   /** Pro: what the seller paid for one (single owner device for now). */
   costPriceMinor: number | null;
+  /** Pro variants: the product this item belongs to, and its variant label (e.g. "Size 7"). */
+  productId: string | null; variantLabel: string | null;
 }
 export interface ItemInput {
   workspaceId: string; locationId: string; name: string; altName?: string | null; notes?: string | null;
@@ -26,6 +28,7 @@ const toItem = (r: Record<string, unknown>): Item => ({
   pricingMode: (r.pricing_mode as Item['pricingMode']) ?? 'per_piece', weightMg: r.weight_mg == null ? null : num(r.weight_mg),
   purity: str(r.purity), makingChargeMinor: r.making_charge_minor == null ? null : num(r.making_charge_minor),
   costPriceMinor: r.cost_price_minor == null ? null : num(r.cost_price_minor),
+  productId: str(r.product_id), variantLabel: str(r.variant_label),
 });
 
 function wholeOrNull(v: number | null | undefined, field: string, min: number): number | null {
