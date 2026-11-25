@@ -7,6 +7,9 @@ import {
 import { pack, unpack } from './pack';
 import { loadBackupKey, saveBackupKey } from './keystore';
 import type { RestoreResult } from '../db/protocol';
+import { readPhotoFile, removeOrphans, writePhotoFile } from '../photos/store';
+import { makeThumb } from '../photos/encode';
+import type { Entry } from './pack';
 
 interface StoredWrapped { keyId: string; wrapped: WrappedKey }
 
@@ -30,11 +33,22 @@ export async function createBackupFile(db: Db): Promise<File> {
   const { keyId, wrapped } = JSON.parse(stored) as StoredWrapped;
   if (keyId !== key.keyId) throw new Error('Backup key mismatch on this device');
   const snapshot = await db.exportSnapshot();
-  const manifest = new TextEncoder().encode(JSON.stringify({ format: 1, photos: [] }));
+  const photos = await db.allLivePhotos();
+  // Full-size photos go in the file; thumbnails are rebuilt on restore. Photos are read one at a time.
+  async function* entries(): AsyncGenerator<Entry> {
+    const included: { id: string; file: string; sha256: string | null }[] = [];
+    yield { name: 'db.sqlite', data: snapshot };
+    for (const p of photos) {
+      const blob = await readPhotoFile(p.fileName);
+      if (!blob) continue; // not on this device (e.g. still downloading after a restore)
+      included.push({ id: p.id, file: p.fileName, sha256: p.sha256 });
+      yield { name: p.fileName, data: new Uint8Array(await blob.arrayBuffer()) };
+    }
+    yield { name: 'manifest.json', data: new TextEncoder().encode(JSON.stringify({ format: 1, photos: included })) };
+  }
   const parts: BlobPart[] = [];
   for await (const c of encryptFile('BTBAK2', { app_version: __APP_VERSION__, schema_version: SCHEMA_VERSION },
-    { cryptoKey: key.cryptoKey, keyId, wrapped },
-    pack([{ name: 'db.sqlite', data: snapshot }, { name: 'manifest.json', data: manifest }]))) {
+    { cryptoKey: key.cryptoKey, keyId, wrapped }, pack(entries()))) {
     parts.push(new Uint8Array(c));
   }
   const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
@@ -77,6 +91,17 @@ export async function restoreBackupFile(db: Db, file: Blob, recoveryCode: string
   const dbEntry = entries.find((e) => e.name === 'db.sqlite');
   if (!dbEntry) throw new Error('This backup has no database in it');
   const result = await db.restore(dbEntry.data);
+  // Photos: write each file back, rebuild its thumbnail, then drop files no restored row points at.
+  const live = await db.allLivePhotos();
+  const byFile = new Map(live.map((p) => [p.fileName, p]));
+  for (const e of entries) {
+    const p = byFile.get(e.name);
+    if (!p) continue;
+    const blob = new Blob([new Uint8Array(e.data)], { type: p.mime });
+    await writePhotoFile(p.fileName, blob);
+    await writePhotoFile(p.thumbName, await makeThumb(blob)).catch(() => {});
+  }
+  await removeOrphans(new Set(live.flatMap((p) => [p.fileName, p.thumbName])));
   const wrapped: WrappedKey = { kdf: header.kdf, ...header.wrapped_key_by_recovery };
   const raw = await unwrapBackupKey(wrapped, recoveryCode);
   await saveBackupKey({ keyId: header.key_id, cryptoKey: await importBackupKey(raw) });

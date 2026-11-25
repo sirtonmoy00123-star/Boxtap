@@ -46,25 +46,29 @@ function encoderFor(bmp: ImageBitmap): Encoder {
   };
 }
 
+/** 400 px thumbnail in the same format as the photo (also used to rebuild thumbnails after a restore). */
+export async function makeThumb(full: Blob): Promise<Blob> {
+  const bmp = await bitmapAtWidth(full, THUMB_WIDTH);
+  try {
+    return await encoderFor(bmp)(full.type === 'image/webp' ? 'image/webp' : 'image/jpeg', 0.7);
+  } finally {
+    bmp.close();
+  }
+}
+
 export interface ProcessedPhoto { full: Blob; thumb: Blob; mime: 'image/webp' | 'image/jpeg'; sha256: string }
 
 /** 1600 px photo (~200 KB) + 400 px thumbnail, plus the SHA-256 of the saved photo (for the Drive manifest). */
 export async function processPhoto(file: Blob): Promise<ProcessedPhoto> {
   const fullBmp = await bitmapAtWidth(file, FULL_WIDTH);
   let full: Blob;
-  let thumb: Blob;
+
   try {
     full = await encodeWithin(encoderFor(fullBmp), MAX_PHOTO_BYTES);
   } finally {
     fullBmp.close();
   }
-  const thumbBmp = await bitmapAtWidth(full, THUMB_WIDTH);
-  try {
-    const thumbEnc = encoderFor(thumbBmp);
-    thumb = await thumbEnc(full.type as 'image/webp' | 'image/jpeg', 0.7);
-  } finally {
-    thumbBmp.close();
-  }
+  const thumb = await makeThumb(full);
   const sha = new Uint8Array(await crypto.subtle.digest('SHA-256', await full.arrayBuffer()));
   return { full, thumb, mime: full.type === 'image/webp' ? 'image/webp' : 'image/jpeg', sha256: bytesToHex(sha) };
 }

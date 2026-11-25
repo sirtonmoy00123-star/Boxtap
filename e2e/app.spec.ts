@@ -1,6 +1,17 @@
 import { test, expect, type Page } from '@playwright/test';
 import { needsPersistentStorage } from './env';
 
+/** A real small PNG made in the page, like a camera photo. */
+async function tinyPng(page: Page): Promise<Buffer> {
+  const bytes = await page.evaluate(async () => {
+    const c = document.createElement('canvas'); c.width = 64; c.height = 48;
+    const g = c.getContext('2d')!; g.fillStyle = '#c33'; g.fillRect(0, 0, 64, 48);
+    const b: Blob = await new Promise((r) => c.toBlob((x) => r(x!), 'image/png'));
+    return Array.from(new Uint8Array(await b.arrayBuffer()));
+  });
+  return Buffer.from(bytes);
+}
+
 /** Goes through first launch, including the recovery code check. Returns the 12-word code. */
 async function newHome(page: Page): Promise<string> {
   await page.goto('/');
@@ -121,6 +132,8 @@ test('back up, then restore on a fresh browser with the code; a wrong code chang
   await page.getByLabel('Add item').fill('Wedding album');
   await page.getByLabel('Add item').press('Enter');
   await expect(page.getByRole('list', { name: 'items' })).toContainText('Wedding album');
+  await page.getByLabel('Add photo').setInputFiles({ name: 'p.png', mimeType: 'image/png', buffer: await tinyPng(page) });
+  await expect(page.getByRole('list', { name: 'photos' }).locator('img')).toHaveCount(1, { timeout: 15_000 });
   await page.getByRole('button', { name: 'Back' }).click();
   await page.getByRole('button', { name: 'Settings' }).click();
   const download = page.waitForEvent('download');
@@ -143,6 +156,10 @@ test('back up, then restore on a fresh browser with the code; a wrong code chang
   await expect(p2.getByRole('heading', { name: 'My move' })).toBeVisible({ timeout: 30_000 });
   await p2.getByLabel('Search items or boxes').fill('wedding');
   await expect(p2.getByRole('list', { name: 'results' })).toContainText('Wedding album');
+  // The photo came back too, with a rebuilt thumbnail.
+  await p2.getByRole('list', { name: 'results' }).getByText('Wedding album').click();
+  await expect(p2.getByRole('list', { name: 'photos' }).locator('img')).toHaveCount(1, { timeout: 15_000 });
+  await p2.getByRole('button', { name: 'Back' }).click();
   // The restored device can make its own backups with the restored key.
   await p2.getByLabel('Search items or boxes').fill('');
   await p2.getByRole('button', { name: 'Settings' }).click();
