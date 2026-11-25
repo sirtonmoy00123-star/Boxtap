@@ -53,7 +53,10 @@ describe('Drive photo queue (audit B10, critical tests 25 and 37)', () => {
     expect(await ps.run()).toMatchObject({ uploaded: 1 });
     const f = [...fake.files.values()].find((x) => x.name.endsWith('.btph'))!;
     expect(f.name).not.toContain('p1');
-    expect(new TextDecoder().decode(f.data)).not.toContain('\u0007\u000e');
+    // No 64-byte run of the photo appears in what was uploaded (it is encrypted).
+    const plain = bytes(5000).subarray(1000, 1064);
+    const hex = (u: Uint8Array) => Array.from(u, (b) => b.toString(16).padStart(2, '0')).join('');
+    expect(hex(f.data).includes(hex(plain))).toBe(false);
     expect(h.photos.get('p1')!.driveFileId).toBe(f.id);
     expect(h.queue.size).toBe(0);
   });

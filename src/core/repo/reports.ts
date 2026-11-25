@@ -33,7 +33,7 @@ export function salesReport(ctx: Ctx, workspaceId: string, fromIso: string, toIs
             coalesce(sum(CASE WHEN cost IS NULL THEN units END),0) AS no_cost
        FROM (${SALES})`, bind);
   const best = ctx.db.selectObjects(
-    `SELECT s.item_id, i.name, sum(s.units) AS units, sum(s.units * coalesce(s.price,0)) AS revenue
+    `SELECT s.item_id, i.name || coalesce(' · ' || i.variant_label, '') AS name, sum(s.units) AS units, sum(s.units * coalesce(s.price,0)) AS revenue
        FROM (${SALES}) s JOIN items i ON i.id = s.item_id
       GROUP BY s.item_id HAVING sum(s.units) > 0 ORDER BY units DESC, revenue DESC, i.name LIMIT 10`, bind);
   const days = ctx.db.selectObjects(

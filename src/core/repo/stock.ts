@@ -141,8 +141,10 @@ export function moveStock(ctx: Ctx, itemId: string, targetBoxId: string, quantit
     if (!ok) throw new Error('target box not found');
     if (targetBoxId === it.locationId) throw new Error('item is already in that box');
     const existing = ctx.db.selectValue(
-      `SELECT id FROM items WHERE location_id=? AND deleted_at IS NULL AND name=? AND coalesce(alt_name,'')=coalesce(?,'') LIMIT 1`,
-      [targetBoxId, it.name, it.altName]);
+      // Same product and variant too, so "Ring · Size 6" never lands on "Ring · Size 7" (review finding 4).
+      `SELECT id FROM items WHERE location_id=? AND deleted_at IS NULL AND name=? AND coalesce(alt_name,'')=coalesce(?,'')
+         AND coalesce(product_id,'')=coalesce(?,'') AND coalesce(variant_label,'')=coalesce(?,'') LIMIT 1`,
+      [targetBoxId, it.name, it.altName, it.productId, it.variantLabel]);
     let targetId = existing == null ? null : String(existing);
     if (!targetId) {
       const copy = addItem(ctx, {
@@ -151,6 +153,7 @@ export function moveStock(ctx: Ctx, itemId: string, targetBoxId: string, quantit
         weightMg: it.weightMg, purity: it.purity, makingChargeMinor: it.makingChargeMinor, pricingMode: it.pricingMode,
       });
       targetId = copy.id;
+      if (it.productId) ctx.db.exec({ sql: `UPDATE items SET product_id=?, variant_label=? WHERE id=?`, bind: [it.productId, it.variantLabel, targetId] });
     }
     insertMovement(ctx, { workspaceId: it.workspaceId, itemId, onHand: -q, reserved: 0, reason: 'moved_out' });
     insertMovement(ctx, { workspaceId: it.workspaceId, itemId: targetId, onHand: q, reserved: 0, reason: 'moved_in' });
@@ -170,7 +173,7 @@ export interface LowStockRow { itemId: string; name: string; available: number; 
 /** S-21: items whose available stock is at or below their low-stock level. */
 export function lowStock(ctx: Ctx, workspaceId: string): LowStockRow[] {
   return ctx.db.selectObjects(
-    `SELECT i.id, i.name, i.on_hand - i.reserved AS available, i.low_stock_level, l.id AS box_id, l.number
+    `SELECT i.id, i.name || coalesce(' · ' || i.variant_label, '') AS name, i.on_hand - i.reserved AS available, i.low_stock_level, l.id AS box_id, l.number
        FROM items i JOIN locations l ON l.id = i.location_id
       WHERE i.workspace_id=? AND i.deleted_at IS NULL AND l.deleted_at IS NULL
         AND i.low_stock_level IS NOT NULL AND i.on_hand - i.reserved <= i.low_stock_level
@@ -185,7 +188,7 @@ export interface CatalogueCandidate {
 /** Live items with their available stock, price and first photo; one box or the whole shop, in box order. */
 export function catalogueCandidates(ctx: Ctx, workspaceId: string, boxId?: string): CatalogueCandidate[] {
   return ctx.db.selectObjects(
-    `SELECT i.id, i.name, i.on_hand - i.reserved AS available, i.sale_price_minor,
+    `SELECT i.id, i.name || coalesce(' · ' || i.variant_label, '') AS name, i.on_hand - i.reserved AS available, i.sale_price_minor,
             (SELECT p.file_name FROM photos p WHERE p.item_id = i.id AND p.deleted_at IS NULL ORDER BY p.created_at LIMIT 1) AS photo_file,
             (SELECT p.mime FROM photos p WHERE p.item_id = i.id AND p.deleted_at IS NULL ORDER BY p.created_at LIMIT 1) AS photo_mime
        FROM items i JOIN locations l ON l.id = i.location_id

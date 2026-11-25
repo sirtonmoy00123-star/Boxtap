@@ -32,7 +32,7 @@ export function getOrder(ctx: Ctx, id: string): Order | undefined {
   const [r] = ctx.db.selectObjects(`SELECT * FROM orders WHERE id=?`, [id]);
   if (!r) return undefined;
   const lines = ctx.db.selectObjects(
-    `SELECT l.id, l.item_id, i.name, l.qty, l.unit_price_minor FROM order_lines l JOIN items i ON i.id = l.item_id
+    `SELECT l.id, l.item_id, i.name || coalesce(' · ' || i.variant_label, '') AS name, l.qty, l.unit_price_minor FROM order_lines l JOIN items i ON i.id = l.item_id
       WHERE l.order_id=? ORDER BY l.created_at, l.rowid`, [id])
     .map((x) => ({ id: String(x.id), itemId: String(x.item_id), name: String(x.name), qty: num(x.qty), unitPriceMinor: x.unit_price_minor == null ? null : num(x.unit_price_minor) }));
   return {

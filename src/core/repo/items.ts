@@ -137,7 +137,7 @@ export function search(ctx: Ctx, workspaceId: string, query: string, limit = 100
     : `(s.name LIKE ? ESCAPE '\\' OR s.alt_name LIKE ? ESCAPE '\\' OR s.location_label LIKE ? ESCAPE '\\')`;
   const bind = chars >= 3 ? [`"${q.replace(/"/g, '""')}"`] : Array(3).fill(`%${likeEscape(q)}%`);
   return ctx.db.selectObjects(
-    `SELECT i.id, i.name, l.id AS box_id, l.number, l.name AS box_name
+    `SELECT i.id, i.name || coalesce(' · ' || i.variant_label, '') AS name, l.id AS box_id, l.number, l.name AS box_name
        FROM item_search s JOIN items i ON i.id = s.item_id JOIN locations l ON l.id = i.location_id
       WHERE ${where} AND s.workspace_id = ? AND i.deleted_at IS NULL AND l.deleted_at IS NULL
       ORDER BY l.number, i.name LIMIT ?`,

@@ -49,3 +49,28 @@ describe('product variants (Pro, ADR-006: each variant is its own stock item)', 
     expect(R.search(ctx, ws.id, 'size 7').length).toBe(1);
   });
 });
+
+describe('variants everywhere (review findings 4, 5)', () => {
+  it('moving a variant keeps it a separate variant in the target box', () => {
+    const ring = R.addItem(ctx, { workspaceId: ws.id, locationId: box.id, name: 'Ring' });
+    R.setVariantLabel(ctx, ring.id, 'Size 6');
+    const s7 = R.addVariant(ctx, ring.id, 'Size 7');
+    const box2 = R.createBox(ctx, ws.id, {});
+    R.recordStock(ctx, ring.id, 'restock', 5);
+    R.recordStock(ctx, s7.id, 'restock', 5);
+    R.moveStock(ctx, s7.id, box2.id, 2);
+    const moved6 = R.moveStock(ctx, ring.id, box2.id, 3);
+    expect(moved6.variantLabel).toBe('Size 6');
+    expect(moved6.productId).toBe(R.getItem(ctx, ring.id)!.productId);
+    const inBox2 = R.listItems(ctx, box2.id).map((i) => [i.variantLabel, i.onHand]);
+    expect(inBox2).toEqual([['Size 7', 2], ['Size 6', 3]]);
+  });
+
+  it('search, low stock and the catalogue show the variant name', () => {
+    const ring = R.addItem(ctx, { workspaceId: ws.id, locationId: box.id, name: 'Ring', lowStockLevel: 5 });
+    R.addVariant(ctx, ring.id, 'Size 7');
+    expect(R.search(ctx, ws.id, 'Ring').map((h) => h.itemName).sort()).toEqual(['Ring', 'Ring · Size 7']);
+    expect(R.lowStock(ctx, ws.id).map((l) => l.name).sort()).toEqual(['Ring', 'Ring · Size 7']);
+    expect(R.catalogueCandidates(ctx, ws.id).map((c) => c.name)).toEqual(['Ring', 'Ring · Size 7']);
+  });
+});
