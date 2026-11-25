@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { needsPersistentStorage } from './env';
 
 async function newHome(page: Page) {
   await page.goto('/');
@@ -24,6 +25,7 @@ test('first launch offers restore choices before creating anything (audit B2)', 
 });
 
 test('add a box and items, search, and the data survives a reload (critical test 1)', async ({ page }) => {
+  needsPersistentStorage(test.info().project.name);
   await newHome(page);
   await page.getByRole('button', { name: 'Add box' }).click();
   await expect(page.getByRole('heading', { name: 'Box 1' })).toBeVisible();
@@ -67,6 +69,7 @@ test('bin: a deleted box can be restored', async ({ page }) => {
 });
 
 test('label link: own box opens; unknown code says not mine (critical tests 6-7 via link)', async ({ page }) => {
+  needsPersistentStorage(test.info().project.name);
   await newHome(page);
   await page.getByRole('button', { name: 'Add box' }).click();
   const code = (await page.getByTestId('label-code').textContent())!.trim();
@@ -82,6 +85,7 @@ test('label link in a browser with no BoxTap data shows only the landing message
 });
 
 test('second tab is told BoxTap is open elsewhere and can take over (critical test 4)', async ({ page, context }) => {
+  needsPersistentStorage(test.info().project.name);
   await newHome(page);
   const second = await context.newPage();
   await second.goto('/');
@@ -89,4 +93,10 @@ test('second tab is told BoxTap is open elsewhere and can take over (critical te
   await second.getByRole('button', { name: 'Use here instead' }).click();
   await expect(second.getByRole('heading', { name: 'My move' })).toBeVisible();
   await expect(page.getByText('BoxTap was opened in another tab.')).toBeVisible();
+});
+
+test('a browser without usable storage shows the data-loss banner instead of failing', async ({ page, browserName }) => {
+  test.skip(!(browserName === 'webkit' && process.platform === 'win32'), 'only this build lacks OPFS');
+  await page.goto('/');
+  await expect(page.getByText("This browser can't store BoxTap data.")).toBeVisible();
 });

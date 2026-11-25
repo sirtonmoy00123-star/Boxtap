@@ -11,7 +11,7 @@ export default defineConfig({
   reporter: [['list']],
   use: { baseURL: `http://localhost:${PORT}`, trace: 'off' },
   webServer: {
-    command: `npx wrangler pages dev dist --port ${PORT} --ip 127.0.0.1`,
+    command: `npx wrangler pages dev dist --port ${PORT} --ip 127.0.0.1 --compatibility-date=2026-11-23`,
     url: `http://localhost:${PORT}`,
     reuseExistingServer: false,
     timeout: 60_000,
