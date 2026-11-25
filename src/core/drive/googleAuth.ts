@@ -1,9 +1,12 @@
 // Google Identity Services token model (ADR-020, API_CONTRACTS §6.1). The script loads only after the user
 // opens the Drive screen; the token lives in this module's memory only, never in storage (SECURITY_MODEL §2).
 // Renewal needs a tap (audit B3: no silent renewal in the browser), once per session and after each hour.
-// The full-page redirect fallback for the iPhone home-screen app (oauth.html, B17) waits for the Phase 0 spike.
+// When the pop-up can't open (iPhone home-screen app), the full-page sign-in in oauthRedirect.ts + /oauth is used (B17).
 
-export const DRIVE_FILE = 'https://www.googleapis.com/auth/drive.file';
+import { DRIVE_FILE_SCOPE } from './scopes';
+import { buildAuthUrl, KEY_CLIENT, KEY_RETURN, KEY_STATE, KEY_TOKEN } from './oauthRedirect';
+
+export const DRIVE_FILE = DRIVE_FILE_SCOPE;
 const GIS_SRC = 'https://accounts.google.com/gsi/client';
 
 interface TokenResponse { access_token: string; expires_in: number; error?: string; error_description?: string; scope?: string }
@@ -39,6 +42,39 @@ export function loadGis(): Promise<Gis> {
 }
 
 export class DrivePermissionError extends Error { name = 'DrivePermissionError'; }
+/** The pop-up could not open (e.g. iPhone home-screen app): use the full-page sign-in instead. */
+export class PopupBlockedError extends Error { name = 'PopupBlockedError'; }
+/** Thrown after starting the full-page sign-in: the page is leaving, stop the current action quietly. */
+export class RedirectingError extends Error { name = 'RedirectingError'; }
+
+/** iPhone/iPad home-screen app: pop-ups are unreliable there (spike R11), so go straight to the full-page sign-in. */
+export const preferRedirect = (): boolean => (navigator as Navigator & { standalone?: boolean }).standalone === true;
+
+/** Starts the full-page sign-in (audit B17). Never returns normally. */
+export function startRedirectSignIn(hint?: string): never {
+  const state = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
+  sessionStorage.setItem(KEY_STATE, state);
+  sessionStorage.setItem(KEY_CLIENT, clientId());
+  sessionStorage.setItem(KEY_RETURN, location.pathname);
+  location.assign(buildAuthUrl({ clientId: clientId(), redirectUri: `${location.origin}/oauth`, state, hint }));
+  throw new RedirectingError('redirecting to Google');
+}
+
+/** On app start: take a token left by /oauth (same tab, seconds old) into memory and remove it. */
+export function adoptRedirectToken(): boolean {
+  const raw = sessionStorage.getItem(KEY_TOKEN);
+  if (!raw) return false;
+  sessionStorage.removeItem(KEY_TOKEN);
+  try {
+    const t = JSON.parse(raw) as { value: string; expiresAt: number };
+    if (typeof t.value !== 'string' || !(t.expiresAt > Date.now())) return false;
+    token = { value: t.value, expiresAt: t.expiresAt };
+    listeners.forEach((l) => l());
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /** Must run inside a tap handler, with loadGis() already resolved. Resolves with the access token. */
 export function requestToken(gis: Gis, hint?: string): Promise<string> {
@@ -54,7 +90,7 @@ export function requestToken(gis: Gis, hint?: string): Promise<string> {
         listeners.forEach((l) => l());
         resolve(t.access_token);
       },
-      error_callback: (e) => reject(new Error(e.type === 'popup_closed' ? 'Sign-in was closed' : `Sign-in failed (${e.type})`)),
+      error_callback: (e) => reject(e.type === 'popup_failed_to_open' ? new PopupBlockedError('pop-up blocked') : new Error(e.type === 'popup_closed' ? 'Sign-in was closed' : `Sign-in failed (${e.type})`)),
     });
     client.requestAccessToken({ prompt: '', ...(hint ? { hint } : {}) });
   });

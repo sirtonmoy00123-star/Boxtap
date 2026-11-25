@@ -40,5 +40,10 @@ export default defineConfig({
   ],
   optimizeDeps: { exclude: ['@sqlite.org/sqlite-wasm'] },
   worker: { format: 'es' },
-  build: { target: 'es2022', sourcemap: true },
+  build: {
+    target: 'es2022',
+    sourcemap: true,
+    // oauth.html is a separate tiny page for the full-page Google sign-in (never precached; audit B17).
+    rollupOptions: { input: { main: 'index.html', oauth: 'oauth.html' } },
+  },
 });

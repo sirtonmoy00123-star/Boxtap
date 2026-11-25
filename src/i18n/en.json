@@ -333,5 +333,8 @@
   "check.failed": "BoxTap found a problem with its storage on this device. Make a backup now (Settings → Back up now).",
   "share.ready": "Your file is ready",
   "share.now": "Share file",
-  "share.save": "Save to this device"
+  "share.save": "Save to this device",
+  "drive.redirecting": "Opening Google sign-in…",
+  "drive.signedIn": "Signed in to Google. Tap the Drive button again to continue.",
+  "drive.signInFailed": "Google sign-in didn't finish. Try again."
 }

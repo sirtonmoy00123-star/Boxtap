@@ -16,6 +16,7 @@ import { ItemPage, LowStockPage } from './screens/Seller';
 import { CataloguePage } from './screens/Catalogue';
 import { OrderPage, OrdersPage, ReportsPage } from './screens/Pro';
 import { startSchedule } from '../core/drive/browserSync';
+import { adoptRedirectToken } from '../core/drive/googleAuth';
 import { removeOrphans, removePhotoFile } from '../core/photos/store';
 import type { Lang } from '../i18n/i18n';
 
@@ -80,6 +81,16 @@ export function App() {
   }, [start]);
 
   useEffect(() => { void bootUp(false); }, [bootUp]);
+
+  // Back from the full-page Google sign-in (audit B17): take the token into memory, tell the user what happened.
+  useEffect(() => {
+    const q = new URLSearchParams(location.search).get('drive');
+    const adopted = adoptRedirectToken();
+    if (!q) return;
+    history.replaceState(null, '', location.pathname);
+    const lang = guessLang();
+    setTimeout(() => toastRef.current?.(makeT(lang)(adopted ? 'drive.signedIn' : 'drive.signInFailed')), 800);
+  }, []);
 
   // Drive backup runs only in the tab that owns the database, and only while the app is open (ADR-020).
   const readyDb = boot.s === 'ready' ? boot.db : null;

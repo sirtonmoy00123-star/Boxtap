@@ -490,3 +490,11 @@ test('box page keeps what you typed when you tap Fragile (review finding 8)', as
   await expect(page.getByRole('button', { name: 'Fragile' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByLabel('Name', { exact: true })).toHaveValue('Books');
 });
+
+test('a forged /oauth link is refused and the token leaves the address bar (audit B17)', async ({ page }) => {
+  await newHome(page);
+  await page.goto('/oauth#access_token=attacker-token&expires_in=3600&state=forged&scope=https://www.googleapis.com/auth/drive.file');
+  await expect(page.getByText("Google sign-in didn't finish.")).toBeVisible({ timeout: 10_000 });
+  expect(page.url()).not.toContain('attacker-token');
+  expect(await page.evaluate(() => Object.keys(sessionStorage).filter((k) => k.includes('token')))).toEqual([]);
+});

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useApp } from '../context';
 import { Button, Field, inputClass } from '../ui';
-import { loadGis, requestToken, revokeAccess, currentToken, driveConfigured, DrivePermissionError, onTokenChange } from '../../core/drive/googleAuth';
+import { loadGis, requestToken, revokeAccess, currentToken, driveConfigured, DrivePermissionError, onTokenChange, PopupBlockedError, preferRedirect, RedirectingError, startRedirectSignIn } from '../../core/drive/googleAuth';
 import { driveApi, makeSync, runPhotoQueue } from '../../core/drive/browserSync';
 import type { LinkState } from '../../core/drive/sync';
 import { WrongCodeError, FutureVersionError } from '../../core/backup/crypto';
@@ -12,8 +12,15 @@ type T = (k: Key, v?: Record<string, string | number>) => string;
 
 /** Signs in from a tap (GIS must already be loaded so the pop-up isn't blocked). Returns the account email. */
 async function signIn(hint?: string): Promise<string> {
+  if (currentToken()) return driveApi().accountEmail(); // e.g. just back from the full-page sign-in
+  if (preferRedirect()) startRedirectSignIn(hint);
   const gis = await loadGis();
-  await requestToken(gis, hint);
+  try {
+    await requestToken(gis, hint);
+  } catch (e) {
+    if (e instanceof PopupBlockedError) startRedirectSignIn(hint);
+    throw e;
+  }
   return driveApi().accountEmail();
 }
 
@@ -22,6 +29,7 @@ function useGisPreload() {
 }
 
 function errorText(t: T, e: unknown): string {
+  if (e instanceof RedirectingError) return t('drive.redirecting');
   if (e instanceof DrivePermissionError) return t('drive.permission');
   if (e instanceof WrongCodeError) return t('restore.wrongCode');
   if (e instanceof FutureVersionError) return t('restore.newer');
