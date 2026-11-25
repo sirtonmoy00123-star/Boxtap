@@ -67,7 +67,8 @@ export function PrintLabels() {
       const labels = which === 'boxes'
         ? (await db.listBoxes(ws.id)).map((b) => ({ code: b.labelCode, number: b.number, title: b.name, room: b.roomId ? rooms.get(b.roomId) ?? null : null, fragile: b.isFragile, openFirst: b.openFirst }))
         : (await db.createSpareLabels(ws.id, spares)).map((code) => ({ code, number: null, title: null, room: null, fragile: false, openFirst: false }));
-      const pdf = await buildLabelPdf(labels, sheet, startAt - 1);
+      const { canvasTextRenderer } = await import('../../core/labels/textImage');
+      const pdf = await buildLabelPdf(labels, sheet, startAt - 1, { renderText: canvasTextRenderer });
       await deliverFile(new File([new Uint8Array(pdf)], `BoxTap-labels-${sheet}.pdf`, { type: 'application/pdf' }));
       toast(t('labels.ready'));
     } catch (e) {

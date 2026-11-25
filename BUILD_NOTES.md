@@ -42,7 +42,7 @@ npx tsx tools/config.ts sign          # writes public/config/v1.json
 | 1.7 Backup and restore (file), CSV export, Erase all data | Done, with photos | crypto/snapshot tests, E2E round trip |
 | 1.7b Google Drive backup (snapshots + photos) | Done against a fake Drive; real Google check on devices pending; "Use this device instead" and the iPhone redirect fallback not yet | sync/photo queue tests |
 | 1b Paid keys (licence entry, payment links, renewal reminders) | Skipped for now by the owner (2026-11-25) | |
-| 2 Seller: stock ledger (sell, restock, booked, packed, cancel, damaged, returned, undo 24 h, count, move), item details incl. jewellery fields, low-stock list | Done; catalogue image and Bangla font in PDFs not yet | stock tests, Seller E2E |
+| 2 Seller: stock ledger (sell, restock, booked, packed, cancel, damaged, returned, undo 24 h, count, move), item details incl. jewellery fields, low-stock list | Done, with the in-stock catalogue picture and Bangla text on labels (drawn by the browser, placed in the PDF) | stock tests, Seller E2E |
 | 1.8 Offline, update prompt, launch | Update prompt and precache done; offline E2E and launch not yet | |
 
 ## Rulings made during the build (deviations from the docs, with cost if wrong)
@@ -53,7 +53,7 @@ npx tsx tools/config.ts sign          # writes public/config/v1.json
 4. **i18n** is a small typed dictionary over `en.json`/`bn.json` instead of i18next. Same files, easy to switch. Bangla strings need a native speaker's review.
 5. **Backup payload container** is a simple length-prefixed format (`BTPK1`) instead of zip. Cost: a backup can't be opened with a zip tool (it is encrypted anyway).
 6. **No-OPFS fallback** runs SQLite in memory with a clear "can't store data" banner; the IndexedDB driver from ADR-003 is not built yet. Cost: browsers without OPFS can't keep data.
-7. **Label PDF text** uses built-in Latin fonts; non-Latin characters print as "?" until a Bangla font subset is embedded (Phase 2). Box number and QR always print.
+7. **Label PDF text**: Latin text uses the built-in PDF font; any other line (e.g. Bangla) is drawn on a canvas by the browser, which shapes it correctly, and placed in the PDF as a 300 dpi picture. Cost: that text isn't selectable in the PDF.
 8. **Recovery code** uses the BIP39 English word list (checksum catches most typos).
 
 9. **Restoring from the bin is never gated by free limits** (H-06). A Home Free user can end up with 13 boxes after a restore; new boxes stay blocked.

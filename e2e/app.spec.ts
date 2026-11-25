@@ -392,3 +392,19 @@ test('Seller: make and share an in-stock picture (catalogue image, ADR-015)', as
   await page.getByRole('button', { name: /^Share/ }).click();
   expect((await dl).suggestedFilename()).toMatch(/^in-stock-\d{4}-\d{2}-\d{2}\.jpg$/);
 });
+
+test('labels: a Bangla box name prints as drawn text, not "?"', async ({ page }) => {
+  await page.addInitScript(() => { Object.defineProperty(navigator, 'canShare', { value: undefined }); });
+  await newHome(page);
+  await page.getByRole('button', { name: 'Add box' }).click();
+  await page.getByLabel('Name', { exact: true }).fill('রান্নাঘর');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Print labels' }).click();
+  const dl = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Make PDF' }).click();
+  const { readFileSync } = await import('node:fs');
+  const pdf = readFileSync(await (await dl).path()).toString('latin1');
+  expect(pdf).toMatch(/\/Subtype\s*\/Image/);
+});

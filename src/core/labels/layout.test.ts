@@ -56,3 +56,15 @@ describe('label PDF', () => {
     await expect(buildLabelPdf([{ ...label(1), title: 'রান্নাঘর 😀' }], 'L7163')).resolves.toBeInstanceOf(Uint8Array);
   });
 });
+
+describe('non-Latin label text', () => {
+  // 1x1 transparent PNG
+  const PNG = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='), (c) => c.charCodeAt(0));
+  it('draws Bangla lines with the browser text renderer instead of "?"', async () => {
+    const seen: string[] = [];
+    const renderText = async (text: string) => { seen.push(text); return { png: PNG, width: 40, height: 10 }; };
+    const bytes = await buildLabelPdf([{ code: 'K7Q2M9XR4T', number: 3, title: 'রান্নাঘর', room: 'Kitchen', fragile: false, openFirst: false }], 'L7165', 0, { renderText });
+    expect(seen).toEqual(['রান্নাঘর']);
+    expect((await PDFDocument.load(bytes)).getPageCount()).toBe(1);
+  });
+});

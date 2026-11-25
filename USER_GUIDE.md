@@ -68,6 +68,7 @@ Free plan: up to 12 boxes in Home mode, or 50 items in Seller mode. When you rea
   - **Details**: name, other name (also found by search), sale price, "warn me when stock is at or below", and with jewellery fields on, weight, purity and making charge.
   - **History**: every change, with **Undo** for 24 hours.
 - **Low stock (N)** on the home screen lists items at or below their warning level.
+- **Share in-stock picture** (home) or **Share this box as a picture** (box): tick up to 12 items that are in stock and have a photo, **Make picture**, then **Share** to WhatsApp, Messenger and so on. Each photo shows the name, price and how many are in stock.
 - **Settings → Jewellery fields** switches the weight, purity and making-charge fields on or off.
 - Free plan: up to 50 items.
 
@@ -133,7 +134,7 @@ Shown until BoxTap is installed.
   - **Blank spare labels**: labels with only a QR code, to stick on boxes later.
 - **How many spare labels**: 1 to 200.
 - **Start at label position**: skip labels already used on a part-used sheet. 1 is the top-left label, counting left to right, then down.
-- **Make PDF**: makes the label PDF to print or save.
+- **Make PDF**: makes the label PDF to print or save. Box and room names in Bangla (or any language) print correctly.
 - Print at **100% / actual size**, not "fit to page", or the labels won't line up.
 
 ## Messages along the top
@@ -146,5 +147,4 @@ Shown until BoxTap is installed.
 ## Not in the app yet
 
 - Paid plans: entering a licence key, and payment links on the upgrade screen.
-- The catalogue image (share an in-stock picture to WhatsApp).
 - "Use this device instead" when another phone has taken over the Drive backup.

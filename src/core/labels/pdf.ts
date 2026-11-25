@@ -7,8 +7,8 @@ import { labelUrl } from '../repo/labels';
 export interface LabelData { code: string; number: number | null; title: string | null; room: string | null; fragile: boolean; openFirst: boolean }
 
 /**
- * Ruling (build): the built-in PDF fonts cover Latin text only (WinAnsi). Other characters become "?"
- * until a Noto Sans Bengali subset is embedded for Seller mode (Phase 2). The box number and QR always print.
+ * The built-in PDF fonts cover Latin text only (WinAnsi). In the browser, other lines are drawn by a TextRenderer
+ * (canvas, so Bangla is shaped correctly) and placed as pictures. Without one (tests), they fall back to "?".
  */
 export function pdfSafe(s: string): string {
   return [...s.normalize('NFC')].map((ch) => {
@@ -42,7 +42,12 @@ function fit(font: PDFFont, text: string, size: number, maxW: number): string {
   return t;
 }
 
-function drawLabel(page: PDFPage, r: Rect, l: LabelData, bold: PDFFont, regular: PDFFont) {
+/** Draws one line of text as a picture (browser shaping: Bangla and every other script). Width/height in px. */
+export type TextRenderer = (text: string, sizePt: number) => Promise<{ png: Uint8Array; width: number; height: number }>;
+
+const latinOnly = (s: string) => pdfSafe(s) === s.normalize('NFC');
+
+async function drawLabel(doc: PDFDocument, page: PDFPage, r: Rect, l: LabelData, bold: PDFFont, regular: PDFFont, renderText?: TextRenderer) {
   const pad = mm(3);
   const qrSide = Math.min(r.h - pad * 2, mm(40));
   drawQr(page, labelUrl(l.code), r.x + pad, r.y + (r.h - qrSide) / 2, qrSide);
@@ -55,7 +60,14 @@ function drawLabel(page: PDFPage, r: Rect, l: LabelData, bold: PDFFont, regular:
   for (const line of [l.title, l.room].filter((s): s is string => !!s)) {
     y -= lineSize * 1.4;
     if (y < r.y + pad) break;
-    page.drawText(fit(regular, pdfSafe(line), lineSize, tw), { x: tx, y, size: lineSize, font: regular });
+    if (renderText && !latinOnly(line)) {
+      const img = await doc.embedPng(await renderText(line, lineSize).then((x) => x.png));
+      const h = lineSize * 1.2;
+      const w = Math.min(tw, (img.width / img.height) * h);
+      page.drawImage(img, { x: tx, y: y - lineSize * 0.2, width: w, height: w < tw ? h : (img.height / img.width) * w });
+    } else {
+      page.drawText(fit(regular, pdfSafe(line), lineSize, tw), { x: tx, y, size: lineSize, font: regular });
+    }
   }
   const flags = [l.fragile ? 'FRAGILE' : '', l.openFirst ? 'OPEN FIRST' : ''].filter(Boolean).join(' · ');
   if (flags) page.drawText(fit(bold, flags, lineSize, tw), { x: tx, y: r.y + pad, size: lineSize, font: bold, color: rgb(0.75, 0, 0) });
@@ -63,7 +75,7 @@ function drawLabel(page: PDFPage, r: Rect, l: LabelData, bold: PDFFont, regular:
 }
 
 /** One page per sheet. `startAt` skips used positions on the first sheet (0-based). */
-export async function buildLabelPdf(labels: readonly LabelData[], sheetId: SheetId, startAt = 0): Promise<Uint8Array> {
+export async function buildLabelPdf(labels: readonly LabelData[], sheetId: SheetId, startAt = 0, opts: { renderText?: TextRenderer } = {}): Promise<Uint8Array> {
   const cells = cellRects(SHEETS[sheetId]);
   if (!Number.isInteger(startAt) || startAt < 0 || startAt >= cells.length) throw new RangeError(`start position must be 0-${cells.length - 1}`);
   const doc = await PDFDocument.create();
@@ -78,7 +90,7 @@ export async function buildLabelPdf(labels: readonly LabelData[], sheetId: Sheet
       page = doc.addPage([PAGE.w, PAGE.h]);
       if (page !== null && pos >= cells.length) pos = 0;
     }
-    drawLabel(page, cells[pos]!, l, bold, regular);
+    await drawLabel(doc, page, cells[pos]!, l, bold, regular, opts.renderText);
     pos++;
   }
   if (!page) doc.addPage([PAGE.w, PAGE.h]);
