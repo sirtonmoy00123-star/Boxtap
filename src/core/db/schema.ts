@@ -193,10 +193,13 @@ CREATE TABLE drive_link (id INTEGER PRIMARY KEY CHECK (id = 1),
   device_id TEXT NOT NULL,
   last_snapshot_at TEXT, last_snapshot_file_id TEXT,
   photos_wifi_only INTEGER NOT NULL DEFAULT 1, paused INTEGER NOT NULL DEFAULT 0,
-  status TEXT NOT NULL DEFAULT 'ok' CHECK (status IN ('ok','needs_signin','quota_full','lock_lost','disconnected')),
+  status TEXT NOT NULL DEFAULT 'ok' CHECK (status IN ('ok','needs_signin','quota_full','lock_lost','disconnected','folder_trashed','folder_missing')),
   generation INTEGER NOT NULL DEFAULT 0,
   last_snapshot_seq INTEGER NOT NULL DEFAULT 0,
   key_id TEXT NOT NULL,
+  -- Ruling (build): v1 is unreleased, so the engine's bookkeeping columns live here, not in a migration.
+  snapshots_folder_id TEXT NOT NULL, photos_folder_id TEXT NOT NULL, lock_file_id TEXT NOT NULL,
+  uploaded_change_seq INTEGER NOT NULL DEFAULT 0,
   connected_at TEXT NOT NULL);
 CREATE TABLE drive_outbox (
   photo_id TEXT PRIMARY KEY,

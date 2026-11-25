@@ -116,6 +116,7 @@ export class FakeDrive {
         const meta = JSON.parse(String(init.body ?? '{}'));
         if (meta.name) f.name = meta.name;
         if (typeof meta.trashed === 'boolean') f.trashed = meta.trashed;
+        if (meta.appProperties) Object.assign(f.appProperties, meta.appProperties);
         f.modifiedTime = this.time();
         return this.json(200, this.view(f));
       }

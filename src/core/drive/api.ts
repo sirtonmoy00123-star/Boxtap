@@ -108,6 +108,10 @@ export class DriveApi {
     await this.call(`${API}/files/${encodeURIComponent(id)}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name }) });
   }
 
+  async setProperties(id: string, appProperties: Record<string, string>): Promise<void> {
+    await this.call(`${API}/files/${encodeURIComponent(id)}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ appProperties }) });
+  }
+
   async setTrashed(id: string, trashed: boolean): Promise<void> {
     await this.call(`${API}/files/${encodeURIComponent(id)}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ trashed }) });
   }

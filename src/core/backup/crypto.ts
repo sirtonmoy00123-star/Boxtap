@@ -12,8 +12,8 @@ import { b64urlDecode, b64urlEncode, bytesToHex, fromUtf8, utf8 } from '../util/
 
 export const CHUNK = 1024 * 1024;
 const TAG = 16;
-export type Magic = 'BTBAK2' | 'BTDB1' | 'BTPH1';
-const MAGICS: readonly Magic[] = ['BTBAK2', 'BTDB1', 'BTPH1'];
+export type Magic = 'BTBAK2' | 'BTDB1' | 'BTPH1' | 'BTLK1';
+const MAGICS: readonly Magic[] = ['BTBAK2', 'BTDB1', 'BTPH1', 'BTLK1'];
 
 export interface KdfParams { alg: 'argon2id'; m: number; t: number; p: number; salt: string }
 export const DEFAULT_KDF: Omit<KdfParams, 'salt'> = { alg: 'argon2id', m: 65536, t: 3, p: 1 };

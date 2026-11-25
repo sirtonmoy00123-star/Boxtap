@@ -17,7 +17,7 @@ function liveDb() {
   R.addItem(ctx, { workspaceId: ws.id, locationId: box.id, name: 'Kettle' });
   db.exec(`INSERT INTO meta (key,value) VALUES ('install_id','dev-1'),('device_hint','Mia phone')`);
   db.exec(`INSERT INTO time_guard (id,max_seen_at) VALUES (1,'2026-11-25T00:00:00Z')`);
-  db.exec(`INSERT INTO drive_link (id,google_email,folder_id,device_id,key_id,connected_at) VALUES (1,'a@b.c','f1','d1','bk_1','x')`);
+  db.exec(`INSERT INTO drive_link (id,google_email,folder_id,device_id,key_id,snapshots_folder_id,photos_folder_id,lock_file_id,connected_at) VALUES (1,'a@b.c','f1','d1','bk_1','s','p','l','x')`);
   return db;
 }
 
