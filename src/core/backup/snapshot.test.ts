@@ -3,7 +3,7 @@ import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 import { pack, unpack } from './pack';
 import { exportSnapshot, validateImport, ImportRejectedError } from './snapshot';
 import { migrate, type SqlDb } from '../db/migrate';
-import { SCHEMA_VERSION } from '../db/schema';
+import { MIGRATIONS, SCHEMA_VERSION } from '../db/schema';
 import * as R from '../repo';
 
 const sqlite3 = await sqlite3InitModule();
@@ -104,5 +104,21 @@ describe('import validation against crafted files (review finding 3)', () => {
     db.exec(`PRAGMA foreign_keys = OFF`);
     db.exec(`INSERT INTO items (id,workspace_id,location_id,name,created_at,updated_at) VALUES ('orphan','nope','nope','x','t','t')`);
     expect(() => validateImport(sqlite3, exportSnapshot(sqlite3, db))).toThrow(/damaged/);
+  });
+});
+
+describe('import validation across equivalent schema texts', () => {
+  it('accepts a v2 database whose photos table got drive_file_id inline instead of by ALTER', () => {
+    // Simulates a phone set up with the build that had the column in v1's CREATE TABLE.
+    const db = new sqlite3.oo1.DB(':memory:', 'c');
+    db.exec((MIGRATIONS[0] as string).replace('  drive_ref TEXT, sha256 TEXT,', '  drive_ref TEXT, sha256 TEXT,\n  drive_file_id TEXT,'));
+    db.exec('PRAGMA user_version = 1');
+    migrate(db as unknown as SqlDb);
+    expect(() => validateImport(sqlite3, exportSnapshot(sqlite3, db))).not.toThrow();
+  });
+  it('still refuses a table with an extra column', () => {
+    const db = liveDb();
+    db.exec('ALTER TABLE items ADD COLUMN sneaky TEXT');
+    expect(() => validateImport(sqlite3, exportSnapshot(sqlite3, db))).toThrow(/schema/);
   });
 });

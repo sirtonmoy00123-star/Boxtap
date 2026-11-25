@@ -88,7 +88,6 @@ CREATE TABLE photos (
   mime TEXT NOT NULL CHECK (mime IN ('image/webp','image/jpeg')),
   bytes INTEGER NOT NULL CHECK (bytes BETWEEN 1 AND 600000),
   drive_ref TEXT, sha256 TEXT,
-  drive_file_id TEXT,                 -- Ruling (build, v1 unreleased): the Drive file id, needed to delete it
   created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT,
   CHECK ((location_id IS NULL) <> (item_id IS NULL))
 );
@@ -211,6 +210,26 @@ CREATE TABLE drive_outbox (
 INSERT INTO meta (key, value) VALUES ('change_seq', '0');
 `;
 
+// v1 was released on 2026-11-25 (first live test site). From here on, change the schema only by adding a migration.
+interface MigrationDb { exec(sql: string): unknown; selectValues(sql: string): unknown[] }
+export type Migration = string | ((db: MigrationDb) => void);
+
+const hasColumn = (db: MigrationDb, table: string, col: string) =>
+  db.selectValues(`SELECT name FROM pragma_table_info('${table}')`).map(String).includes(col);
+
+/** v2: photos.drive_file_id (missing on phones set up with the first live build) + sale price and cost on each movement. */
+const V2: Migration = (db) => {
+  if (!hasColumn(db, 'photos', 'drive_file_id')) db.exec('ALTER TABLE photos ADD COLUMN drive_file_id TEXT');
+  db.exec('ALTER TABLE stock_movements ADD COLUMN unit_price_minor INTEGER CHECK (unit_price_minor >= 0)');
+  db.exec('ALTER TABLE stock_movements ADD COLUMN unit_cost_minor INTEGER CHECK (unit_cost_minor >= 0)');
+};
+
 /** Ordered migrations. Index i migrates user_version i -> i+1. Never edit a released entry. */
-export const MIGRATIONS: readonly string[] = [V1];
+export const MIGRATIONS: readonly Migration[] = [V1, V2];
+
+export function applyMigration(db: MigrationDb, index: number): void {
+  const m = MIGRATIONS[index]!;
+  if (typeof m === 'string') db.exec(m);
+  else m(db);
+}
 export const SCHEMA_VERSION = MIGRATIONS.length;

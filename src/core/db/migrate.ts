@@ -1,4 +1,4 @@
-import { MIGRATIONS, PRAGMAS, SCHEMA_VERSION } from './schema';
+import { applyMigration, PRAGMAS, SCHEMA_VERSION } from './schema';
 
 /** Minimal surface of the sqlite-wasm oo1.DB used by core code (also satisfied by the OPFS pool DB). */
 export interface SqlDb {
@@ -28,7 +28,7 @@ export function migrate(db: SqlDb): number {
   if (from > SCHEMA_VERSION) throw new FutureSchemaError(from);
   for (let v = from; v < SCHEMA_VERSION; v++) {
     db.transaction((tx) => {
-      tx.exec(MIGRATIONS[v]!);
+      applyMigration(tx, v);
       tx.exec(`PRAGMA user_version = ${v + 1}`);
     });
   }

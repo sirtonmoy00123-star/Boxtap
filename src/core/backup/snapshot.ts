@@ -1,7 +1,7 @@
 // Consistent database copies for backups, and validation of untrusted copies before restore.
 // API_CONTRACTS §6.1 (A5/B6) and §6.2 rule 4.
 import type sqlite3InitModule from '@sqlite.org/sqlite-wasm';
-import { MIGRATIONS, SCHEMA_VERSION } from '../db/schema';
+import { applyMigration, SCHEMA_VERSION } from '../db/schema';
 import { migrate, type SqlDb } from '../db/migrate';
 import { repairLedger } from '../db/ledgerCheck';
 
@@ -43,14 +43,22 @@ export function exportSnapshot(sqlite3: Sqlite3, live: DB): Uint8Array {
 const norm = (s: unknown) => String(s ?? '').replace(/\s+/g, ' ').trim();
 function schemaOf(db: DB): string[] {
   // Every schema row counts (review finding 3): only SQLite's own bookkeeping tables are ignored, by exact name.
+  // Tables compare by their columns (name, type, not-null, default, key), because the same table can be stored as
+  // different CREATE text (a column added by ALTER vs inline). Triggers, indexes and views compare by exact SQL.
   return db.selectObjects(`SELECT type, name, tbl_name, sql FROM sqlite_master WHERE name NOT IN ('sqlite_sequence','sqlite_stat1','sqlite_stat4') ORDER BY type, name`)
-    .map((r) => `${r.type}|${r.name}|${r.tbl_name}|${norm(r.sql)}`);
+    .map((r) => {
+      const isPlainTable = r.type === 'table' && !/^\s*CREATE\s+VIRTUAL/i.test(String(r.sql ?? ''));
+      if (!isPlainTable) return `${r.type}|${r.name}|${r.tbl_name}|${norm(r.sql)}`;
+      const cols = db.selectObjects(`SELECT name, type, "notnull", dflt_value, pk FROM pragma_table_info(?) ORDER BY name`, [String(r.name)])
+        .map((c) => `${c.name}:${norm(c.type)}:${c.notnull}:${norm(c.dflt_value)}:${c.pk}`).join(',');
+      return `table|${r.name}|${cols}`;
+    });
 }
 
 function referenceSchema(sqlite3: Sqlite3, version: number): string[] {
   const ref = new sqlite3.oo1.DB(':memory:', 'c');
   try {
-    for (let v = 0; v < version; v++) ref.exec(MIGRATIONS[v]!);
+    for (let v = 0; v < version; v++) applyMigration(ref, v);
     return schemaOf(ref);
   } finally {
     ref.close();
