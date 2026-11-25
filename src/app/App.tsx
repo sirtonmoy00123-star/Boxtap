@@ -36,6 +36,7 @@ export function App() {
   const [upgrade, setUpgrade] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const lockRef = useRef<TabLock | null>(null);
+  const toastRef = useRef<((m: string) => void) | null>(null);
   const route = useRoute();
 
   const start = useCallback(async (db: Db, lock: TabLock) => {
@@ -53,6 +54,7 @@ export function App() {
       .then(async (r) => {
         if (!r.ran) return;
         if (!r.integrityOk || r.ledgerRepaired) console.warn('self-check', r);
+        if (!r.integrityOk) toastRef.current?.(makeT(guessLang())('check.failed'));
         await Promise.all(r.deleteFiles.map((f) => removePhotoFile(f)));
         await removeOrphans(new Set(r.keepFiles));
       })
@@ -91,7 +93,25 @@ export function App() {
 
   const toast = useCallback((m: string) => {
     setToastMsg(m);
-    setTimeout(() => setToastMsg(null), 2000);
+    setTimeout(() => setToastMsg(null), m.length > 60 ? 6000 : 2500);
+  }, []);
+  useEffect(() => { toastRef.current = toast; }, [toast]);
+
+  // Any error nobody caught still tells the user something (review finding 14).
+  useEffect(() => {
+    const onError = (e: PromiseRejectionEvent) => {
+      const msg = (e.reason as Error)?.message ?? String(e.reason);
+      console.error(e.reason);
+      toastRef.current?.(t('error.unexpected', { msg }));
+    };
+    window.addEventListener('unhandledrejection', onError);
+    return () => window.removeEventListener('unhandledrejection', onError);
+  }, [t]);
+  const [shareFile, setShareFile] = useState<File | null>(null);
+  useEffect(() => {
+    const on = (e: Event) => setShareFile((e as CustomEvent<File>).detail);
+    window.addEventListener('boxtap:share-file', on);
+    return () => window.removeEventListener('boxtap:share-file', on);
   }, []);
 
   if (boot.s !== 'ready') {
@@ -139,6 +159,13 @@ export function App() {
       {boot.db.info.persistent && storage && !storage.likelyPrivate && !storage.persisted && workspace && <Banner>{t('banner.notPersisted')}</Banner>}
       {screen}
       {upgrade && <Upgrade reason={upgrade} onClose={() => setUpgrade(null)} />}
+      {shareFile && (
+        <div role="dialog" aria-label={t('share.ready')} className="fixed inset-x-0 bottom-0 z-50 flex flex-col gap-2 bg-white p-4 shadow-2xl" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+          <p className="font-medium">{t('share.ready')}: {shareFile.name}</p>
+          <Button onClick={async () => { const f = shareFile; setShareFile(null); await navigator.share({ files: [f], title: f.name }).catch(() => {}); }}>{t('share.now')}</Button>
+          <Button variant="ghost" onClick={() => setShareFile(null)}>{t('upgrade.later')}</Button>
+        </div>
+      )}
       {toastMsg && <div role="status" className="fixed inset-x-0 bottom-24 mx-auto w-fit rounded-full bg-slate-900 px-4 py-2 text-white">{toastMsg}</div>}
     </AppContext.Provider>
   );

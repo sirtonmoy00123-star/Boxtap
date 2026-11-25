@@ -125,7 +125,7 @@ export function Home() {
         </p>
       )}
       {guide && <InstallGuide onClose={() => { setGuide(false); void createBox(); }} />}
-      <div className="fixed inset-x-0 bottom-0 flex justify-center gap-3 bg-white/95 p-4">
+      <div className="fixed inset-x-0 bottom-0 flex justify-center gap-3 bg-white/95 p-4" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
         <Button variant="secondary" onClick={() => navigate('/scan')} className="flex-1 max-w-40">{t('home.scan')}</Button>
         <Button onClick={addBox} className="flex-1 max-w-40">{t('home.addBox')}</Button>
       </div>

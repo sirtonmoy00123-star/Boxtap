@@ -46,7 +46,7 @@ export function PhotoStrip({ workspaceId, parent }: { workspaceId: string; paren
 
   const view = async (photo: Photo) => setOpen({ photo, url: await photoUrl(photo.fileName) });
   const remove = async () => {
-    if (!open) return;
+    if (!open || !confirm(t('confirm.deletePhoto'))) return;
     await db.deletePhoto(open.photo.id);
     if (open.url) URL.revokeObjectURL(open.url);
     setOpen(null);
@@ -59,9 +59,9 @@ export function PhotoStrip({ workspaceId, parent }: { workspaceId: string; paren
       <h2 className="text-lg font-semibold">{t('photos.title')}</h2>
       {shown.length === 0 && <p className="text-sm text-slate-500">{t('photos.none')}</p>}
       <ul className="mt-2 grid grid-cols-3 gap-2" aria-label="photos">
-        {shown.map(({ photo, thumb }) => (
+        {shown.map(({ photo, thumb }, i) => (
           <li key={photo.id}>
-            <button type="button" onClick={() => void view(photo)} className="block aspect-square w-full overflow-hidden rounded-xl bg-slate-100" aria-label={t('photos.title')}>
+            <button type="button" onClick={() => void view(photo)} className="block aspect-square w-full overflow-hidden rounded-xl bg-slate-100" aria-label={t('photos.number', { n: i + 1 })}>
               {thumb ? <img src={thumb} alt="" className="h-full w-full object-cover" /> : <span className="grid h-full place-items-center p-1 text-center text-xs text-slate-500">{missingText(photo)}</span>}
             </button>
           </li>

@@ -91,10 +91,16 @@ export async function createBackupFile(db: Db): Promise<File> {
 export async function deliverFile(file: File): Promise<'shared' | 'downloaded' | 'cancelled'> {
   if (navigator.canShare?.({ files: [file] })) {
     try {
-      await navigator.share({ files: [file], title: 'BoxTap backup' });
+      await navigator.share({ files: [file], title: file.name });
       return 'shared';
     } catch (e) {
       if ((e as Error).name === 'AbortError') return 'cancelled';
+      // iPhone: after a long wait the tap no longer counts, so sharing is refused. Offer a button to tap instead
+      // of a download, which in the home-screen app opens a viewer with no way back (review finding 17).
+      if ((e as Error).name === 'NotAllowedError') {
+        window.dispatchEvent(new CustomEvent('boxtap:share-file', { detail: file }));
+        return 'shared';
+      }
     }
   }
   const url = URL.createObjectURL(file);

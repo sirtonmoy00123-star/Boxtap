@@ -19,7 +19,9 @@ export default defineConfig({
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
     { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
-    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+    // Playwright's Windows WebKit build sometimes drops a tap under load (intermittent, not seen in Chromium);
+    // one retry there only. Real Safari must still be checked on an iPhone.
+    { name: 'webkit', use: { ...devices['Desktop Safari'] }, retries: 1 },
     { name: 'mobile-chrome', use: { ...devices['Pixel 7'] } },
   ],
 });

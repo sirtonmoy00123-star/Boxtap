@@ -75,12 +75,19 @@ export function BoxPage({ id }: { id: string }) {
     }
   };
   const removeItem = async (itemId: string) => {
+    const it = items.find((x) => x.id === itemId);
+    if (!confirm(t('confirm.deleteItem', { name: it?.name ?? '' }))) return;
     await db.deleteItem(itemId);
     await reloadItems();
   };
   const remove = async () => {
-    await db.deleteBox(id);
-    navigate('/', true);
+    if (!confirm(t('confirm.deleteBox', { n: box.number }))) return;
+    try {
+      await db.deleteBox(id);
+      navigate('/', true);
+    } catch (e) {
+      toast(t('error.generic', { msg: (e as Error).message }));
+    }
   };
 
   return (

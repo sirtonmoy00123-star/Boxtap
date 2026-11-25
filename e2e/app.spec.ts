@@ -14,6 +14,7 @@ async function tinyPng(page: Page): Promise<Buffer> {
 
 /** Goes through first launch, including the recovery code check. Returns the 12-word code. */
 async function newHome(page: Page, opts: { installGuide?: boolean } = {}): Promise<string> {
+  page.on('dialog', (d) => { void d.accept().catch(() => {}); }); // confirm() before deleting: answer yes
   await page.goto('/');
   if (!opts.installGuide) await page.evaluate(() => localStorage.setItem('boxtap.installGuideSnoozedAt', String(Date.now())));
   await page.getByRole('button', { name: 'New to BoxTap' }).click();
@@ -275,6 +276,7 @@ test('export CSV, then erase all data (asks twice) and return to the first scree
   const { readFileSync } = await import('node:fs');
   expect(readFileSync(await (await dl).path(), 'utf8')).toContain('Lamp');
 
+  page.removeAllListeners('dialog');
   let n = 0; // first dialog: confirm; second: type ERASE
   page.on('dialog', (d) => { n++; void (n === 1 ? d.accept() : d.accept('ERASE')); });
   await page.getByRole('button', { name: 'Erase all data' }).click();

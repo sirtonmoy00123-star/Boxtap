@@ -324,5 +324,14 @@
   "rep.stockUnits.one": "{n} item",
   "ord.lines.one": "{n} item",
   "upgrade.sellerPro": "Seller Pro: unlimited items, 5 photos per item, plus reports, profit, orders and variants.",
-  "upgrade.soon": "Paid plans are not on sale yet. They are coming soon."
+  "upgrade.soon": "Paid plans are not on sale yet. They are coming soon.",
+  "confirm.deleteBox": "Move Box {n} and everything in it to the bin? You can restore it for 30 days.",
+  "confirm.deleteItem": "Move \"{name}\" to the bin?",
+  "confirm.deletePhoto": "Delete this photo?",
+  "photos.number": "Photo {n}",
+  "error.unexpected": "Something went wrong: {msg}. Nothing was lost; try again.",
+  "check.failed": "BoxTap found a problem with its storage on this device. Make a backup now (Settings → Back up now).",
+  "share.ready": "Your file is ready",
+  "share.now": "Share file",
+  "share.save": "Save to this device"
 }

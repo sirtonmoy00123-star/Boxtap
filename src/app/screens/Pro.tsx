@@ -204,7 +204,7 @@ export function OrderPage({ id }: { id: string }) {
             <span>{l.qty} × {l.name}</span>
             <span className="flex items-center gap-2">
               {l.unitPriceMinor != null && <span className="text-slate-600">{money(l.unitPriceMinor * l.qty)}</span>}
-              {open && <Button variant="ghost" className="min-h-10 px-2" onClick={() => void run(() => db.removeOrderLine(l.id))}>{t('ord.remove')}</Button>}
+              {open && <Button variant="ghost" className="min-h-12 px-2" onClick={() => void run(() => db.removeOrderLine(l.id))}>{t('ord.remove')}</Button>}
             </span>
           </li>
         ))}

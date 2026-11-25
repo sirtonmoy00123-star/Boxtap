@@ -203,7 +203,7 @@ export function Settings() {
   const exportCsv = async () => {
     if (!workspace) return;
     const csv = await db.exportCsv(workspace.id);
-    const name = `BoxTap-${workspace.name.replace(/[^p{L}p{N}]+/gu, '-').slice(0, 40) || 'export'}.csv`;
+    const name = `BoxTap-${workspace.name.replace(/[^\p{L}\p{N}]+/gu, '-').slice(0, 40) || 'export'}.csv`;
     await deliverFile(new File([csv], name, { type: 'text/csv;charset=utf-8' }));
   };
   // Asks twice (DATABASE_SCHEMA §6). Sync stops first: the Drive link goes in the same transaction, so an empty

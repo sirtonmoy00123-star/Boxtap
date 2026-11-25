@@ -58,9 +58,9 @@ function UndoBar({ undo, onUndo }: { undo: { id: string; label: string } | null;
   const { t } = useApp();
   if (!undo) return null;
   return (
-    <div role="status" className="fixed inset-x-4 bottom-24 z-40 mx-auto flex max-w-md items-center justify-between rounded-xl bg-slate-900 px-4 py-2 text-white">
+    <div role="status" style={{ bottom: 'calc(6rem + env(safe-area-inset-bottom))' }} className="fixed inset-x-4 z-40 mx-auto flex max-w-md items-center justify-between rounded-xl bg-slate-900 px-4 py-2 text-white">
       <span>{undo.label}</span>
-      <button type="button" className="min-h-10 px-3 font-semibold text-amber-300" onClick={() => onUndo(undo.id)}>{t('stock.undo')}</button>
+      <button type="button" className="min-h-12 px-3 font-semibold text-amber-300" onClick={() => onUndo(undo.id)}>{t('stock.undo')}</button>
     </div>
   );
 }
@@ -298,13 +298,16 @@ export function ItemPage({ id }: { id: string }) {
                 {t(`stock.reason.${m.reason}` as Key)} {m.onHandDelta !== 0 ? (m.onHandDelta > 0 ? `+${m.onHandDelta}` : m.onHandDelta) : `(${m.reservedDelta > 0 ? '+' : ''}${m.reservedDelta})`}
                 <span className="text-slate-500"> · {new Date(m.happenedAt).toLocaleString()}</span>
               </span>
-              {canUndo(m) && <Button variant="ghost" className="min-h-10 px-2" onClick={() => void doUndo(m.id)}>{t('stock.undo')}</Button>}
+              {canUndo(m) && <Button variant="ghost" className="min-h-12 px-2" onClick={() => void doUndo(m.id)}>{t('stock.undo')}</Button>}
             </li>
           ))}
         </ul>
       </section>}
 
-      <Button variant="danger" className="mt-8 w-full" onClick={async () => { await db.deleteItem(item.id); navigate(`/box/${item.locationId}`, true); }}>{t('item.delete')}</Button>
+      <Button variant="danger" className="mt-8 w-full" onClick={async () => {
+        if (!confirm(t('confirm.deleteItem', { name: item.name }))) return;
+        try { await db.deleteItem(item.id); navigate(`/box/${item.locationId}`, true); } catch (e) { toast(t('error.generic', { msg: (e as Error).message })); }
+      }}>{t('item.delete')}</Button>
       <UndoBar undo={undo} onUndo={(mid) => void doUndo(mid)} />
     </Page>
   );
