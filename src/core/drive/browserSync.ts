@@ -7,6 +7,9 @@ import { DriveApi } from './api';
 import { currentToken } from './googleAuth';
 import { DriveSync, type BackupKey, type LinkState, type SnapshotOutcome, type SyncHost } from './sync';
 import type { WrappedKey } from '../backup/crypto';
+import { PhotoSync, type PhotoHost, type PhotoRun } from './photoSync';
+import { readPhotoFile, writePhotoFile } from '../photos/store';
+import { makeThumb } from '../photos/encode';
 
 function deviceName(): string {
   const ua = navigator.userAgent;
@@ -41,6 +44,47 @@ export async function browserHost(db: Db): Promise<SyncHost> {
 }
 
 export const driveApi = (): DriveApi => new DriveApi(currentToken);
+
+/** Android Chrome can tell mobile data from Wi-Fi; Safari can't (it gets "Pause photo uploads" later). */
+function onMobileData(): boolean {
+  const c = (navigator as Navigator & { connection?: { type?: string; saveData?: boolean } }).connection;
+  return c?.type === 'cellular' || !!c?.saveData;
+}
+
+async function photoHost(db: Db): Promise<PhotoHost> {
+  const base = await browserHost(db);
+  return {
+    key: base.key, appVersion: base.appVersion, schemaVersion: base.schemaVersion,
+    due: () => db.outboxDue(new Date().toISOString()),
+    reserve: (id, fileId) => db.outboxReserve(id, fileId),
+    done: (id) => db.outboxDone(id),
+    failed: (id, err) => db.outboxFailed(id, err),
+    photo: async (id) => {
+      const p = await db.getPhoto(id);
+      return p ? { id: p.id, fileName: p.fileName, deleted: p.deletedAt != null, mime: p.mime } : null;
+    },
+    readFile: async (name) => { const b = await readPhotoFile(name); return b ? new Uint8Array(await b.arrayBuffer()) : null; },
+    writePhoto: async (id, bytes) => {
+      const p = await db.getPhoto(id);
+      if (!p) return;
+      const blob = new Blob([new Uint8Array(bytes)], { type: p.mime });
+      await writePhotoFile(p.fileName, blob);
+      await writePhotoFile(p.thumbName, await makeThumb(blob)).catch(() => {});
+    },
+    setDriveFile: (id, fileId) => db.setPhotoDriveFile(id, fileId),
+    mayUploadPhotos: async () => !onMobileData(), // "Upload photos only on Wi-Fi" is on by default (assumption 9)
+  };
+}
+
+/** One pass over the photo queue, if Drive is connected and a token is held. */
+export async function runPhotoQueue(db: Db): Promise<PhotoRun | null> {
+  if (!currentToken()) return null;
+  const link = await db.getDriveLink();
+  if (!link || link.status === 'lock_lost' || link.status === 'folder_trashed') return null;
+  const run = await new PhotoSync(driveApi(), await photoHost(db), link.photosFolderId).run({ max: 30 });
+  if (run.quotaFull && link.status !== 'quota_full') await db.setDriveLink({ ...link, status: 'quota_full' });
+  return run;
+}
 
 export async function makeSync(db: Db): Promise<DriveSync> {
   return new DriveSync(driveApi(), await browserHost(db));
@@ -82,6 +126,10 @@ export function startSchedule(db: Db, onOutcome: (o: SnapshotOutcome) => void): 
     const quiet = Date.now() - lastChangeAt >= QUIET_MS;
     const gapOk = Date.now() - lastUpload >= MIN_GAP_MS;
     if (quiet && gapOk) await run(false);
+    if (!running && currentToken()) {
+      running = true;
+      try { await runPhotoQueue(db); } catch (e) { console.warn('photo queue failed', e); } finally { running = false; }
+    }
   };
   const timer = setInterval(() => void tick(), 30_000);
   const onHide = () => { if (document.visibilityState === 'hidden') void run(true); };

@@ -5,7 +5,7 @@ import { type Ctx, newId, num, str, write } from './core';
 export interface Photo {
   id: string; workspaceId: string; locationId: string | null; itemId: string | null;
   fileName: string; thumbName: string; mime: 'image/webp' | 'image/jpeg'; bytes: number; sha256: string | null;
-  driveRef: string | null; driveFileId: string | null; createdAt: string;
+  driveRef: string | null; driveFileId: string | null; createdAt: string; deletedAt: string | null;
 }
 export interface PhotoInput {
   workspaceId: string; locationId: string | null; itemId: string | null;
@@ -18,6 +18,7 @@ const toPhoto = (r: Record<string, unknown>): Photo => ({
   id: String(r.id), workspaceId: String(r.workspace_id), locationId: str(r.location_id), itemId: str(r.item_id),
   fileName: String(r.file_name), thumbName: String(r.thumb_name), mime: r.mime as Photo['mime'], bytes: num(r.bytes),
   sha256: str(r.sha256), driveRef: str(r.drive_ref), driveFileId: str(r.drive_file_id), createdAt: String(r.created_at),
+  deletedAt: str(r.deleted_at),
 });
 
 export const photoFiles = (id: string, mime: Photo['mime']) => {
@@ -64,6 +65,23 @@ export function deletePhoto(ctx: Ctx, id: string): void {
 
 export function setPhotoDriveRef(ctx: Ctx, id: string, ref: string, fileId: string): void {
   ctx.db.exec({ sql: `UPDATE photos SET drive_ref=?, drive_file_id=? WHERE id=?`, bind: [ref, fileId, id] });
+}
+
+/** The Drive file id doubles as the random photo_ref. Null: no Drive copy ("This photo wasn't backed up"). */
+export function setPhotoDriveFile(ctx: Ctx, id: string, fileId: string | null): void {
+  ctx.db.exec({ sql: `UPDATE photos SET drive_ref=?, drive_file_id=? WHERE id=?`, bind: [fileId, fileId, id] });
+}
+
+/** Queue uploads for live photos that have no Drive copy and no queued work (after connect or a file restore). */
+export function queueMissingUploads(ctx: Ctx): number {
+  ctx.db.exec({
+    sql: `INSERT INTO drive_outbox (photo_id,op,attempts,next_try_at)
+          SELECT p.id, 'upload', 0, ? FROM photos p
+           WHERE p.deleted_at IS NULL AND p.drive_file_id IS NULL
+             AND NOT EXISTS (SELECT 1 FROM drive_outbox o WHERE o.photo_id = p.id)`,
+    bind: [ctx.now()],
+  });
+  return ctx.db.changes();
 }
 
 // Drive outbox ------------------------------------------------------------------------------------------

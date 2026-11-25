@@ -79,6 +79,8 @@ export function createService(ctx: Ctx, entitlement: () => Entitlement = () => (
     outboxDone: (photoId: string) => R.outboxDone(ctx, photoId),
     outboxFailed: (photoId: string, error: string) => R.outboxFailed(ctx, photoId, error),
     queuePhotoDownloads: () => R.queuePhotoDownloads(ctx),
+    queueMissingUploads: () => R.queueMissingUploads(ctx),
+    setPhotoDriveFile: (id: string, fileId: string | null) => R.setPhotoDriveFile(ctx, id, fileId),
 
     // Reading is never gated (H-06)
     search: (wsId: string, q: string) => R.search(ctx, wsId, q),

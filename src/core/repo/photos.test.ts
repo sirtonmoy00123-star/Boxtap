@@ -109,3 +109,26 @@ describe('photos', () => {
     expect(svc.listRooms(ws.id).map((x) => x.name)).toEqual(['Garage']);
   });
 });
+
+describe('photo queue helpers', () => {
+  it('queues uploads for live photos with no Drive copy, without duplicating queued ones', () => {
+    const ws = svc.createWorkspace({ type: 'home', name: 'M', country: 'AU', currency: 'AUD', language: 'en' });
+    const b1 = svc.createBox(ws.id, {});
+    const b2 = svc.createBox(ws.id, {});
+    const p1 = svc.addPhoto(photo({ workspaceId: ws.id, locationId: b1.id }));
+    const p2 = svc.addPhoto(photo({ workspaceId: ws.id, locationId: b2.id }));
+    R.setPhotoDriveFile(ctx, p2.id, 'f2');
+    db.exec('DELETE FROM drive_outbox');
+    expect(R.queueMissingUploads(ctx)).toBe(1);
+    expect(R.queueMissingUploads(ctx)).toBe(0);
+    expect(R.outboxDue(ctx, clock).map((o) => o.photoId)).toEqual([p1.id]);
+  });
+  it('clearing the Drive file marks the photo as not backed up', () => {
+    const ws = svc.createWorkspace({ type: 'home', name: 'M', country: 'AU', currency: 'AUD', language: 'en' });
+    const b = svc.createBox(ws.id, {});
+    const p = svc.addPhoto(photo({ workspaceId: ws.id, locationId: b.id }));
+    R.setPhotoDriveFile(ctx, p.id, 'f1');
+    R.setPhotoDriveFile(ctx, p.id, null);
+    expect(R.getPhoto(ctx, p.id)!.driveFileId).toBeNull();
+  });
+});

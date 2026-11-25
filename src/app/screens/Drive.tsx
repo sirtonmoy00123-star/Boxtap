@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useApp } from '../context';
 import { Button, Field, inputClass } from '../ui';
 import { loadGis, requestToken, revokeAccess, currentToken, driveConfigured, DrivePermissionError, onTokenChange } from '../../core/drive/googleAuth';
-import { driveApi, makeSync } from '../../core/drive/browserSync';
+import { driveApi, makeSync, runPhotoQueue } from '../../core/drive/browserSync';
 import type { LinkState } from '../../core/drive/sync';
 import { WrongCodeError, FutureVersionError } from '../../core/backup/crypto';
 import type { Db } from '../../core/db/client';
@@ -53,6 +53,8 @@ export function DriveRestore({ db, t, onDone, onCancel, folderId: knownFolder }:
     try {
       if (!currentToken()) setEmail(await signIn(email || undefined));
       const r = await (await makeSync(db)).restore(folder, code, email || (await driveApi().accountEmail()));
+      await db.queuePhotoDownloads(); // photos follow in the background, newest first
+      void runPhotoQueue(db);
       onDone(t('restore.done', { boxes: r.boxes, items: r.items }));
     } catch (e) { setError(errorText(t, e)); } finally { setBusy(false); }
   };
@@ -89,7 +91,11 @@ export function DriveSettings({ onRestore }: { onRestore: (folderId: string) => 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => setLink(await db.getDriveLink()), [db]);
+  const [waiting, setWaiting] = useState(0);
+  const refresh = useCallback(async () => {
+    setLink(await db.getDriveLink());
+    setWaiting(await db.outboxCount('upload'));
+  }, [db]);
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => onTokenChange(() => setHasToken(!!currentToken())), []);
 
@@ -107,6 +113,8 @@ export function DriveSettings({ onRestore }: { onRestore: (folderId: string) => 
     if (d.kind === 'offer_restore') { setFound({ folderId: d.folderId, email }); return; }
     await sync.connect(email);
     await sync.snapshotNow();
+    await db.queueMissingUploads();
+    void runPhotoQueue(db);
   });
   const startNew = () => act(async () => {
     if (!found || !confirm(t('drive.startNewConfirm'))) return;
@@ -114,11 +122,14 @@ export function DriveSettings({ onRestore }: { onRestore: (folderId: string) => 
     const sync = await makeSync(db);
     await sync.connect(found.email, { startNewFolder: true });
     await sync.snapshotNow();
+    await db.queueMissingUploads();
+    void runPhotoQueue(db);
     setFound(null);
   });
   const backUpNow = () => act(async () => {
     if (!currentToken()) await signIn(link?.googleEmail);
     const out = await (await makeSync(db)).snapshotNow();
+    await runPhotoQueue(db);
     if (out === 'uploaded' || out === 'up_to_date') toast(t('settings.backupDone'));
   });
   const disconnect = () => act(async () => {
@@ -148,6 +159,7 @@ export function DriveSettings({ onRestore }: { onRestore: (folderId: string) => 
             {link.lastSnapshotAt ? t('drive.backedUp', { when: new Date(link.lastSnapshotAt).toLocaleString() }) : t('drive.notYet')}
           </p>
           {link.googleEmail && <p className="text-sm text-slate-600">{t('drive.account', { email: link.googleEmail })}</p>}
+          {waiting > 0 && <p className="text-sm text-slate-600" data-testid="photos-waiting">{t('photos.waiting', { n: waiting })}</p>}
           {status === 'lock_lost' && <p role="alert" className="text-amber-900">{t('drive.lockLost')}</p>}
           {status === 'folder_trashed' && (
             <p role="alert" className="text-amber-900">{t('drive.trashed')} <a className="underline" href="https://drive.google.com/drive/trash" target="_blank" rel="noreferrer noopener">{t('drive.openTrash')}</a></p>
