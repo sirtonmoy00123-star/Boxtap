@@ -28,7 +28,9 @@ BoxTap keeps everything on your phone, in the browser. Nothing goes to a server 
 - **Bin**: boxes and items you deleted, kept for 30 days.
 - **Settings**: backups, Google Drive, printing labels.
 - **Scan**: point the camera at a BoxTap label to open that box.
-- **Add box**: makes the next numbered box with its own label code, and opens it.
+- **Add box**: makes the next numbered box with its own label code, and opens it. Before your 5th box, BoxTap asks you to install it first (see Install below). **Not now** carries on.
+- **Move count** (Home mode): "3 of 10 boxes arrived · 1 unpacked", once you start marking boxes.
+- **Last backup** (bottom): the date of your last backup file or Google Drive copy. Without Drive, a reminder appears after 7 days with a **Back up now** button.
 
 Free plan: up to 12 boxes in Home mode, or 50 items in Seller mode. When you reach the limit, an upgrade screen explains it. You never lose what you have: looking, searching, backing up and restoring from the Bin always work.
 
@@ -39,10 +41,14 @@ Free plan: up to 12 boxes in Home mode, or 50 items in Seller mode. When you rea
   - Type an item and tap **Add item** (or press Enter).
   - **×** next to an item moves it to the Bin.
 - **Name**: for example "Kitchen 1".
-- **Room**: choose a room, or **New room…** to make one.
+- **Photos**: **Add photo** opens the camera or your photo library. Photos are shrunk to about 200 KB. Tap a photo to see it large, or to **Delete photo**. Free plan: 1 photo per box.
+  - "Still downloading…": after a restore from Drive, the photo is on its way.
+  - "This photo wasn't backed up": the photo didn't reach your backup before the phone was lost.
+- **Room**: choose a room, or **New room…** to make one. **Rename room** fixes a room's name (for every box in it).
 - **Where is it?**: for example "Garage, top shelf".
 - **Notes**: anything else.
 - **Fragile / Open first**: tap to switch on or off. They also print on the label.
+- **Move** (Home mode): **Packed**, **Arrived** or **Unpacked**. Tap again to clear. Saves straight away.
 - **Save**: saves name, where and notes. Rooms and the Fragile/Open first switches save straight away.
 - **Move box to bin**: removes the box and its items. Restore it from the Bin within 30 days.
 - **← (back)**: returns to your boxes.
@@ -66,7 +72,7 @@ Free plan: up to 12 boxes in Home mode, or 50 items in Seller mode. When you rea
 ### Backup (a file you keep)
 
 - **Last backup**: when you last saved a backup file.
-- **Back up now**: makes an encrypted backup file. On a phone, the share sheet opens: save it to Files, Google Drive or iCloud, or send it to yourself. On a computer, it downloads.
+- **Back up now**: makes an encrypted backup file, with your photos. On a phone, the share sheet opens: save it to Files, Google Drive or iCloud, or send it to yourself. On a computer, it downloads.
 - **Set up backups**: only shown if this phone has no recovery code yet.
 - **Restore from a backup file**: choose the file, type your 12 words, **Restore**. This replaces everything in BoxTap on this phone. With a wrong code, nothing changes.
 
@@ -77,7 +83,8 @@ Free plan: up to 12 boxes in Home mode, or 50 items in Seller mode. When you rea
     - **Restore it**: bring it to this phone.
     - **Start a new backup folder**: the old folder is renamed and left alone.
 - **Status**: "Backed up to Google Drive · time", or "not backed up yet", plus the Google account.
-- **Back up to Drive now**: saves a copy straight away.
+- **Back up to Drive now**: saves a copy straight away, then sends waiting photos.
+- **N photos waiting to upload**: photos go to Drive once each, encrypted. On Android they wait for Wi-Fi.
 - **Changes not backed up · Tap to back up**: Google needs one tap each time you open the app (and after an hour) before BoxTap can save.
 - While the app is open, BoxTap saves by itself about 2 minutes after your last change, at most every 15 minutes.
 - **Messages you might see**:
@@ -86,6 +93,17 @@ Free plan: up to 12 boxes in Home mode, or 50 items in Seller mode. When you rea
   - Google storage is full.
   - The folder was deleted.
 - **Disconnect Google Drive**: stops syncing. Your files stay in Drive; delete the folder there if you don't want them.
+
+### Install BoxTap on this device
+
+Shown until BoxTap is installed.
+- **iPhone**: in Safari, tap Share, then **Add to Home Screen**, then **Add**, and open BoxTap from the new icon. Boxes added in a Safari tab don't move to the icon by themselves: back up in Safari, then restore in the installed app.
+- **Android / computer**: tap **Install**, or use the browser menu → Install app.
+
+### Your data
+
+- **Export as spreadsheet (CSV)**: one row per item with its box, room, where, flags, move status and value. Opens in Excel or Google Sheets. Always free.
+- **Erase all data**: deletes every box, item, photo and setting on this phone. It asks twice (the second time you type ERASE). Your Google Drive backup is kept; delete the "BoxTap Backup" folder in Drive yourself if you want it gone.
 
 ### Print labels
 
@@ -109,7 +127,6 @@ Free plan: up to 12 boxes in Home mode, or 50 items in Seller mode. When you rea
 
 ## Not in the app yet
 
-- Photos.
 - Paid plans: entering a licence key, and payment links on the upgrade screen.
-- Seller stock buttons (sell, restock, booked).
-- The install guide.
+- Seller stock buttons (sell, restock, booked) and the catalogue image.
+- "Use this device instead" when another phone has taken over the Drive backup.

@@ -32,15 +32,15 @@ npx tsx tools/config.ts sign          # writes public/config/v1.json
 | Phase 0 owner tools keys/licence/config | Done | `tools/owner.test.ts`, CLI smoke run |
 | Phase 0 security headers | Done in `public/_headers` | E2E checks CSP header and app start |
 | Phase 0 camera + zxing scan spike | Code done; real-device check pending | QR decode unit test with zxing |
-| Phase 0 Google sign-in spike + Cloud project | Not started: needs the owner's Google Cloud project | |
-| 1.1 First launch (restore choices first, mode, language, recovery code) | Done (install guide not yet) | E2E |
-| 1.2 Rooms, boxes, items, 30-day bin | Done; **photos not yet** | repo tests, E2E |
+| Phase 0 Google sign-in spike + Cloud project | Test OAuth client made by the owner; live test site on Cloudflare Workers; real-device sign-in check pending | |
+| 1.1 First launch (restore choices first, mode, language, recovery code) + install guide | Done | E2E |
+| 1.2 Rooms, boxes, items, photos, 30-day bin, rename room, arrival check | Done | repo tests, E2E |
 | 1.3 Labels + PDF | Done; print test on 3 printers pending | layout/PDF tests, E2E download |
 | 1.4 In-app scanner + `/b/:code` | Done; real-device scan pending | E2E link tests |
 | 1.5 Search | Done | 400 items < 1 s test |
 | 1.6 Free limits via `can()` | Done (built-in config; signed config fetch is Phase 1b) | service tests, E2E critical test 12 |
-| 1.7 Backup and restore (file) | Done without photos | crypto/snapshot tests, E2E round trip |
-| 1.7b Google Drive backup | Not started (needs the OAuth client) | |
+| 1.7 Backup and restore (file), CSV export, Erase all data | Done, with photos | crypto/snapshot tests, E2E round trip |
+| 1.7b Google Drive backup (snapshots + photos) | Done against a fake Drive; real Google check on devices pending; "Use this device instead" and the iPhone redirect fallback not yet | sync/photo queue tests |
 | 1.8 Offline, update prompt, launch | Update prompt and precache done; offline E2E and launch not yet | |
 
 ## Rulings made during the build (deviations from the docs, with cost if wrong)
