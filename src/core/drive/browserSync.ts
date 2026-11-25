@@ -84,6 +84,8 @@ export async function runPhotoQueue(db: Db): Promise<PhotoRun | null> {
   if (!link || link.status === 'lock_lost' || link.status === 'folder_trashed') return null;
   const run = await new PhotoSync(driveApi(), await photoHost(db), link.photosFolderId).run({ max: 30 });
   if (run.quotaFull && link.status !== 'quota_full') await db.setDriveLink({ ...link, status: 'quota_full' });
+  // Photos just reached Drive: snapshot now so the Drive copy records them (review finding 1).
+  if (run.uploaded > 0 || run.downloaded > 0) await (await makeSync(db)).snapshotNow().catch((e) => console.warn('snapshot after photos failed', e));
   return run;
 }
 

@@ -85,7 +85,9 @@ export function setPhotoDriveRef(ctx: Ctx, id: string, ref: string, fileId: stri
 
 /** The Drive file id doubles as the random photo_ref. Null: no Drive copy ("This photo wasn't backed up"). */
 export function setPhotoDriveFile(ctx: Ctx, id: string, fileId: string | null): void {
-  ctx.db.exec({ sql: `UPDATE photos SET drive_ref=?, drive_file_id=? WHERE id=?`, bind: [fileId, fileId, id] });
+  // A change (review finding 1): the next Drive snapshot must carry which photos are in Drive, or a restore
+  // would show them as "not backed up".
+  write(ctx, () => ctx.db.exec({ sql: `UPDATE photos SET drive_ref=?, drive_file_id=? WHERE id=?`, bind: [fileId, fileId, id] }));
 }
 
 /** Queue uploads for live photos that have no Drive copy and no queued work (after connect or a file restore). */
@@ -104,13 +106,16 @@ export function queueMissingUploads(ctx: Ctx): number {
 
 export interface OutboxRow { photoId: string; op: 'upload' | 'delete' | 'download'; driveFileId: string | null; attempts: number }
 
+// Uploads of binned photos wait (they may be restored) without blocking the queue (review finding 10).
+const NOT_BINNED_UPLOAD = `NOT (o.op = 'upload' AND EXISTS (SELECT 1 FROM photos p WHERE p.id = o.photo_id AND p.deleted_at IS NOT NULL))`;
+
 export function outboxDue(ctx: Ctx, nowIso: string, limit = 50): OutboxRow[] {
-  return ctx.db.selectObjects(`SELECT * FROM drive_outbox WHERE next_try_at <= ? ORDER BY next_try_at LIMIT ?`, [nowIso, limit])
+  return ctx.db.selectObjects(`SELECT o.* FROM drive_outbox o WHERE o.next_try_at <= ? AND ${NOT_BINNED_UPLOAD} ORDER BY o.next_try_at LIMIT ?`, [nowIso, limit])
     .map((r) => ({ photoId: String(r.photo_id), op: r.op as OutboxRow['op'], driveFileId: str(r.drive_file_id), attempts: num(r.attempts) }));
 }
 
 export const outboxCount = (ctx: Ctx, op?: OutboxRow['op']): number =>
-  num(op ? ctx.db.selectValue(`SELECT count(*) FROM drive_outbox WHERE op=?`, [op]) : ctx.db.selectValue(`SELECT count(*) FROM drive_outbox`));
+  num(ctx.db.selectValue(`SELECT count(*) FROM drive_outbox o WHERE (? IS NULL OR o.op = ?) AND ${NOT_BINNED_UPLOAD}`, [op ?? null, op ?? null]));
 
 /** Store the id reserved with files.generateIds before the first attempt, so a retry reuses it. */
 export function outboxReserve(ctx: Ctx, photoId: string, driveFileId: string): void {

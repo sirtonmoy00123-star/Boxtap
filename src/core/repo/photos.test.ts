@@ -147,3 +147,27 @@ describe('item thumbnails in a box', () => {
     expect(thumbs).toEqual({ [a.id]: { photoId: pa.id, thumbName: pa.thumbName, fileName: pa.fileName } });
   });
 });
+
+describe('Drive file ids reach the next snapshot (review finding 1)', () => {
+  it('recording a photo upload counts as a change', () => {
+    const ws = svc.createWorkspace({ type: 'home', name: 'M', country: 'AU', currency: 'AUD', language: 'en' });
+    const box = svc.createBox(ws.id, {});
+    const p = svc.addPhoto(photo({ workspaceId: ws.id, locationId: box.id }));
+    const before = R.changeSeq(ctx);
+    R.setPhotoDriveFile(ctx, p.id, 'drive-1');
+    expect(R.changeSeq(ctx)).toBeGreaterThan(before);
+  });
+});
+
+describe('binned photos do not block the upload queue (review finding 10)', () => {
+  it('leaves binned uploads out of the due list and the waiting count', () => {
+    const ws = svc.createWorkspace({ type: 'seller', name: 'S', country: 'BD', currency: 'BDT', language: 'bn' });
+    const box = svc.createBox(ws.id, {});
+    const a = svc.addPhoto(photo({ workspaceId: ws.id, locationId: box.id }));
+    const box2 = svc.createBox(ws.id, {});
+    const b = svc.addPhoto(photo({ workspaceId: ws.id, locationId: box2.id }));
+    svc.deletePhoto(a.id);
+    expect(R.outboxDue(ctx, clock).map((o) => o.photoId)).toEqual([b.id]);
+    expect(R.outboxCount(ctx, 'upload')).toBe(1);
+  });
+});
