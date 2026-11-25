@@ -12,6 +12,8 @@ export default tseslint.config(
     plugins: { 'react-hooks': reactHooks },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      // Effects here start async loads from the DB worker; the rule flags those loaders too.
+      'react-hooks/set-state-in-effect': 'warn',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       // DATABASE_SCHEMA §3 note (audit L5): only the ledger trigger may change stock totals.
       'no-restricted-syntax': ['error',

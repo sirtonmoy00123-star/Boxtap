@@ -21,7 +21,7 @@ export interface OwnerKeys { cfg: KeyPair; lic: KeyPair }
 
 async function aesKey(pass: string, salt: Uint8Array) {
   const raw = await scryptAsync(utf8(pass), salt, SCRYPT);
-  return subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
+  return subtle.importKey('raw', new Uint8Array(raw), 'AES-GCM', false, ['encrypt', 'decrypt']);
 }
 
 async function pair(kid: string): Promise<KeyPair> {

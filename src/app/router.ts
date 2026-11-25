@@ -1,0 +1,41 @@
+// Tiny history router: the app has a handful of routes and must work offline from the service worker.
+import { useSyncExternalStore } from 'react';
+
+export type Route =
+  | { name: 'home' }
+  | { name: 'box'; id: string }
+  | { name: 'bin' }
+  | { name: 'label'; code: string }
+  | { name: 'notFound' };
+
+export function parseRoute(path: string): Route {
+  if (path === '/' || path === '') return { name: 'home' };
+  if (path === '/bin') return { name: 'bin' };
+  let m = /^\/box\/([0-9a-f-]{36})$/i.exec(path);
+  if (m) return { name: 'box', id: m[1]! };
+  m = /^\/b\/([^/]+)$/.exec(path);
+  if (m) return { name: 'label', code: m[1]! };
+  return { name: 'notFound' };
+}
+
+const listeners = new Set<() => void>();
+const subscribe = (fn: () => void) => {
+  listeners.add(fn);
+  window.addEventListener('popstate', fn);
+  return () => {
+    listeners.delete(fn);
+    window.removeEventListener('popstate', fn);
+  };
+};
+
+export function navigate(path: string, replace = false): void {
+  if (replace) history.replaceState(null, '', path);
+  else history.pushState(null, '', path);
+  listeners.forEach((l) => l());
+  window.scrollTo(0, 0);
+}
+
+export function useRoute(): Route {
+  const path = useSyncExternalStore(subscribe, () => location.pathname);
+  return parseRoute(path);
+}

@@ -1,7 +1,7 @@
 const enc = new TextEncoder();
 const dec = new TextDecoder('utf-8', { fatal: true });
 
-export const utf8 = (s: string): Uint8Array => enc.encode(s);
+export const utf8 = (s: string): Uint8Array<ArrayBuffer> => enc.encode(s);
 export const fromUtf8 = (b: Uint8Array): string => dec.decode(b);
 
 export function b64urlEncode(bytes: Uint8Array): string {
@@ -11,7 +11,7 @@ export function b64urlEncode(bytes: Uint8Array): string {
 }
 
 /** Throws on characters outside the base64url alphabet. */
-export function b64urlDecode(s: string): Uint8Array {
+export function b64urlDecode(s: string): Uint8Array<ArrayBuffer> {
   if (!/^[A-Za-z0-9_-]*$/.test(s)) throw new Error('invalid base64url');
   const b64 = s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (s.length % 4)) % 4);
   const bin = atob(b64);

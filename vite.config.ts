@@ -26,7 +26,6 @@ export default defineConfig({
           { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
           { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
-        // @ts-expect-error launch_handler is not in the plugin's manifest type yet
         launch_handler: { client_mode: 'focus-existing' },
       },
       workbox: {
