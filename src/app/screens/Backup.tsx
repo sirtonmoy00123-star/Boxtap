@@ -7,6 +7,8 @@ import { createBackupFile, deliverFile, hasBackupKey, restoreBackupFile, setUpBa
 import type { Db } from '../../core/db/client';
 import type { Key } from '../../i18n/i18n';
 import { DriveRestore, DriveSettings } from './Drive';
+import { InstallGuide } from './Install';
+import { isInstalled } from '../../core/pwa/install';
 
 type T = (k: Key, v?: Record<string, string | number>) => string;
 
@@ -110,6 +112,7 @@ export function Settings() {
   const [mode, setMode] = useState<'main' | 'restore' | 'setup' | 'driveRestore'>('main');
   const [driveFolder, setDriveFolder] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
+  const [guide, setGuide] = useState(false);
 
   useEffect(() => {
     void db.backupState().then((s) => setLast(s?.last_backup_at ? String(s.last_backup_at) : null));
@@ -168,6 +171,8 @@ export function Settings() {
           : <Button onClick={backup} disabled={busy || !ready}>{t('settings.backupNow')}</Button>}
         <Button variant="secondary" onClick={() => setMode('restore')}>{t('settings.restore')}</Button>
       </div>
+      {!isInstalled() && <Button variant="secondary" className="mt-6 w-full" onClick={() => setGuide(true)}>{t('install.settings')}</Button>}
+      {guide && <InstallGuide onClose={() => setGuide(false)} />}
       <DriveSettings onRestore={(f) => { setDriveFolder(f); setMode('driveRestore'); }} />
       <h2 className="mt-6 text-lg font-semibold">{t('labels.title')}</h2>
       <div className="mt-3 flex flex-col gap-2">

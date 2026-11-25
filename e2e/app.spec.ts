@@ -13,8 +13,9 @@ async function tinyPng(page: Page): Promise<Buffer> {
 }
 
 /** Goes through first launch, including the recovery code check. Returns the 12-word code. */
-async function newHome(page: Page): Promise<string> {
+async function newHome(page: Page, opts: { installGuide?: boolean } = {}): Promise<string> {
   await page.goto('/');
+  if (!opts.installGuide) await page.evaluate(() => localStorage.setItem('boxtap.installGuideSnoozedAt', String(Date.now())));
   await page.getByRole('button', { name: 'New to BoxTap' }).click();
   await page.getByRole('button', { name: 'Start' }).click();
   const items = await page.getByTestId('recovery-code').getByRole('listitem').allInnerTexts();
@@ -227,4 +228,22 @@ test('add a photo to a box, see it after reload, and the free limit of 1 photo a
   await expect(page.getByRole('list', { name: 'photos' }).locator('img')).toHaveCount(1, { timeout: 15_000 });
   await page.getByLabel('Add photo').setInputFiles({ name: 'photo2.png', mimeType: 'image/png', buffer: Buffer.from(png) });
   await expect(page.getByRole('dialog')).toContainText(/photo limit/);
+});
+
+test('before the 5th box, BoxTap asks to install it first; Not now carries on (B14)', async ({ page }) => {
+  // The guide shows on Android/desktop only while storage isn't protected yet; the test browser often grants it.
+  await page.addInitScript(() => { Object.defineProperty(navigator.storage, 'persisted', { value: () => Promise.resolve(false) }); });
+  await newHome(page, { installGuide: true });
+  for (let i = 0; i < 4; i++) {
+    await page.getByRole('button', { name: 'Add box' }).click();
+    await expect(page.getByRole('heading', { name: `Box ${i + 1}` })).toBeVisible();
+    await page.getByRole('button', { name: 'Back' }).click();
+  }
+  await page.getByRole('button', { name: 'Add box' }).click();
+  await expect(page.getByRole('dialog')).toContainText('Install BoxTap first');
+  await page.getByRole('button', { name: 'Not now' }).click();
+  await expect(page.getByRole('heading', { name: 'Box 5' })).toBeVisible();
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: 'Add box' }).click();
+  await expect(page.getByRole('heading', { name: 'Box 6' })).toBeVisible(); // asked once a day at most
 });
