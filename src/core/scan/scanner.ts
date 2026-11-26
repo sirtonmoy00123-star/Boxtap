@@ -33,7 +33,15 @@ async function zxingDecoder(): Promise<Decode> {
 
 export type ScanResult = { kind: 'label'; code: string } | { kind: 'other'; text: string };
 
-export interface ScannerHandle { stop(): void }
+export interface ScannerHandle {
+  stop(): void;
+  /** True when the camera reports a torch (most Android phones; not iPhone Safari). */
+  hasTorch: boolean;
+  /** Turns the torch on or off. Resolves false when the camera refused. */
+  setTorch(on: boolean): Promise<boolean>;
+}
+
+interface TorchCapabilities extends MediaTrackCapabilities { torch?: boolean }
 
 /**
  * Starts the camera into `video` and calls onResult once per distinct decoded text. Only boxtap.app/b/<code>
@@ -81,7 +89,18 @@ export async function startScanner(video: HTMLVideoElement, onResult: (r: ScanRe
   };
   void tick();
 
+  const track = stream.getVideoTracks()[0];
+  const caps = (track?.getCapabilities?.() ?? {}) as TorchCapabilities;
   return {
+    hasTorch: !!caps.torch,
+    async setTorch(on: boolean) {
+      try {
+        await track!.applyConstraints({ advanced: [{ torch: on } as MediaTrackConstraintSet] });
+        return true;
+      } catch {
+        return false;
+      }
+    },
     stop() {
       stopped = true;
       stream.getTracks().forEach((t) => t.stop());

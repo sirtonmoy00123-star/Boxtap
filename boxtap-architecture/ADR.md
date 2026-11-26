@@ -124,6 +124,16 @@ Earlier versions: `archive/cloud-v0.2/` (Supabase) and `archive/native-v1.0/` (C
 **Decision:** rely on the device's own encryption (phones encrypt storage when locked — Fact for modern Android and iOS) and the browser's per-site isolation. Offer an optional **app lock** (PIN) that hides the app's screens after 5 minutes away. Backups are always encrypted.
 **Honest limit:** the PIN is a screen lock, not encryption; someone with the unlocked device and browser developer tools could read the data. A fully encrypted database needs a SQLite encryption build for WASM (e.g. SQLite3 Multiple Ciphers) and a passcode at every start; reconsider in Phase 3 if sellers ask.
 
+## ADR-023 — UI design system based on Apple's design principles
+
+**Status:** Accepted by the owner, 2026-11-26.
+**Decision:** every screen follows `DESIGN_SYSTEM.md` (colour and type tokens, inset grouped lists, 44 px touch targets, sentence case, the label tag, a floating Scan button). It borrows Apple's Human Interface Guidelines principles, not Apple's brand.
+**Owner decisions:**
+- Seller mode uses an indigo accent (`data-mode="seller"`), Home mode blue.
+- The box screen autosaves (debounced 500 ms, "Saved" footnote); its Save button is removed.
+- Home mode gets a Rooms tab (Boxes, Rooms, Settings); the Bin moves inside Settings, with backup and labels.
+- Bangla mode shows Bangla digits (`Intl.NumberFormat('bn-BD')`); stored data keeps Western digits.
+
 ## Superseded
 
 - Cloud v0.2: ADR-001, 003, 005, 007, 008, 009 (server-side).

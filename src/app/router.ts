@@ -11,6 +11,9 @@ export type Route =
   | { name: 'orders' }
   | { name: 'order'; id: string }
   | { name: 'bin' }
+  | { name: 'rooms' }
+  | { name: 'room'; id: string }
+  | { name: 'booked' }
   | { name: 'settings' }
   | { name: 'scan' }
   | { name: 'labels' }
@@ -20,6 +23,10 @@ export type Route =
 export function parseRoute(path: string): Route {
   if (path === '/' || path === '') return { name: 'home' };
   if (path === '/bin') return { name: 'bin' };
+  if (path === '/rooms') return { name: 'rooms' };
+  if (path === '/booked') return { name: 'booked' };
+  const rm = /^\/room\/([0-9a-f-]{36})$/i.exec(path);
+  if (rm) return { name: 'room', id: rm[1]! };
   if (path === '/settings') return { name: 'settings' };
   if (path === '/low') return { name: 'low' };
   if (path === '/catalogue') return { name: 'catalogue' };

@@ -58,9 +58,9 @@ function UndoBar({ undo, onUndo }: { undo: { id: string; label: string } | null;
   const { t } = useApp();
   if (!undo) return null;
   return (
-    <div role="status" style={{ bottom: 'calc(6rem + env(safe-area-inset-bottom))' }} className="fixed inset-x-4 z-40 mx-auto flex max-w-md items-center justify-between rounded-xl bg-slate-900 px-4 py-2 text-white">
+    <div role="status" style={{ bottom: 'calc(6rem + env(safe-area-inset-bottom))' }} className="fixed inset-x-4 z-40 mx-auto flex max-w-md items-center justify-between rounded-md bg-text px-4 py-2 text-bg">
       <span>{undo.label}</span>
-      <button type="button" className="min-h-12 px-3 font-semibold text-amber-300" onClick={() => onUndo(undo.id)}>{t('stock.undo')}</button>
+      <button type="button" className="min-h-12 px-3 font-semibold text-bg" onClick={() => onUndo(undo.id)}>{t('stock.undo')}</button>
     </div>
   );
 }
@@ -90,13 +90,13 @@ export function SellerItems({ box, items, thumbs, reload }: { box: Box; items: I
 
   return (
     <>
-      <ul className="divide-y" aria-label="items">
+      <ul className="divide-y divide-separator" aria-label="items">
         {items.map((it) => (
           <li key={it.id} className="flex items-center gap-2 py-2">
             <ItemThumbButton workspaceId={box.workspaceId} itemId={it.id} itemName={it.name} thumb={thumbs[it.id]} onChanged={() => void reload()} />
             <button type="button" className="flex-1 text-left" onClick={() => navigate(`/item/${it.id}`)}>
               <span className="block font-medium">{it.name}{it.variantLabel ? ` · ${it.variantLabel}` : ''}</span>
-              <span className="text-sm text-slate-600" data-testid={`stock-${it.name}`}>
+              <span className="text-subhead text-text-2" data-testid={`stock-${it.name}`}>
                 {t('stock.inStock', { n: it.onHand - it.reserved })}{it.reserved > 0 ? ` · ${t('stock.booked', { n: it.reserved })}` : ''}
               </span>
             </button>
@@ -210,7 +210,7 @@ export function ItemPage({ id }: { id: string }) {
   return (
     <Page title={item.variantLabel ? `${item.name} · ${item.variantLabel}` : item.name} back={() => navigate(`/box/${item.locationId}`)}>
       <PhotoStrip workspaceId={item.workspaceId} parent={{ itemId: item.id }} />
-      {seller && <p className="mt-4 text-lg" data-testid="item-stock">
+      {seller && <p className="mt-4 text-headline" data-testid="item-stock">
         {t('stock.inStock', { n: item.onHand - item.reserved })}{item.reserved > 0 ? ` · ${t('stock.booked', { n: item.reserved })}` : ''}
       </p>}
 
@@ -229,7 +229,7 @@ export function ItemPage({ id }: { id: string }) {
 
       {boxes.length > 0 && seller && (
         <section className="mt-6">
-          <h2 className="text-lg font-semibold">{t('stock.move')}</h2>
+          <h2 className="text-headline font-semibold">{t('stock.move')}</h2>
           <div className="flex gap-2">
             <select className={inputClass} aria-label={t('stock.moveTo')} value={target} onChange={(e) => setTarget(e.target.value)}>
               <option value="">{t('stock.moveTo')}</option>
@@ -242,20 +242,20 @@ export function ItemPage({ id }: { id: string }) {
 
       {seller && pro.variants && (
         <section className="mt-6">
-          <h2 className="text-lg font-semibold">{t('var.title')}</h2>
+          <h2 className="text-headline font-semibold">{t('var.title')}</h2>
           {variants.length > 1 && (
             <>
-              <ul className="divide-y" aria-label="variants">
+              <ul className="divide-y divide-separator" aria-label="variants">
                 {variants.map((v) => (
                   <li key={v.itemId}>
                     <button type="button" disabled={v.itemId === item.id} className="flex w-full justify-between py-2 text-left disabled:font-semibold" onClick={() => navigate(`/item/${v.itemId}`)}>
                       <span>{v.variantLabel ?? item.name}</span>
-                      <span className="text-sm text-slate-600">{t('stock.inStock', { n: v.onHand - v.reserved })} · {t('box.title', { n: v.boxNumber })}</span>
+                      <span className="text-subhead text-text-2">{t('stock.inStock', { n: v.onHand - v.reserved })} · {t('box.title', { n: v.boxNumber })}</span>
                     </button>
                   </li>
                 ))}
               </ul>
-              <p className="text-sm text-slate-600">{t('var.total', { n: variants.reduce((s, v) => s + v.onHand - v.reserved, 0) })}</p>
+              <p className="text-subhead text-text-2">{t('var.total', { n: variants.reduce((s, v) => s + v.onHand - v.reserved, 0) })}</p>
             </>
           )}
           <form className="mt-2 flex gap-2" onSubmit={async (e) => {
@@ -271,7 +271,7 @@ export function ItemPage({ id }: { id: string }) {
       )}
 
       <section className="mt-6">
-        <h2 className="text-lg font-semibold">{t('item.details')}</h2>
+        <h2 className="text-headline font-semibold">{t('item.details')}</h2>
         {field('name', 'box.name')}
         {seller && pro.variants && field('variant', 'var.label')}
         {field('altName', 'item.altName')}
@@ -290,13 +290,13 @@ export function ItemPage({ id }: { id: string }) {
       </section>
 
       {seller && <section className="mt-6">
-        <h2 className="text-lg font-semibold">{t('stock.history')}</h2>
-        <ul className="divide-y" aria-label="history">
+        <h2 className="text-headline font-semibold">{t('stock.history')}</h2>
+        <ul className="divide-y divide-separator" aria-label="history">
           {history.map((m) => (
-            <li key={m.id} className="flex items-center justify-between py-2 text-sm">
-              <span className={m.undone ? 'text-slate-400 line-through' : ''}>
+            <li key={m.id} className="flex items-center justify-between py-2 text-subhead">
+              <span className={m.undone ? 'text-text-2 line-through' : ''}>
                 {t(`stock.reason.${m.reason}` as Key)} {m.onHandDelta !== 0 ? (m.onHandDelta > 0 ? `+${m.onHandDelta}` : m.onHandDelta) : `(${m.reservedDelta > 0 ? '+' : ''}${m.reservedDelta})`}
-                <span className="text-slate-500"> · {new Date(m.happenedAt).toLocaleString()}</span>
+                <span className="text-text-2"> · {new Date(m.happenedAt).toLocaleString()}</span>
               </span>
               {canUndo(m) && <Button variant="ghost" className="min-h-12 px-2" onClick={() => void doUndo(m.id)}>{t('stock.undo')}</Button>}
             </li>
@@ -320,13 +320,13 @@ export function LowStockPage() {
   useEffect(() => { void db.lowStock(workspace!.id).then(setRows); }, [db, workspace]);
   return (
     <Page title={t('stock.lowTitle')} back={() => navigate('/')}>
-      {rows?.length === 0 && <p className="py-10 text-center text-slate-500">{t('stock.lowNone')}</p>}
-      <ul className="divide-y" aria-label="low stock">
+      {rows?.length === 0 && <p className="py-10 text-center text-text-2">{t('stock.lowNone')}</p>}
+      <ul className="divide-y divide-separator" aria-label="low stock">
         {rows?.map((r) => (
           <li key={r.itemId}>
             <button type="button" className="flex w-full justify-between py-3 text-left" onClick={() => navigate(`/item/${r.itemId}`)}>
               <span>{r.name}</span>
-              <span className="text-slate-600">{t('stock.inStock', { n: r.available })} · {t('box.title', { n: r.boxNumber })}</span>
+              <span className="text-text-2">{t('stock.inStock', { n: r.available })} · {t('box.title', { n: r.boxNumber })}</span>
             </button>
           </li>
         ))}

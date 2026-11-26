@@ -66,17 +66,17 @@ export function CataloguePage() {
 
   return (
     <Page title={t('cat.title')} back={() => (boxId ? navigate(`/box/${boxId}`) : navigate('/'))}>
-      {items?.length === 0 && <p className="py-10 text-center text-slate-500">{t('cat.none')}</p>}
+      {items?.length === 0 && <p className="py-10 text-center text-text-2">{t('cat.none')}</p>}
       {!!items?.length && (
         <>
-          <p className="text-sm text-slate-600">{t('cat.pick')}</p>
-          <ul className="mt-2 divide-y" aria-label="catalogue items">
+          <p className="text-subhead text-text-2">{t('cat.pick')}</p>
+          <ul className="mt-2 divide-y divide-separator" aria-label="catalogue items">
             {items.map((c) => (
               <li key={c.itemId}>
                 <label className="flex min-h-12 items-center gap-3">
                   <input type="checkbox" className="h-5 w-5" checked={picked.has(c.itemId)} onChange={() => toggle(c.itemId)} />
                   <span className="flex-1">{c.name}</span>
-                  <span className="text-sm text-slate-500">{t('cat.inStock', { n: c.available })}</span>
+                  <span className="text-subhead text-text-2">{t('cat.inStock', { n: c.available })}</span>
                 </label>
               </li>
             ))}
@@ -86,7 +86,7 @@ export function CataloguePage() {
       )}
       {preview && (
         <div className="mt-4">
-          <img src={preview.url} alt={t('cat.title')} className="w-full rounded-xl border" />
+          <img src={preview.url} alt={t('cat.title')} className="w-full rounded-md border border-separator" />
           <Button className="mt-3 w-full" onClick={() => void share()}>{t('cat.send')}</Button>
         </div>
       )}

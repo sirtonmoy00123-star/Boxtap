@@ -40,7 +40,7 @@ export function ListSettings() {
 
   return (
     <section className="mt-2" aria-label={t('lists.this')}>
-      <h2 className="text-lg font-semibold">{t('lists.this')}</h2>
+      <h2 className="text-headline font-semibold">{t('lists.this')}</h2>
       <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); void saveName(); }}>
         <input className={inputClass} maxLength={80} aria-label={t('setup.name')} value={name} onChange={(e) => setName(e.target.value)} />
         <Button type="submit" variant="secondary" disabled={!name.trim() || name.trim() === ws.name}>{t('box.save')}</Button>
@@ -50,13 +50,13 @@ export function ListSettings() {
         <Button variant={ws.language === 'bn' ? 'primary' : 'secondary'} aria-pressed={ws.language === 'bn'} className="flex-1" onClick={() => void setLang('bn')}>বাংলা</Button>
       </div>
 
-      <h2 className="mt-6 text-lg font-semibold">{t('lists.all')}</h2>
-      <ul className="divide-y" aria-label={t('lists.all')}>
+      <h2 className="mt-6 text-headline font-semibold">{t('lists.all')}</h2>
+      <ul className="divide-y divide-separator" aria-label={t('lists.all')}>
         {all.map((w) => (
           <li key={w.id} className="flex items-center justify-between py-2">
-            <span>{w.name} <span className="text-sm text-slate-500">· {t(w.type === 'home' ? 'setup.home' : 'setup.seller')}</span></span>
+            <span>{w.name} <span className="text-subhead text-text-2">· {t(w.type === 'home' ? 'setup.home' : 'setup.seller')}</span></span>
             {w.id === ws.id
-              ? <span className="text-sm font-medium text-blue-800">{t('lists.current')}</span>
+              ? <span className="text-subhead font-medium text-accent">{t('lists.current')}</span>
               : <Button variant="secondary" onClick={() => switchTo(w)}>{t('lists.open')}</Button>}
           </li>
         ))}
@@ -65,9 +65,9 @@ export function ListSettings() {
         <form className="mt-2 flex flex-col gap-2" onSubmit={(e) => { e.preventDefault(); void create(); }}>
           {(['home', 'seller'] as const).map((m) => (
             <button key={m} type="button" onClick={() => setAdding({ ...adding, type: m })} aria-pressed={adding.type === m}
-              className={`rounded-xl border p-3 text-left ${adding.type === m ? 'border-blue-700 bg-blue-50' : 'border-slate-300'}`}>
+              className={`rounded-md border p-3 text-left ${adding.type === m ? 'border-accent bg-surface-2' : 'border-separator'}`}>
               <div className="font-semibold">{t(m === 'home' ? 'setup.home' : 'setup.seller')}</div>
-              <div className="text-sm text-slate-600">{t(m === 'home' ? 'setup.homeHint' : 'setup.sellerHint')}</div>
+              <div className="text-subhead text-text-2">{t(m === 'home' ? 'setup.homeHint' : 'setup.sellerHint')}</div>
             </button>
           ))}
           <Field label={t('setup.name')}>

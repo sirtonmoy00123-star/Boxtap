@@ -56,13 +56,13 @@ export function PhotoStrip({ workspaceId, parent }: { workspaceId: string; paren
 
   return (
     <section className="mt-6">
-      <h2 className="text-lg font-semibold">{t('photos.title')}</h2>
-      {shown.length === 0 && <p className="text-sm text-slate-500">{t('photos.none')}</p>}
+      <h2 className="text-headline font-semibold">{t('photos.title')}</h2>
+      {shown.length === 0 && <p className="text-subhead text-text-2">{t('photos.none')}</p>}
       <ul className="mt-2 grid grid-cols-3 gap-2" aria-label="photos">
         {shown.map(({ photo, thumb }, i) => (
           <li key={photo.id}>
-            <button type="button" onClick={() => void view(photo)} className="block aspect-square w-full overflow-hidden rounded-xl bg-slate-100" aria-label={t('photos.number', { n: i + 1 })}>
-              {thumb ? <img src={thumb} alt="" className="h-full w-full object-cover" /> : <span className="grid h-full place-items-center p-1 text-center text-xs text-slate-500">{missingText(photo)}</span>}
+            <button type="button" onClick={() => void view(photo)} className="block aspect-square w-full overflow-hidden rounded-md bg-surface-2" aria-label={t('photos.number', { n: i + 1 })}>
+              {thumb ? <img src={thumb} alt="" className="h-full w-full object-cover" /> : <span className="grid h-full place-items-center p-1 text-center text-footnote text-text-2">{missingText(photo)}</span>}
             </button>
           </li>
         ))}
@@ -74,9 +74,9 @@ export function PhotoStrip({ workspaceId, parent }: { workspaceId: string; paren
       </Button>
 
       {open && (
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex flex-col bg-black/90 p-4">
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex flex-col bg-camera p-4">
           <div className="flex min-h-0 flex-1 items-center justify-center">
-            {open.url ? <img src={open.url} alt="" className="max-h-full max-w-full rounded-lg object-contain" /> : <p className="text-white">{missingText(open.photo)}</p>}
+            {open.url ? <img src={open.url} alt="" className="max-h-full max-w-full rounded-md object-contain" /> : <p className="text-on-accent">{missingText(open.photo)}</p>}
           </div>
           <div className="flex gap-2">
             <Button variant="danger" className="flex-1" onClick={() => void remove()}>{t('photos.delete')}</Button>
@@ -131,21 +131,21 @@ export function ItemThumbButton({ workspaceId, itemId, itemName, thumb, onChange
     <>
       {thumb ? (
         <button type="button" onClick={() => void open()} aria-label={t('photos.of', { name: itemName })}
-          className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-slate-100">
-          {url ? <img src={url} alt="" className="h-full w-full object-cover" /> : <span className="grid h-full place-items-center text-[10px] leading-tight text-slate-500">{t('photos.downloading')}</span>}
+          className="h-14 w-14 shrink-0 overflow-hidden rounded-md bg-surface-2">
+          {url ? <img src={url} alt="" className="h-full w-full object-cover" /> : <span className="grid h-full place-items-center text-[10px] leading-tight text-text-2">{t('photos.downloading')}</span>}
         </button>
       ) : (
         <button type="button" onClick={() => input.current?.click()} disabled={busy} aria-label={t('photos.addFor', { name: itemName })}
-          className="grid h-14 w-14 shrink-0 place-items-center rounded-lg border-2 border-dashed border-slate-300 text-slate-500">
-          {busy ? <span className="text-xs">…</span> : <CameraIcon />}
+          className="grid h-14 w-14 shrink-0 place-items-center rounded-md border-2 border-dashed border-separator text-text-2">
+          {busy ? <span className="text-footnote">…</span> : <CameraIcon />}
         </button>
       )}
       <input ref={input} type="file" accept="image/*" className="sr-only" tabIndex={-1} aria-hidden="true" onChange={(e) => void add(e.target.files?.[0])} />
       {big !== null && createPortal(
-        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex flex-col bg-black/90 p-4">
-          <p className="pb-2 text-center text-white">{itemName}</p>
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex flex-col bg-camera p-4">
+          <p className="pb-2 text-center text-on-accent">{itemName}</p>
           <div className="flex min-h-0 flex-1 items-center justify-center">
-            {big ? <img src={big} alt={itemName} className="max-h-full max-w-full rounded-lg object-contain" /> : <p className="text-white">{t('photos.downloading')}</p>}
+            {big ? <img src={big} alt={itemName} className="max-h-full max-w-full rounded-md object-contain" /> : <p className="text-on-accent">{t('photos.downloading')}</p>}
           </div>
           <div className="flex gap-2">
             <Button variant="secondary" className="flex-1" onClick={() => { close(); navigate(`/item/${itemId}`); }}>{t('photos.openItem')}</Button>

@@ -33,8 +33,8 @@ export function Start() {
   if (step === 'choose') {
     return (
       <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-4 px-6">
-        <h1 className="text-3xl font-bold">{t('start.title')}</h1>
-        <p className="text-slate-600">{t('start.subtitle')}</p>
+        <h1 className="text-large-title font-bold">{t('start.title')}</h1>
+        <p className="text-text-2">{t('start.subtitle')}</p>
         <Button onClick={() => setStep('setup')}>{t('start.new')}</Button>
         {driveConfigured()
           ? <Button variant="secondary" onClick={() => setStep('driveRestore')}>{t('start.restoreDrive')}</Button>
@@ -50,7 +50,7 @@ export function Start() {
 
   if (step === 'driveRestore') {
     return (
-      <div className="mx-auto max-w-md px-6 py-8">
+      <div className="mx-auto max-w-md px-6 py-8 pt-[max(2rem,env(safe-area-inset-top))]">
         <DriveRestore db={db} t={t} onCancel={() => setStep('choose')} onDone={async (msg) => {
           const list = await db.listWorkspaces();
           toast(msg);
@@ -61,7 +61,7 @@ export function Start() {
   }
   if (step === 'restore') {
     return (
-      <div className="mx-auto max-w-md px-6 py-8">
+      <div className="mx-auto max-w-md px-6 py-8 pt-[max(2rem,env(safe-area-inset-top))]">
         <RestoreFile db={db} t={t} onCancel={() => setStep('choose')} onDone={async (msg) => {
           const list = await db.listWorkspaces();
           toast(msg);
@@ -71,25 +71,25 @@ export function Start() {
     );
   }
   if (step === 'code') {
-    return <div className="mx-auto max-w-md px-6 py-8"><RecoveryCodeSetup db={db} t={t} onDone={() => void create()} /></div>;
+    return <div className="mx-auto max-w-md px-6 py-8 pt-[max(2rem,env(safe-area-inset-top))]"><RecoveryCodeSetup db={db} t={t} onDone={() => void create()} /></div>;
   }
 
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-3 px-6">
-      <h1 className="text-2xl font-bold">{t('setup.mode')}</h1>
+      <h1 className="text-large-title font-bold">{t('setup.mode')}</h1>
       {(['home', 'seller'] as const).map((m) => (
         <button key={m} type="button" onClick={() => setType(m)} aria-pressed={type === m}
-          className={`rounded-xl border p-4 text-left ${type === m ? 'border-blue-700 bg-blue-50' : 'border-slate-300'}`}>
+          className={`rounded-md border p-4 text-left ${type === m ? 'border-accent bg-surface-2' : 'border-separator'}`}>
           <div className="font-semibold">{t(m === 'home' ? 'setup.home' : 'setup.seller')}</div>
-          <div className="text-sm text-slate-600">{t(m === 'home' ? 'setup.homeHint' : 'setup.sellerHint')}</div>
+          <div className="text-subhead text-text-2">{t(m === 'home' ? 'setup.homeHint' : 'setup.sellerHint')}</div>
         </button>
       ))}
       <Field label={t('setup.name')}>
         <input className={inputClass} value={name} maxLength={80} onChange={(e) => setName(e.target.value)}
           placeholder={t(type === 'home' ? 'setup.nameHomeDefault' : 'setup.nameSellerDefault')} />
       </Field>
-      <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">{t('setup.warning')}</p>
+      <p className="rounded-md bg-surface-2 p-3 text-subhead text-warning">{t('setup.warning')}</p>
       <Button onClick={() => setStep('code')} disabled={busy}>{t('setup.start')}</Button>
     </div>
   );

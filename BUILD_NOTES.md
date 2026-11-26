@@ -98,6 +98,48 @@ Deferred (recorded, not fixed yet):
 - `pack()` does not bound name or entry sizes on write.
 - Licensing end to end (licence keys and signed config in `can()`) is Phase 1b and not wired yet.
 
+## Design system applied (2026-11-26)
+
+The owner approved the UI design system (ADR-023, `boxtap-architecture/DESIGN_SYSTEM.md`). Built on branch `design-system`.
+
+What changed:
+
+- **Foundations.** `src/index.css` holds the colour tokens (§2, light, dark, more contrast, Seller indigo through `data-mode="seller"` on `<html>`), the typography (§3) and the Tailwind 4 theme (§9 in `@theme`: the default palette, radii and font sizes are replaced, not extended). Every old class (`bg-blue-700`, `text-slate-500`, `text-sm`, `rounded-xl` …) was moved to tokens; the built CSS has no default colours left. `viewport-fit=cover` was already set; the top bar, tab bar, Scan button and sheets use `env(safe-area-inset-*)`. Focus ring 2 px accent. Reduced motion turns slides into fades; reduced transparency (and Android) gets a solid tab bar, iPhone a blurred one (`data-platform`).
+- **Fonts.** Noto Sans Bengali 400 and 600, Bangla subset only, self-hosted in `public/fonts` (woff2, `font-display: swap`, Bangla `unicode-range`, SIL OFL licence copied beside them). Taken from the `@fontsource/noto-sans-bengali` 5.3.0 package files; not added as a dependency.
+- **Icons.** `lucide-react` added (24 px, 1.75 stroke, hidden from screen readers; the words beside them speak).
+- **Navigation.** 3-tab bottom bar (Home: Boxes, Rooms, Settings; Seller: Stock, Booked, Settings) and a floating 56 px Scan button above it, on top-level screens. At 1024 px and wider the tabs become a left sidebar. Detail screens push with a back button.
+- **Boxes list.** Large title, search field under it, inset grouped box cards: label tag chip (box number, 10 px radius, 2 px accent border, QR corner mark), name, room · where, item count, Fragile and Open first badges with icon + word. Backup status banner with one action (min-width 60 px). Empty state: one sentence + one primary button ("Add your first box"). Add box is the + in the top bar.
+- **Box screen.** Autosaves name, where and notes 500 ms after typing stops, with a "Saved" footnote (`role=status`); also saves at once when leaving the screen or hiding the app. Save button removed. "Move box to Bin" is a danger text button at the bottom, followed by a 5 s toast "Box 12 moved to Bin · Undo" (no confirm dialog). Fragile / Open first are toggle chips; the move status is a segmented control.
+- **Rooms tab** (new): rooms with box counts; a room opens its boxes and can be renamed. **Booked tab** (Seller, new): items with booked stock, plus Orders.
+- **Settings tab**: inset grouped lists; the Bin is now a row here (with labels and backup). Bin and Print labels go back to Settings.
+- **Scan view**: full screen camera, rounded guide, close (top left) and torch (top right, only when the camera has one), "Box 12 found" announced through `role=status`, the guide turns the success colour and the label tag appears, then the box opens. Vibrates on Android only.
+- **Language.** All new text is in `en.json` and `bn.json`. Bangla mode shows Bangla digits on screen (`Intl.NumberFormat('bn-BD')` through `t()` placeholders and `num()`); stored data and inputs keep Western digits. English dates read "26 Nov 2026". `<html lang>` follows the list language.
+- **Sheets.** Upgrade and install guide open as bottom sheets with a grabber.
+
+Rulings made while applying it (cost if wrong):
+
+20. **Secondary buttons: grey fill with `--accent-on-grey` (owner decision 2026-11-26).** Accent text on surface-2 is 4.4:1, below WCAG AA (§8), and axe failed it. A first fix used white with a hairline border. The owner chose instead to keep the grey fill (`--surface-2`) and add a darker label token, `--accent-on-grey`: light #004FA8 / Seller #4644B8, dark #409CFF / #9593FF, more contrast #003A80 / #2B2980, more contrast + dark #80BFFF / #C0BFFF. It is in `src/index.css`, the Tailwind theme (`text-accent-on-grey`) and DESIGN_SYSTEM §2 and §5. The backup banner's action button now matches it too (grey fill, `--accent-on-grey` label, no border, min-width 60 px, centred label; owner decision 2026-11-26).
+21. **Two extra fixed colours**: `scrim` (dimmed backdrop behind sheets) and `camera` (black scan view), defined as tokens in the theme, not themed.
+22. **Spacing keeps Tailwind 4's 4 px step** instead of a fixed list: it gives exactly §9's values (1=4px … 14=56px) and keeps the existing classes working.
+23. **Removing a single item still asks first** (confirm). Only the box delete moved to Undo, as approved. Cost: inconsistent with §5 until items get Undo too.
+24. **Booked tab** lists items with booked stock by reading every box (no new query). Fine for pilot sizes; needs an indexed query for big shops.
+
+Pending (not built in this round):
+
+- Full grouped-list restyle of the item, photos, Drive, catalogue, orders, reports, labels and restore screens: they use the tokens now, but keep their older layout.
+- Swipe to Bin on rows (the button alternative exists), skeleton loading after 300 ms, sheets asking before discarding typed text, the "guide shrinks into the label tag" animation is a simple fade.
+- Phase 0 checks from DESIGN_SYSTEM §10 on real devices (iPhone Larger Text, Noto Sans Bengali on budget Android, tab-bar blur), and an automated contrast check in CI (axe runs in E2E now).
+- **Bangla strings for native review**: `home.empty`, `home.addFirst`, `home.backupAction`, `home.searchClear`, `nav.*`, `box.saving`, `box.binned`, `box.restored`, `box.details`, `box.status`, `rooms.*`, `booked.*`, `settings.more`, `settings.binHint`, `scan.close`, `scan.torch`, `scan.found`, `scan.opening`.
+
+Tests (2026-11-26, this branch):
+
+- `npm run check`: typecheck, lint (0 errors; the same 9 warnings as before), unit tests 250 passed (3 new for Bangla digits and dates), build OK.
+- E2E `chromium` + `mobile-chrome`: 62 passed, 8 skipped (Pro tests need a preview build; the WebKit-only banner test), 0 failed. Before the change: 69 passed incl. WebKit, 1 WebKit failure (below).
+- E2E selectors changed only where the design moved things: the box screen waits for the "Saved" footnote instead of tapping Save (2 tests); the bin test opens the Bin from Settings and returns through the Boxes tab. New E2E tests: Undo after Move box to Bin; autosave when leaving at once; tabs, Rooms and Bangla digits; Seller indigo and tabs; scan view Close; an axe WCAG 2.2 AA check of the Box and Boxes screens (`@axe-core/playwright`, dev only).
+- E2E `webkit` (it ran before, so it was run again): 22 passed, 12 skipped (no OPFS in the Windows build, Chromium-only tests), 1 flaky: "export CSV, then erase all data" timed out waiting for the download once and passed on its allowed retry (ruling 18). The same kind of WebKit download timeout failed the removalist test in the run before this change; that test passes now.
+
+Re-run after the `--accent-on-grey` change (ruling 20), 2026-11-26: `npm run check` passed (250 unit tests, 0 lint errors); E2E chromium + mobile-chrome + webkit together: 85 passed, 20 skipped, 0 failed, 0 flaky, including the axe WCAG 2.2 AA check.
+
 ## Test environment limits (not counted as passes)
 
 - **Firefox E2E:** Windows on this computer blocks Playwright's Firefox binary from running ("Permission denied"). Not a BoxTap failure; needs the binary allowed, or a CI runner.
