@@ -48,7 +48,7 @@ npx tsx tools/config.ts sign          # writes public/config/v1.json
 | Removalist Phase 2 (boxes and furniture pieces in a job, job rooms, quick add, job labels) | Done on branch `feature/removalist-mode` (not merged, not pushed) | `pieces.test.ts`, `jobLabels.test.ts` (fit on both sheets), `e2e/removalist.spec.ts` |
 | Removalist Phase 3 (load and unload check: continuous scan, counter, wrong-job warning, manual tick, missing reasons, status) | Done on branch `feature/removalist-mode` (pushed; not merged) | `events.test.ts`, `continuous.test.ts`, `e2e/loadcheck.spec.ts` (scan-hook build + fake-camera speed test) |
 | Removalist Phases 4-7 (condition and sign-off, volume, PDFs/crew mode, finish) | Not started | `docs/removalist-plan.md` §10 |
-| Deploy of Removalist Phases 1-2 | Merged into local main (57fbc71), **not pushed**: this PC's permission check refuses `git push origin main` twice; GitHub main and the live site are still a4b421c. The owner pushes it. | |
+| Deploy of Removalist Phases 1-2 | **Live since 2026-11-27**: the owner pushed main (merge 57fbc71); Workers Builds production build 3d46df30 succeeded (version c88f904b). Removalist Phases 1–2 live; Phases 3–7 pending (Phase 3 is on the feature branch only). | Smoke check of https://boxtap.sirtonmoy00123.workers.dev in a throwaway profile, no data made: HTTP 200, the real CSP header, no console or CSP errors, Home / Seller / Removalist cards, the served JS is the new build |
 | 1.8 Offline, update prompt, launch | Update prompt and precache done; offline E2E and launch not yet | |
 
 ## Rulings made during the build (deviations from the docs, with cost if wrong)
