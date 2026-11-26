@@ -2,7 +2,8 @@
 import * as ed from '@noble/ed25519';
 import { b64urlDecode, fromUtf8, utf8 } from '../util/encoding';
 
-export type Plan = 'move_pass' | 'seller_pro';
+export type Plan = 'move_pass' | 'seller_pro' | 'removalist_pro';
+export const PLANS: readonly Plan[] = ['move_pass', 'seller_pro', 'removalist_pro'];
 
 export interface LicencePayload {
   v: 1;
@@ -33,7 +34,7 @@ function isPayload(p: unknown): p is LicencePayload {
   if (!p || typeof p !== 'object') return false;
   const o = p as Record<string, unknown>;
   return o.v === 1 && typeof o.kid === 'string' && typeof o.id === 'string'
-    && (o.plan === 'move_pass' || o.plan === 'seller_pro')
+    && PLANS.includes(o.plan as Plan)
     && Number.isInteger(o.months) && (o.months as number) > 0 && (o.months as number) <= 120
     && typeof o.starts_at === 'string' && DATE.test(o.starts_at)
     && typeof o.ends_at === 'string' && DATE.test(o.ends_at) && o.ends_at > o.starts_at

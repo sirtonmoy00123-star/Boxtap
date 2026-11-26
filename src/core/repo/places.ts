@@ -3,7 +3,7 @@ import { bool, clean, type Ctx, newId, num, optionalText, requireText, str, writ
 import { isLabelCode, newLabelCode } from './labels';
 import { assertNotInOpenOrder } from './items';
 
-export type WorkspaceType = 'home' | 'seller';
+export type WorkspaceType = 'home' | 'seller' | 'removalist';
 export interface Workspace {
   id: string; type: WorkspaceType; name: string; country: 'AU' | 'BD'; currency: 'AUD' | 'BDT';
   language: 'en' | 'bn'; jewelleryFields: boolean; createdAt: string;
@@ -15,6 +15,8 @@ export interface Box {
   id: string; workspaceId: string; number: number; name: string | null; kind: BoxKind; roomId: string | null;
   spot: string | null; colour: string | null; isFragile: boolean; openFirst: boolean; moveStatus: MoveStatus | null;
   notes: string | null; labelCode: string; createdAt: string; updatedAt: string; deletedAt: string | null;
+  /** Removalist (v6): the job this box or piece belongs to, whether it is a furniture piece, and its number in the job. */
+  jobId: string | null; isPiece: boolean; jobSeq: number | null;
 }
 
 const toWorkspace = (r: Record<string, unknown>): Workspace => ({
@@ -87,6 +89,7 @@ const toBox = (r: Record<string, unknown>): Box => ({
   roomId: str(r.room_id), spot: str(r.spot), colour: str(r.colour), isFragile: bool(r.is_fragile), openFirst: bool(r.open_first),
   moveStatus: (r.move_status as MoveStatus | null) ?? null, notes: str(r.notes), labelCode: String(r.label_code ?? ''),
   createdAt: String(r.created_at), updatedAt: String(r.updated_at), deletedAt: str(r.deleted_at),
+  jobId: str(r.job_id), isPiece: bool(r.is_piece), jobSeq: r.job_seq == null ? null : num(r.job_seq),
 });
 
 export interface BoxInput {

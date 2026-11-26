@@ -5,12 +5,17 @@ import { b64urlDecode, utf8 } from '../util/encoding';
 import type { TrustedKeys } from './licence';
 
 export interface Offer { months: number; price: string; pay: string }
+export interface PlanConfig { photos_per_parent: number; offers: Offer[] }
 export interface ConfigBody {
   seq: number;
   issued_at: string;
   min_app_version: string;
-  free_limits: { home_boxes: number; home_photos_per_box: number; seller_items: number };
-  plans: Record<'move_pass' | 'seller_pro', { photos_per_parent: number; offers: Offer[] }>;
+  free_limits: {
+    home_boxes: number; home_photos_per_box: number; seller_items: number;
+    // Removalist (schema v6). Optional, so configs signed before v6 still verify; can() falls back to built-in values.
+    removalist_active_jobs?: number; removalist_photos_per_piece_stage?: number; removalist_photos_per_piece?: number;
+  };
+  plans: Record<'move_pass' | 'seller_pro', PlanConfig> & { removalist_pro?: PlanConfig };
   features: { catalogue_image: boolean; insurance_pdf: boolean; excel: boolean };
   revoked_keys: string[];
   messages: { en: string | null; bn: string | null };

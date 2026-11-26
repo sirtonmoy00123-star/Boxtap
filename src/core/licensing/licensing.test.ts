@@ -138,3 +138,58 @@ describe('can()', () => {
     expect(can('insurance_pdf', ctx({ config, plans: new Set(['move_pass'] as const) }))).toEqual({ allowed: false, reason: 'feature_off' });
   });
 });
+
+describe('can() for Removalist (plan §7)', () => {
+  type P = 'move_pass' | 'seller_pro' | 'removalist_pro';
+  const rctx = (over: Partial<CanContext> = {}, plans: P[] = []): CanContext => ({
+    config: DEFAULT_CONFIG, plans: new Set(plans), workspaceType: 'removalist',
+    counts: { boxes: 0, items: 0, photosOnParent: 0, activeJobs: 0 }, ...over,
+  });
+  const counts = (c: Partial<CanContext['counts']>) => ({ boxes: 0, items: 0, photosOnParent: 0, activeJobs: 0, ...c });
+
+  it('Free: 2 active jobs, then limit_jobs; Removalist Pro lifts it', () => {
+    expect(can('add_job', rctx({ counts: counts({ activeJobs: 1 }) }))).toEqual({ allowed: true });
+    expect(can('add_job', rctx({ counts: counts({ activeJobs: 2 }) }))).toEqual({ allowed: false, reason: 'limit_jobs' });
+    expect(can('add_job', rctx({ counts: counts({ activeJobs: 50 }) }, ['removalist_pro'])).allowed).toBe(true);
+  });
+  it('condition photos: 3 per piece per stage free, 10 with Pro', () => {
+    expect(can('add_condition_photo', rctx({ counts: counts({ photosOnParent: 2 }) })).allowed).toBe(true);
+    expect(can('add_condition_photo', rctx({ counts: counts({ photosOnParent: 3 }) }))).toEqual({ allowed: false, reason: 'limit_photos' });
+    expect(can('add_condition_photo', rctx({ counts: counts({ photosOnParent: 9 }) }, ['removalist_pro'])).allowed).toBe(true);
+    expect(can('add_condition_photo', rctx({ counts: counts({ photosOnParent: 10 }) }, ['removalist_pro'])).allowed).toBe(false);
+  });
+  it('the plan is picked per type: Seller Pro and Move Pass never unlock Removalist, and the reverse', () => {
+    expect(can('add_job', rctx({ counts: counts({ activeJobs: 2 }) }, ['seller_pro', 'move_pass'])).allowed).toBe(false);
+    expect(can('logo_branding', rctx({}, ['seller_pro']))).toEqual({ allowed: false, reason: 'pro_only' });
+    expect(can('logo_branding', rctx({}, ['removalist_pro']))).toEqual({ allowed: true });
+    expect(can('reports', rctx({ workspaceType: 'seller' }, ['removalist_pro']))).toEqual({ allowed: false, reason: 'pro_only' });
+    expect(can('add_box', rctx({ workspaceType: 'home', counts: counts({ boxes: 12 }) }, ['removalist_pro']))).toEqual({ allowed: false, reason: 'limit_boxes' });
+    // Removalist gets none of the Seller or Home rules.
+    expect(can('add_box', rctx({ counts: counts({ boxes: 5000 }) })).allowed).toBe(true);
+    expect(can('add_item', rctx({ counts: counts({ items: 5000 }) })).allowed).toBe(true);
+    expect(can('reports', rctx({}, ['removalist_pro'])).allowed).toBe(false);
+  });
+  it('never blocks Removalist PDFs and sharing', () => {
+    expect(can('share_pdf', rctx())).toEqual({ allowed: true });
+  });
+  it('job and condition-photo features are off outside Removalist', () => {
+    expect(can('add_job', rctx({ workspaceType: 'home' }))).toEqual({ allowed: false, reason: 'feature_off' });
+    expect(can('add_condition_photo', rctx({ workspaceType: 'seller' }))).toEqual({ allowed: false, reason: 'feature_off' });
+  });
+  it('a config signed before v6 (no Removalist fields) still verifies and uses the built-in values', async () => {
+    const old = JSON.parse(JSON.stringify({ ...DEFAULT_CONFIG, seq: 3 }));
+    delete old.free_limits.removalist_active_jobs; delete old.free_limits.removalist_photos_per_piece_stage;
+    delete old.free_limits.removalist_photos_per_piece; delete old.plans.removalist_pro;
+    const signed = { body: old, kid: 'cfg-test', sig: b64urlEncode(await ed.signAsync(utf8(canonicalJson(old)), sk)) };
+    const v = await verifyConfig(signed, trusted);
+    expect(v.ok).toBe(true);
+    const config = (v as { ok: true; config: { body: typeof DEFAULT_CONFIG } }).config.body;
+    expect(can('add_job', rctx({ config, counts: counts({ activeJobs: 2 }) }))).toEqual({ allowed: false, reason: 'limit_jobs' });
+    expect(can('add_condition_photo', rctx({ config, counts: counts({ photosOnParent: 9 }) }, ['removalist_pro'])).allowed).toBe(true);
+  });
+  it('a removalist_pro licence key verifies', async () => {
+    const r = await verifyLicence(await makeKey({ plan: 'removalist_pro' }), trusted, []);
+    expect(r.ok && r.payload.plan).toBe('removalist_pro');
+    expect(activePlans([{ id: 'a', plan: 'removalist_pro', months: 1, starts_at: '2026-11-01', ends_at: '2026-12-01' }], new Date('2026-11-15T00:00:00Z')).has('removalist_pro')).toBe(true);
+  });
+});

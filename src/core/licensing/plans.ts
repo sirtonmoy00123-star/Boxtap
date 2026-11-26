@@ -1,5 +1,5 @@
 // Key stacking and active plans. Contract: API_CONTRACTS.md §1 rules 2, 3 and 7.
-import type { Plan } from './licence';
+import { PLANS, type Plan } from './licence';
 
 export interface KeyWindow {
   id: string;
@@ -52,7 +52,7 @@ export function currentWindow(keys: readonly KeyWindow[], now: Date): Window | u
 /** Plans active now. Callers pass only keys that verified and are not revoked. */
 export function activePlans(keys: readonly KeyWindow[], now: Date): Set<Plan> {
   const out = new Set<Plan>();
-  for (const plan of ['move_pass', 'seller_pro'] as const) {
+  for (const plan of PLANS) {
     if (currentWindow(keys.filter((k) => k.plan === plan), now)) out.add(plan);
   }
   return out;

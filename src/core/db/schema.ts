@@ -1,3 +1,5 @@
+import { v6 } from './schemaV6';
+
 // BoxTap on-device schema. Source of truth: boxtap-architecture/DATABASE_SCHEMA.md §3.
 // No released schema exists yet, so every v2.1 column is in migration 1 (not a later migration).
 
@@ -211,8 +213,14 @@ INSERT INTO meta (key, value) VALUES ('change_seq', '0');
 `;
 
 // v1 was released on 2026-11-25 (first live test site). From here on, change the schema only by adding a migration.
-interface MigrationDb { exec(sql: string): unknown; selectValues(sql: string): unknown[] }
-export type Migration = string | ((db: MigrationDb) => void);
+export interface MigrationDb { exec(sql: string): unknown; selectValues(sql: string): unknown[]; selectObjects(sql: string): Record<string, unknown>[] }
+type Step = string | ((db: MigrationDb) => void);
+/**
+ * A migration step. A `rebuild` step recreates a table other tables point at (to change a CHECK, which ALTER can't).
+ * migrate() runs it with foreign keys OFF (set outside the transaction: SQLite ignores the switch inside one) and
+ * refuses to commit if it broke any link (foreign_key_check).
+ */
+export type Migration = Step | { rebuild: true; up: Step };
 
 const hasColumn = (db: MigrationDb, table: string, col: string) =>
   db.selectValues(`SELECT name FROM pragma_table_info('${table}')`).map(String).includes(col);
@@ -281,11 +289,15 @@ END;
 const V5 = `ALTER TABLE stock_movements ADD COLUMN order_line_id TEXT;`;
 
 /** Ordered migrations. Index i migrates user_version i -> i+1. Never edit a released entry. */
-export const MIGRATIONS: readonly Migration[] = [V1, V2, V3, V4, V5];
+/** v6 (Removalist mode): see schemaV6.ts. */
+export const MIGRATIONS: readonly Migration[] = [V1, V2, V3, V4, V5, { rebuild: true, up: v6 }];
+
+export const isRebuild = (m: Migration): m is { rebuild: true; up: Step } => typeof m === 'object' && m !== null && 'rebuild' in m;
 
 export function applyMigration(db: MigrationDb, index: number): void {
   const m = MIGRATIONS[index]!;
-  if (typeof m === 'string') db.exec(m);
-  else m(db);
+  const step = isRebuild(m) ? m.up : m;
+  if (typeof step === 'string') db.exec(step);
+  else step(db);
 }
 export const SCHEMA_VERSION = MIGRATIONS.length;
