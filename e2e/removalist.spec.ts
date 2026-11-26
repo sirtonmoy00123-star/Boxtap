@@ -1,5 +1,6 @@
-// Removalist mode, Phase 1: onboarding, jobs (create, search, filter, status, Bin), free job limit, Settings, axe.
+// Removalist mode: onboarding, jobs, free job limit, Settings (Phase 1); boxes, pieces, labels, links (Phase 2); axe.
 import { test, expect, type Page } from '@playwright/test';
+import { needsPersistentStorage } from './env';
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 async function axe(page: Page): Promise<string[]> {
@@ -57,6 +58,8 @@ async function newJob(page: Page, name: string, extra: { phone?: string; pickup?
   if (extra.phone) await page.getByLabel('Customer phone').fill(extra.phone);
   if (extra.pickup) await page.getByLabel('Pickup address').fill(extra.pickup);
   await page.getByRole('button', { name: 'Save job' }).click();
+  // Wait for the job screen (or the upgrade sheet), so a following Back can't hit the form's Back first.
+  await expect(page.getByRole('heading', { name: /^J-\d{4} · / }).or(page.getByTestId('upgrade-reason'))).toBeVisible();
 }
 
 test('Removalist: onboarding, teal mode and tabs, new job, search, status, Bin and restore', async ({ page }) => {
@@ -188,5 +191,106 @@ test('accessibility: the Jobs and job screens have no axe violations (WCAG 2.2 A
   await expect(page.getByRole('list', { name: 'jobs' })).toContainText('Ayesha Khan');
   expect(await axe(page)).toEqual([]);
   await page.getByRole('button', { name: 'New job' }).click();
+  expect(await axe(page)).toEqual([]);
+});
+
+// Phase 2: boxes, furniture pieces and labels ------------------------------------------------------
+
+test('Removalist: quick add 10 boxes, a single box and 2 furniture pieces, then print their labels', async ({ page }) => {
+  await page.addInitScript(() => { Object.defineProperty(navigator, 'canShare', { value: undefined }); });
+  await newRemovalist(page);
+  await newJob(page, 'Ayesha Khan');
+  await expect(page.getByText('No boxes or furniture yet.')).toBeVisible();
+  await page.getByRole('button', { name: '+ 10 boxes' }).click();
+  await expect(page.getByTestId('piece-counts')).toHaveText('10 boxes · 0 furniture');
+  await expect(page.getByText('Packing').first()).toBeVisible(); // Booked -> Packing on the first box
+
+  // One more box: it opens in job context, with the default box size.
+  await page.getByRole('button', { name: '+ Box' }).click();
+  await expect(page.getByTestId('box-context')).toContainText('Box 11 · J-0001 · Khan');
+  await expect(page.getByLabel('Box size')).toHaveValue(/.+/);
+  await expect(page.getByLabel('Box size').locator('option:checked')).toHaveText('Standard carton');
+  await page.getByRole('button', { name: 'Fragile' }).click();
+  await page.getByRole('button', { name: 'Back' }).click();
+
+  for (const name of ['Sofa', 'Fridge']) {
+    await page.getByRole('button', { name: '+ Furniture piece' }).click();
+    await expect(page.getByTestId('box-context')).toContainText(/Piece \d · J-0001/);
+    await page.getByLabel('Name', { exact: true }).fill(name);
+    await expect(page.getByTestId('autosave')).toHaveText('Saved');
+    await page.getByLabel('Furniture type').selectOption({ label: name === 'Sofa' ? '3-seater sofa' : 'Fridge, large' });
+    await page.getByRole('button', { name: 'Back' }).click();
+  }
+  await expect(page.getByTestId('piece-counts')).toHaveText('11 boxes · 2 furniture');
+  const list = page.getByRole('list', { name: 'Boxes and furniture' });
+  await expect(list.getByRole('listitem')).toHaveCount(13);
+  await expect(list).toContainText('Piece 2 · Fridge');
+
+  await page.getByRole('button', { name: 'Print labels' }).click();
+  await expect(page.getByLabel('All boxes and furniture (13)')).toBeChecked();
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Make PDF' }).click();
+  const d = await download;
+  expect(d.suggestedFilename()).toBe('BoxTap-J-0001-labels-L7165.pdf');
+  const { readFileSync } = await import('node:fs');
+  expect(readFileSync(await d.path()).subarray(0, 5).toString()).toBe('%PDF-');
+
+  // A box added after printing: the job screen says older labels show the old total.
+  // (The print is recorded right after the file is handed over, when "Label PDF ready." shows.)
+  await expect(page.getByRole('status').filter({ hasText: 'Label PDF ready.' })).toBeVisible();
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: '+ Box' }).click();
+  await expect(page.getByTestId('box-context')).toContainText('Box 12 · J-0001');
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(page.getByTestId('labels-stale')).toContainText('old total (11 boxes, 2 furniture)');
+});
+
+test('Removalist labels: a Bangla customer name prints as drawn text, not "?"', async ({ page }) => {
+  await page.addInitScript(() => { Object.defineProperty(navigator, 'canShare', { value: undefined }); });
+  await newRemovalist(page);
+  await page.getByRole('button', { name: 'New job' }).first().click();
+  await page.getByLabel('Customer name').fill('আয়েশা খান');
+  await page.getByRole('button', { name: 'Save job' }).click();
+  await page.getByRole('button', { name: '+ Box' }).click();
+  await page.getByLabel('Name', { exact: true }).fill('রান্নাঘরের বাসন');
+  await expect(page.getByTestId('autosave')).toHaveText('Saved');
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: 'Print labels' }).click();
+  await page.getByLabel('Label sheet').selectOption('L7163');
+  const dl = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Make PDF' }).click();
+  const { readFileSync } = await import('node:fs');
+  const pdf = readFileSync(await (await dl).path()).toString('latin1');
+  expect(pdf).toMatch(/\/Subtype\s*\/Image/);
+});
+
+test('Removalist: a job box label link opens the box in its job context; Settings prints spares', async ({ page }) => {
+  needsPersistentStorage(test.info().project.name);
+  await newRemovalist(page);
+  await newJob(page, 'Tom Brown');
+  await page.getByRole('button', { name: '+ Box' }).click();
+  const code = (await page.getByTestId('label-code').textContent())!.trim();
+  await page.goto(`/b/${code}`);
+  await expect(page.getByTestId('box-context')).toContainText('Box 1 · J-0001 · Brown');
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(page.getByRole('heading', { name: 'J-0001 · Brown' })).toBeVisible();
+  // Settings → Print labels prints blank spares in Removalist mode.
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Print labels' }).click();
+  await expect(page.getByText(/Job labels are printed from each job/)).toBeVisible();
+});
+
+test('accessibility: the job Pieces section, a job box and the labels screen have no axe violations', async ({ page }) => {
+  await newRemovalist(page);
+  await newJob(page, 'Ayesha Khan');
+  await page.getByRole('button', { name: '+ 10 boxes' }).click();
+  await page.getByRole('button', { name: '+ Furniture piece' }).click();
+  await expect(page.getByTestId('box-context')).toContainText('Piece 1');
+  expect(await axe(page)).toEqual([]);
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(page.getByTestId('piece-counts')).toHaveText('10 boxes · 1 furniture');
+  expect(await axe(page)).toEqual([]);
+  await page.getByRole('button', { name: 'Print labels' }).click();
   expect(await axe(page)).toEqual([]);
 });

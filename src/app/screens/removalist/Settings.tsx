@@ -6,6 +6,7 @@ import { Button, Field, Group, IconButton, Page, Row, inputClass } from '../../u
 import { Trash2 } from 'lucide-react';
 import type { BusinessProfile, Truck, VolumeItem } from '../../../core/repo';
 import { parseCapacity } from './Setup';
+import { SHEETS, type SheetId } from '../../../core/labels/layout';
 
 /** Rows for the Settings tab. */
 export function RemovalistSettingsRows() {
@@ -30,7 +31,7 @@ export function BusinessPage() {
   const save = async () => {
     if (!p.name.trim() || !p.phone.trim()) { setError(t('rm.business.required')); return; }
     try {
-      await db.updateBusinessProfile(ws.id, { name: p.name, phone: p.phone, email: p.email, abnOrLicence: p.abnOrLicence, address: p.address, volumeUnit: p.volumeUnit });
+      await db.updateBusinessProfile(ws.id, { name: p.name, phone: p.phone, email: p.email, abnOrLicence: p.abnOrLicence, address: p.address, volumeUnit: p.volumeUnit, labelSheet: p.labelSheet });
       setWorkspace((await db.getWorkspace(ws.id)) ?? ws);
       toast(t('rm.saved'));
     } catch (e) {
@@ -52,6 +53,11 @@ export function BusinessPage() {
           <select className={inputClass} value={p.volumeUnit} onChange={(e) => setP({ ...p, volumeUnit: e.target.value as BusinessProfile['volumeUnit'] })}>
             <option value="m3">{t('rm.unit.m3')}</option>
             <option value="ft3">{t('rm.unit.ft3')}</option>
+          </select>
+        </Field>
+        <Field label={t('rm.labels.defaultSheet')}>
+          <select className={inputClass} value={p.labelSheet} onChange={(e) => setP({ ...p, labelSheet: e.target.value })}>
+            {(Object.keys(SHEETS) as SheetId[]).map((s) => <option key={s} value={s}>{SHEETS[s].name}</option>)}
           </select>
         </Field>
         {error && <p role="alert" className="text-danger">{error}</p>}

@@ -34,7 +34,7 @@ export function Scan() {
       // Own box, a spare label, or a box in another list on this phone: the label route handles each.
       const box = st.kind === 'box' ? await db.getBox(st.boxId) : null;
       if (box && live) {
-        setFound(box.number);
+        setFound(box.jobSeq ?? box.number); // a job box shows its number in the job
         if (platform() === 'android') navigator.vibrate?.(30); // a bonus only (DESIGN_SYSTEM §7)
         timer = setTimeout(() => navigate(`/b/${r.code}`, true), 450);
       } else navigate(`/b/${r.code}`, true);
@@ -85,7 +85,8 @@ export function PrintLabels() {
   const { db, workspace, t, toast } = useApp();
   const ws = workspace!;
   const [sheet, setSheet] = useState<SheetId>('L7165');
-  const [which, setWhich] = useState<'boxes' | 'spares'>('boxes');
+  const removalist = ws.type === 'removalist';
+  const [which, setWhich] = useState<'boxes' | 'spares'>(removalist ? 'spares' : 'boxes');
   const [spares, setSpares] = useState(8);
   const [startAt, setStartAt] = useState(1);
   const [boxCount, setBoxCount] = useState(0);
@@ -119,11 +120,11 @@ export function PrintLabels() {
           {(Object.keys(SHEETS) as SheetId[]).map((id) => <option key={id} value={id}>{SHEETS[id].name}</option>)}
         </select>
       </Field>
-      <fieldset className="py-2">
+      {removalist ? <p className="py-2 text-subhead text-text-2">{t('rm.labels.spareHint')}</p> : <fieldset className="py-2">
         <legend className="mb-1 text-subhead text-text-2">{t('labels.which')}</legend>
         <label className="flex min-h-12 items-center gap-2"><input type="radio" checked={which === 'boxes'} onChange={() => setWhich('boxes')} /> {t('labels.allBoxes', { n: boxCount })}</label>
         <label className="flex min-h-12 items-center gap-2"><input type="radio" checked={which === 'spares'} onChange={() => setWhich('spares')} /> {t('labels.spares')}</label>
-      </fieldset>
+      </fieldset>}
       {which === 'spares' && (
         <Field label={t('labels.spareCount')}>
           <input type="number" min={1} max={200} className={inputClass} value={spares} onChange={(e) => setSpares(Math.max(1, Math.min(200, Number(e.target.value) || 1)))} />

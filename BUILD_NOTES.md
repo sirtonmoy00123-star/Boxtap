@@ -45,7 +45,8 @@ npx tsx tools/config.ts sign          # writes public/config/v1.json
 | 2 Seller: stock ledger (sell, restock, booked, packed, cancel, damaged, returned, undo 24 h, count, move), item details incl. jewellery fields, low-stock list | Done, with the in-stock catalogue picture and Bangla text on labels (drawn by the browser, placed in the PDF) | stock tests, Seller E2E |
 | 3 Seller Pro extras: cost/profit, reports, orders, variants | Built ahead of the pilot at the owner's request (2026-11-26), including Excel export (Items, Sales, Orders sheets) | reports/orders/variants/xlsx tests; Pro E2E on a preview build |
 | Removalist Phase 1 (foundation): schema v6, `can()` per type, teal, onboarding, Jobs tab, job Bin/archive | Done on branch `feature/removalist-mode` (not merged, not pushed) | v6 migration and trigger tests, jobs/licensing tests, `e2e/removalist.spec.ts` incl. axe |
-| Removalist Phases 2-7 (pieces and labels, load check, condition and sign-off, volume, PDFs/crew mode, finish) | Not started | `docs/removalist-plan.md` §10 |
+| Removalist Phase 2 (boxes and furniture pieces in a job, job rooms, quick add, job labels) | Done on branch `feature/removalist-mode` (not merged, not pushed) | `pieces.test.ts`, `jobLabels.test.ts` (fit on both sheets), `e2e/removalist.spec.ts` |
+| Removalist Phases 3-7 (load check, condition and sign-off, volume, PDFs/crew mode, finish) | Not started | `docs/removalist-plan.md` §10 |
 | 1.8 Offline, update prompt, launch | Update prompt and precache done; offline E2E and launch not yet | |
 
 ## Rulings made during the build (deviations from the docs, with cost if wrong)
@@ -177,6 +178,47 @@ Tests (2026-11-26):
 - After: `npm run check` passed, 289 unit tests (then 290 with the failing-migration test, unit run only), lint 0 errors / the same 9 warnings. E2E chromium + webkit + mobile-chrome: 103 passed, 20 skipped, 0 failed, 0 flaky. The 18 new runs are the 6 tests in `e2e/removalist.spec.ts` × 3 browsers (onboarding + job create/search/filter/status/Bin/restore; free job limit; Settings pages; adding Removalist from Settings skips the code; Home and Seller first launch unchanged; axe on the Jobs, job and new-job screens). All existing Home and Seller tests pass unchanged.
 
 **Bangla strings for native review (Removalist):** `setup.removalist`, `setup.removalistHint`, `nav.jobs`, every `rm.*` key, `upgrade.limit_jobs`, `upgrade.removalistPro`, and the 22 Bangla names in `src/core/repo/removalist/catalogue.ts`. All were written by Claude.
+
+## Removalist mode, Phase 2 (2026-11-27)
+
+The owner said "go" for Phase 2 (pieces and labels). Branch `feature/removalist-mode`; not merged, not pushed.
+
+Built:
+
+- **Boxes and furniture pieces in a job** (`src/core/repo/removalist/pieces.ts`). Each one is a normal `locations` row with `job_id`, `is_piece` and `job_seq`, so the Home box screen, contents, photos, autosave, labels and the Bin all work unchanged. Numbers restart per job and per kind ("Box 1, Box 2…" and "Piece 1, Piece 2…"); the workspace-wide number stays internal.
+  - New boxes get the default box size (Standard carton), which can be changed. A furniture piece can link to a furniture type from the volume list.
+  - Adding the first box or piece moves the job from Booked to Packing.
+- **Quick add**: "+ 10 boxes" makes 10 numbered empty boxes in one transaction, through `can()` (Removalist has no box limit).
+- **Rooms per job**: `rooms.job_id`. The box screen of a job box lists and adds only that job's rooms ("Destination room"). The repo refuses a room from another job.
+- **Box screen in job context**: "Box 3 · J-0042 · Khan", the box-size or furniture-type picker, and Back to the job. Furniture shows a sofa icon. Moving a box of a signed job to the Bin shows "This job has a signed report, so its boxes and furniture can't be moved to the Bin."
+- **Job screen**: a Boxes and furniture section with counts, the list, "+ Box", "+ Furniture piece", "+ 10 boxes" and Print labels. A warning appears when boxes changed after the last print.
+- **Job labels** (`buildJobLabelPdf` in `src/core/labels/pdf.ts`, same pdf-lib code and QR format as Home). Each label has:
+  - business name (or the logo: Pro only, L7165 only, only if it fits)
+  - "Box 12 of 45" / "Piece 3 of 7", in the list's language
+  - "Khan · J-0042"
+  - destination room
+  - FRAGILE / OPEN FIRST
+  - the code
+
+  Non-Latin text is drawn by the browser as a picture, as on Home labels. Print all or chosen boxes, on the default sheet from Business details (new "Label sheet" setting), with a start position.
+- **Scanning**: a job box's `/b/<code>` link or a scan opens the box screen in job context. The scan view shows the box's number in the job.
+- **Settings → Print labels** is back in Removalist mode and prints blank spare labels. A spare can be stuck onto a job box: the picker names job boxes "Box 3 · J-0042". Bin rows of single job boxes show "Box 3 · J-0042".
+
+Rulings (cost if wrong):
+
+35. **Job labels do not print the box's own name**, only the items in the Phase 2 list. FRAGILE / OPEN FIRST stay in English, as on Home labels; "Box 12 of 45" follows the list's language. Cost: a crew that wants the box name on the label needs one more line (it would fit on L7165).
+36. **"of N" is the number of live boxes (or pieces) of that kind in the job when printing.** Numbers are never reused (the unique index includes binned boxes), so after a box is binned, "Box 12 of 11" is possible. The stale-labels warning covers it.
+37. **Totals at the last print** are kept in `meta` (key `job_labels_printed:<jobId>`), so no schema change was needed. They travel in backups.
+38. **Logo**: the label PDF draws it with Pro on L7165 when the business has one. There is no screen to add a logo yet (the owner said no logo step in onboarding, and Phase 2 did not include a logo upload). Needs an owner decision on when to add it.
+39. **Box or Furniture** is chosen with two add buttons ("+ Box", "+ Furniture piece") instead of a switch on a form. The kind can't change afterwards, because its number belongs to that kind.
+40. **The room line is dropped first** if a label runs out of room. The fit tests show it still fits on both sheets with long Latin and long Bangla text.
+
+**Bangla strings for native review (Phase 2):** `rm.box.*`, `rm.piece.*`, `rm.pieces.*`, `rm.add.*`, `rm.labels.*`, `rm.label.box`, `rm.label.piece`. All were written by Claude.
+
+Tests (2026-11-27):
+
+- Before (Phase 1 end): 290 unit tests, 103 browser passed, 20 skipped.
+- After: `npm run check` passed, 310 unit tests (+20: pieces, job rooms, quick add all-or-none, label data and "of N", label fit on both sheets with long and Bangla text, logo only on L7165), lint 0 errors / the same 9 warnings. E2E chromium + webkit + mobile-chrome: 114 passed, 21 skipped, 0 failed (the extra skip is the new job-box link test on Windows WebKit, which has no lasting storage; earlier runs showed two timing faults in the tests, now fixed by waiting for the screen to change). New: quick add + single box + 2 furniture pieces → labels PDF downloads, then the stale warning; a Bangla customer name prints as a drawn picture; a job box link opens in job context; axe on the pieces section, a job box and the labels screen. All existing Home and Seller tests pass unchanged.
 
 ## Test environment limits (not counted as passes)
 

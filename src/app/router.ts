@@ -21,6 +21,7 @@ export type Route =
   | { name: 'jobNew' }
   | { name: 'job'; id: string }
   | { name: 'jobEdit'; id: string }
+  | { name: 'jobLabels'; id: string }
   | { name: 'business' }
   | { name: 'trucks' }
   | { name: 'volumeCatalogue' }
@@ -45,8 +46,8 @@ export function parseRoute(path: string): Route {
   if (im) return { name: 'item', id: im[1]! };
   if (path === '/scan') return { name: 'scan' };
   if (path === '/job/new') return { name: 'jobNew' };
-  const jm = /^\/job\/([0-9a-f-]{36})(\/edit)?$/i.exec(path);
-  if (jm) return jm[2] ? { name: 'jobEdit', id: jm[1]! } : { name: 'job', id: jm[1]! };
+  const jm = /^\/job\/([0-9a-f-]{36})(\/edit|\/labels)?$/i.exec(path);
+  if (jm) return jm[2] === '/edit' ? { name: 'jobEdit', id: jm[1]! } : jm[2] === '/labels' ? { name: 'jobLabels', id: jm[1]! } : { name: 'job', id: jm[1]! };
   if (path === '/business') return { name: 'business' };
   if (path === '/trucks') return { name: 'trucks' };
   if (path === '/volume-catalogue') return { name: 'volumeCatalogue' };

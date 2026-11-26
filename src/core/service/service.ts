@@ -61,6 +61,20 @@ export function createService(ctx: Ctx, entitlement: () => Entitlement = () => (
     binJob: (id: string) => R.binJob(ctx, id),
     restoreJob: (id: string) => R.restoreJob(ctx, id),
     archiveJob: (id: string, archived: boolean) => R.archiveJob(ctx, id, archived),
+    // Phase 2: boxes and furniture pieces in a job, its rooms, its labels. Removalist has no box limit (can()).
+    addJobBox: (jobId: string, b?: R.JobBoxInput) => { const j = R.getJob(ctx, jobId); if (!j) throw new Error('job not found'); gate('add_box', j.workspaceId); return R.addJobBox(ctx, jobId, b); },
+    quickAddBoxes: (jobId: string, n = 10) => { const j = R.getJob(ctx, jobId); if (!j) throw new Error('job not found'); gate('add_box', j.workspaceId); return R.quickAddBoxes(ctx, jobId, n); },
+    getJobPiece: (id: string) => R.getJobPiece(ctx, id),
+    listJobPieces: (jobId: string) => R.listJobPieces(ctx, jobId),
+    setPieceVolumeItem: (boxId: string, volumeItemId: string | null) => R.setPieceVolumeItem(ctx, boxId, volumeItemId),
+    listJobRooms: (jobId: string) => R.listJobRooms(ctx, jobId),
+    createJobRoom: (jobId: string, name: string) => R.createJobRoom(ctx, jobId, name),
+    setPieceRoom: (boxId: string, roomId: string | null) => R.setPieceRoom(ctx, boxId, roomId),
+    jobLabels: (jobId: string, ids?: string[]) => R.jobLabels(ctx, jobId, ids),
+    markJobLabelsPrinted: (jobId: string) => R.markJobLabelsPrinted(ctx, jobId),
+    jobLabelsStatus: (jobId: string) => R.jobLabelsStatus(ctx, jobId),
+    /** The logo for labels: only with Removalist Pro (logo_branding). */
+    labelLogo: (wsId: string) => { try { gate('logo_branding', wsId); } catch { return null; } return R.getBusinessLogo(ctx, wsId); },
 
     // Boxes and labels
     createBox: (wsId: string, b: R.BoxInput) => { gate('add_box', wsId); return R.createBox(ctx, wsId, b); },

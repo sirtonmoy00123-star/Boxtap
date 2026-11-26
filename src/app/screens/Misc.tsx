@@ -32,7 +32,7 @@ export function Bin() {
         ))}
         {bin?.boxes.map((b) => (
           <li key={b.id} className="flex min-h-11 items-center justify-between gap-3 px-4 py-1.5 text-body">
-            <span>{b.name || t('box.title', { n: b.number })}</span>
+            <span>{b.job ? `${t(b.job.isPiece ? 'rm.piece.n' : 'rm.box.n', { n: b.job.seq })} · ${showJobNumber(b.job.number, num)}${b.name ? ` · ${b.name}` : ''}` : b.name || t('box.title', { n: b.number })}</span>
             <Button variant="secondary" onClick={() => restore(() => db.restoreBox(b.id))}>{t('bin.restore')}</Button>
           </li>
         ))}
@@ -49,9 +49,10 @@ export function Bin() {
 
 /** /b/:code opened from a camera app or link (API_CONTRACTS §5). Shows nothing about the code otherwise. */
 export function LabelRoute({ code }: { code: string }) {
-  const { db, workspace, setWorkspace, t, toast } = useApp();
+  const { db, workspace, setWorkspace, t, num, toast } = useApp();
   const [state, setState] = useState<'looking' | 'notMine' | 'spare'>('looking');
   const [boxes, setBoxes] = useState<Box[]>([]);
+  const [jobNos, setJobNos] = useState<Record<string, string>>({});
   const [target, setTarget] = useState('');
   const c = code.toUpperCase();
   useEffect(() => {
@@ -67,7 +68,11 @@ export function LabelRoute({ code }: { code: string }) {
         setWorkspace(other);
       }
       if (st.kind === 'box') { navigate(`/box/${st.boxId}`, true); return; }
-      setBoxes(await db.listBoxes(st.workspaceId));
+      const list = await db.listBoxes(st.workspaceId);
+      const jobIds = [...new Set(list.map((b) => b.jobId).filter((x): x is string => !!x))];
+      const jobs = await Promise.all(jobIds.map((j) => db.getJob(j)));
+      setJobNos(Object.fromEntries(jobs.filter((j) => !!j).map((j) => [j!.id, showJobNumber(j!.number, num)])));
+      setBoxes(list);
       setState('spare');
     })();
     return () => { live = false; };
@@ -92,7 +97,7 @@ export function LabelRoute({ code }: { code: string }) {
         <p className="py-2">{t('spare.explain')}</p>
         <select className={inputClass} aria-label={t('spare.pick')} value={target} onChange={(e) => setTarget(e.target.value)}>
           <option value="">{t('spare.pick')}</option>
-          {boxes.map((b) => <option key={b.id} value={b.id}>{t('box.title', { n: b.number })}{b.name ? ` · ${b.name}` : ''}</option>)}
+          {boxes.map((b) => <option key={b.id} value={b.id}>{b.jobId && b.jobSeq != null ? `${t(b.isPiece ? 'rm.piece.n' : 'rm.box.n', { n: b.jobSeq })} · ${jobNos[b.jobId] ?? ''}` : t('box.title', { n: b.number })}{b.name ? ` · ${b.name}` : ''}</option>)}
         </select>
         <Button className="mt-2 w-full" disabled={!target} onClick={() => void stick(target)}>{t('spare.stick')}</Button>
         <Button variant="secondary" className="mt-2 w-full" onClick={() => void newBox()}>{t('spare.newBox')}</Button>

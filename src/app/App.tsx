@@ -23,6 +23,7 @@ import { OrderPage, OrdersPage, ReportsPage } from './screens/Pro';
 import { JobForm, JobPage, JobsPage } from './screens/removalist/Jobs';
 import { BusinessPage, TrucksPage, VolumeCataloguePage } from './screens/removalist/Settings';
 import { AddRemovalistPage } from './screens/removalist/AddRemovalist';
+import { JobLabelsPage } from './screens/removalist/Pieces';
 import { startSchedule } from '../core/drive/browserSync';
 import { adoptRedirectToken } from '../core/drive/googleAuth';
 import { removeOrphans, removePhotoFile } from '../core/photos/store';
@@ -203,6 +204,7 @@ export function App() {
   else if (route.name === 'jobNew') screen = <JobForm />;
   else if (route.name === 'job') screen = <JobPage id={route.id} />;
   else if (route.name === 'jobEdit') screen = <JobForm id={route.id} />;
+  else if (route.name === 'jobLabels') screen = <JobLabelsPage id={route.id} />;
   else if (route.name === 'business') screen = <BusinessPage />;
   else if (route.name === 'trucks') screen = <TrucksPage />;
   else if (route.name === 'volumeCatalogue') screen = <VolumeCataloguePage />;

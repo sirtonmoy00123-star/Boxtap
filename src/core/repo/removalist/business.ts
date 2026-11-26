@@ -100,19 +100,28 @@ export function getBusinessProfile(ctx: Ctx, workspaceId: string): BusinessProfi
   };
 }
 
-export function updateBusinessProfile(ctx: Ctx, workspaceId: string, p: BusinessInput & { volumeUnit?: VolumeUnit }): void {
+export const LABEL_SHEETS = ['L7165', 'L7163'] as const;
+
+export function updateBusinessProfile(ctx: Ctx, workspaceId: string, p: BusinessInput & { volumeUnit?: VolumeUnit; labelSheet?: string }): void {
   const b = checkBusiness(p);
+  if (p.labelSheet && !(LABEL_SHEETS as readonly string[]).includes(p.labelSheet)) throw new RangeError('unknown label sheet');
   if (p.volumeUnit && p.volumeUnit !== 'm3' && p.volumeUnit !== 'ft3') throw new RangeError('unit must be m3 or ft3');
   const t = ctx.now();
   write(ctx, () => {
     ctx.db.exec({
-      sql: `UPDATE business_profile SET name=?, phone=?, email=?, abn_or_licence=?, address=?, volume_unit=coalesce(?, volume_unit), updated_at=?
-             WHERE workspace_id=?`,
-      bind: [b.name, b.phone, b.email, b.abn, b.address, p.volumeUnit ?? null, t, workspaceId],
+      sql: `UPDATE business_profile SET name=?, phone=?, email=?, abn_or_licence=?, address=?, volume_unit=coalesce(?, volume_unit),
+             label_sheet=coalesce(?, label_sheet), updated_at=? WHERE workspace_id=?`,
+      bind: [b.name, b.phone, b.email, b.abn, b.address, p.volumeUnit ?? null, p.labelSheet ?? null, t, workspaceId],
     });
     // The workspace name is the business name (shown in the list of lists).
     ctx.db.exec({ sql: `UPDATE workspaces SET name=?, updated_at=? WHERE id=?`, bind: [b.name, t, workspaceId] });
   });
+}
+
+/** The business logo, if one was added (Pro shows it on labels and reports). */
+export function getBusinessLogo(ctx: Ctx, workspaceId: string): { bytes: Uint8Array; mime: 'image/png' | 'image/jpeg' } | null {
+  const [r] = ctx.db.selectObjects(`SELECT logo, logo_mime FROM business_profile WHERE workspace_id=? AND logo IS NOT NULL`, [workspaceId]);
+  return r ? { bytes: r.logo as Uint8Array, mime: r.logo_mime as 'image/png' | 'image/jpeg' } : null;
 }
 
 // Trucks ---------------------------------------------------------------------------------------------

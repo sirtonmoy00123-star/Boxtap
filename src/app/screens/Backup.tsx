@@ -266,8 +266,8 @@ export function Settings() {
       {guide && <InstallGuide onClose={() => setGuide(false)} />}
       <DriveSettings onRestore={(f) => { setDriveFolder(f); setMode('driveRestore'); }} />
       <Group title={t('settings.more')}>
-        {/* Removalist labels belong to a job (Phase 2), not to the workspace. */}
-        {workspace?.type !== 'removalist' && <Row title={t('labels.title')} lead={<Icon as={Printer} className="text-text-2" />} onClick={() => navigate('/labels')} />}
+        {/* Removalist: job labels are printed from the job; this row prints blank spare labels. */}
+        <Row title={t('labels.title')} lead={<Icon as={Printer} className="text-text-2" />} onClick={() => navigate('/labels')} />
         <Row title={t('bin.title')} detail={t('settings.binHint')} lead={<Icon as={Trash2} className="text-text-2" />} onClick={() => navigate('/bin')} />
       </Group>
       {workspace?.type === 'seller' && (

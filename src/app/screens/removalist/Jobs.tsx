@@ -1,6 +1,7 @@
 // Removalist Jobs tab, the job form and the job screen (plan §6). Other job sections come in later phases.
 import { useCallback, useEffect, useState, type InputHTMLAttributes } from 'react';
 import { MapPin, Phone, Plus, Search, X } from 'lucide-react';
+import { PiecesSection } from './Pieces';
 import { useApp } from '../../context';
 import { navigate } from '../../router';
 import { Button, Field, Group, Icon, IconButton, Page, Row, inputClass } from '../../ui';
@@ -245,9 +246,11 @@ export function JobPage({ id }: { id: string }) {
         {job.notes && <li className="whitespace-pre-wrap px-4 py-2.5 text-body"><span className="block text-subhead text-text-2">{t('rm.job.notes')}</span>{job.notes}</li>}
       </Group>
 
+      <PiecesSection jobId={job.id} onChanged={() => void load()} />
+
       <Group title={t('rm.job.sections')} footer={t('rm.section.soon')}>
-        {(['rm.section.pieces', 'rm.section.volume', 'rm.section.condition', 'rm.section.load', 'rm.section.share'] as const).map((k) => (
-          <Row key={k} title={t(k)} trailing={k === 'rm.section.pieces' ? num(job.pieces) : undefined} chevron={false} disabled aria-disabled="true" />
+        {(['rm.section.volume', 'rm.section.condition', 'rm.section.load', 'rm.section.share'] as const).map((k) => (
+          <Row key={k} title={t(k)} chevron={false} disabled aria-disabled="true" />
         ))}
       </Group>
 

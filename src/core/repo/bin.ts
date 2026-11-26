@@ -4,15 +4,22 @@ import { queueDriveDelete } from './photos';
 import { LOCKED_PHOTO } from '../db/schemaV6';
 import { listBinJobs, type BinJob } from './removalist/jobs';
 
-export interface BinBox { id: string; number: number; name: string | null; deletedAt: string }
+export interface BinBox {
+  id: string; number: number; name: string | null; deletedAt: string;
+  /** Removalist: a box or piece binned on its own from a live job. */
+  job: { number: number; seq: number; isPiece: boolean } | null;
+}
 export interface BinItem { id: string; name: string; boxNumber: number; deletedAt: string }
 
 export function listBin(ctx: Ctx, workspaceId: string): { boxes: BinBox[]; items: BinItem[]; jobs: BinJob[] } {
   // Boxes binned over 30 days ago that the purge had to keep (stock history) are archived: hidden, not restorable here.
   const cutoff = daysBefore(ctx.now(), 30);
-  const boxes = ctx.db.selectObjects(`SELECT id, number, name, deleted_at FROM locations WHERE workspace_id=? AND deleted_at IS NOT NULL AND deleted_at >= ?
+  const boxes = ctx.db.selectObjects(`SELECT id, number, name, deleted_at, job_seq, is_piece, (SELECT number FROM jobs j WHERE j.id = locations.job_id) AS job_number FROM locations WHERE workspace_id=? AND deleted_at IS NOT NULL AND deleted_at >= ?
       AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.id = locations.job_id AND j.deleted_at IS NOT NULL) ORDER BY deleted_at DESC`, [workspaceId, cutoff])
-    .map((r) => ({ id: String(r.id), number: num(r.number), name: str(r.name), deletedAt: String(r.deleted_at) }));
+    .map((r) => ({
+      id: String(r.id), number: num(r.number), name: str(r.name), deletedAt: String(r.deleted_at),
+      job: r.job_number == null ? null : { number: num(r.job_number), seq: num(r.job_seq), isPiece: num(r.is_piece) === 1 },
+    }));
   // Boxes and pieces of a binned job are restored with their job, so they are listed under it, not on their own.
   // Items binned on their own (their box is still live).
   const items = ctx.db.selectObjects(
