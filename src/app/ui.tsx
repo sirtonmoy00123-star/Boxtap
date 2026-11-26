@@ -86,9 +86,9 @@ export function Banner({ tone = 'warn', children, action }: { tone?: 'warn' | 'i
   );
 }
 
-/** The one action of a status banner. */
+/** The one action of a status banner: styled like a secondary button (grey fill, --accent-on-grey label; owner decision 2026-11-26). */
 export function BannerAction({ children, onClick }: { children: ReactNode; onClick: () => void }) {
-  return <button type="button" onClick={onClick} className="min-h-11 min-w-[60px] rounded-lg border border-separator px-3 text-center text-subhead font-semibold text-accent active:opacity-60">{children}</button>;
+  return <button type="button" onClick={onClick} className="min-h-11 min-w-[60px] rounded-lg bg-surface-2 px-3 text-center text-subhead font-semibold text-accent-on-grey active:opacity-60">{children}</button>;
 }
 
 /** Inset grouped list section (DESIGN_SYSTEM §4). Children are <li>s. */
