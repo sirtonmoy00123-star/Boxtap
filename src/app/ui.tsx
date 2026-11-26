@@ -19,8 +19,8 @@ export function Button({ variant = 'primary', className = '', onClick, disabled,
   const [busy, setBusy] = useState(false);
   const styles = {
     primary: 'bg-accent-fill text-on-accent text-headline',
-    // DESIGN_SYSTEM §5 says surface-2 fill, but accent on surface-2 is 4.4:1 (below AA, §8); surface + hairline passes.
-    secondary: 'border border-separator bg-surface text-accent text-headline',
+    // Grey fill with the darker --accent-on-grey label, which passes WCAG AA (owner decision 2026-11-26).
+    secondary: 'bg-surface-2 text-accent-on-grey text-headline',
     // Destructive: danger text, no fill; kept away from the primary button (DESIGN_SYSTEM §5).
     danger: 'text-danger text-body',
     ghost: 'text-accent text-body',

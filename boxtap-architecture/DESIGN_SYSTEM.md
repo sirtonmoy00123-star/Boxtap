@@ -51,6 +51,15 @@ Borrow Apple's principles, not its brand: no Apple logos, no SF Symbols files, n
   :root[data-mode="seller"] { --accent: #A5A3FF; --accent-fill: #3634A3; }
 }
 ```
+`--accent-on-grey` (owner decision 2026-11-26): accent-coloured text on a `--surface-2` grey fill, such as the secondary button label. Plain accent on grey is only 4.4:1, below WCAG AA.
+
+| Token set | Home | Seller |
+| --- | --- | --- |
+| Light | #004FA8 | #4644B8 |
+| Dark | #409CFF | #9593FF |
+| prefers-contrast: more (light) | #003A80 | #2B2980 |
+| prefers-contrast: more with dark | #80BFFF | #C0BFFF |
+
 Rules: theme follows the device only (no in-app light/dark switch). Accent only for label tag border, primary button, links, selected tab. Never colour alone: Fragile, Open first, Low stock, Not backed up always have icon + word. Printed labels black on white.
 
 ## 3. Typography
@@ -69,7 +78,7 @@ Spacing 4, 8, 12, 16, 20, 24, 32, 48 px. Side margin 16 (20 at ≥430 px). Deskt
 Navigation: Home tabs Boxes, Rooms, Settings (Bin, backup, labels inside). Seller tabs Stock, Booked, Settings. Plus floating Scan button 56 px round, bottom centre, above the tab bar (an action, not a tab). Detail screens push with a back button; quick tasks open in a bottom sheet.
 
 ## 5. Components
-Primary button: full width, 50 px, accent-fill, white headline, max one per screen. Secondary: 50 px, surface-2, accent label. Destructive: danger text away from primary, then 5 s Undo toast, no confirm dialog. Search field: 36 px rounded, magnifier, under large title, filters while typing. List row: headline title, subhead detail in text-2, count or chevron; swipe to Bin with a button alternative. Box card: label tag, name, room · where, item count, badges. Stock row: name and box, stock-size count, 44 px −/+ steppers; Low stock icon + word in warning. Bottom sheet: opens at half height, grabber, swipe down or Cancel, asks before discarding typed text. Status banner: one at a time, icon + text + one action; action min-width 60 px with centred label (use min-width, not fixed width). Scan view: full-screen camera, rounded guide, torch, hint, close top left; success flashes success colour, vibrates on Android only.
+Primary button: full width, 50 px, accent-fill, white headline, max one per screen. Secondary: 50 px, --surface-2 grey fill, --accent-on-grey label (owner decision 2026-11-26). Destructive: danger text away from primary, then 5 s Undo toast, no confirm dialog. Search field: 36 px rounded, magnifier, under large title, filters while typing. List row: headline title, subhead detail in text-2, count or chevron; swipe to Bin with a button alternative. Box card: label tag, name, room · where, item count, badges. Stock row: name and box, stock-size count, 44 px −/+ steppers; Low stock icon + word in warning. Bottom sheet: opens at half height, grabber, swipe down or Cancel, asks before discarding typed text. Status banner: one at a time, icon + text + one action; action min-width 60 px with centred label (use min-width, not fixed width). Scan view: full-screen camera, rounded guide, torch, hint, close top left; success flashes success colour, vibrates on Android only.
 Box screen autosaves (debounced 500 ms, "Saved" footnote); no Save button. Icons: Lucide, 24 px, 1.75 stroke; tab icons have word labels.
 
 ## 6. Signature: the label tag
@@ -83,7 +92,7 @@ States: empty = one sentence + primary button; loading = skeleton after 300 ms; 
 WCAG 2.2 AA; axe in tests. aria-label on every icon button in the current language. Text to 200% without truncation. :focus-visible ring 2 px accent, 2 px offset. Swipe/long-press have button alternatives. No fixed-width buttons. All text in translation files. Sentence case everywhere. Dates "26 Nov 2026" in English.
 
 ## 9. Tailwind mapping (Tailwind 3 syntax; adapt for 4)
-colors: bg, surface, surface-2, text, text-2, separator, accent, accent-fill, on-accent, danger, success, warning → var(--token). spacing 1=4px 2=8px 3=12px 4=16px 5=20px 6=24px 8=32px 11=44px 12=48px 14=56px. borderRadius md=10px lg=14px full. fontSize large-title, title2, headline, body, callout, subhead, footnote, caption, stock per §3. Replace (not extend) the palette.
+colors: bg, surface, surface-2, text, text-2, separator, accent, accent-fill, accent-on-grey, on-accent, danger, success, warning → var(--token). spacing 1=4px 2=8px 3=12px 4=16px 5=20px 6=24px 8=32px 11=44px 12=48px 14=56px. borderRadius md=10px lg=14px full. fontSize large-title, title2, headline, body, callout, subhead, footnote, caption, stock per §3. Replace (not extend) the palette.
 
 ## 10. Phase 0 checks
 iPhone -apple-system-body follows Larger Text; Noto Sans Bengali on 3 budget Android phones; automated contrast check in CI; tab-bar blur on budget Android.

@@ -29,8 +29,9 @@
   --accent: #0066D6; --accent-fill: #0066D6;
   --danger: #D70015; --success: #1E7B34; --warning: #C93400;
   --on-accent: #FFFFFF;
+  --accent-on-grey: #004FA8; /* accent text on --surface-2 (secondary buttons), owner decision 2026-11-26 */
 }
-:root[data-mode="seller"] { --accent: #5856D6; --accent-fill: #5856D6; }
+:root[data-mode="seller"] { --accent: #5856D6; --accent-fill: #5856D6; --accent-on-grey: #4644B8; }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #000000; --surface: #1C1C1E; --surface-2: #2C2C2E;
@@ -38,24 +39,27 @@
     --separator: rgba(84,84,88,0.6);
     --accent: #0A84FF; --accent-fill: #0066D6;
     --danger: #FF453A; --success: #30D158; --warning: #FF9F0A;
+    --accent-on-grey: #409CFF;
   }
-  :root[data-mode="seller"] { --accent: #7D7AFF; --accent-fill: #5856D6; }
+  :root[data-mode="seller"] { --accent: #7D7AFF; --accent-fill: #5856D6; --accent-on-grey: #9593FF; }
 }
 @media (prefers-contrast: more) {
   :root {
     --text-2: #3A3A3C; --separator: rgba(60,60,67,0.6);
     --accent: #004FA8; --accent-fill: #004FA8;
     --danger: #A0000F; --success: #145C26; --warning: #8F2500;
+    --accent-on-grey: #003A80;
   }
-  :root[data-mode="seller"] { --accent: #3634A3; --accent-fill: #3634A3; }
+  :root[data-mode="seller"] { --accent: #3634A3; --accent-fill: #3634A3; --accent-on-grey: #2B2980; }
 }
 @media (prefers-contrast: more) and (prefers-color-scheme: dark) {
   :root {
     --text-2: #D1D1D6; --separator: rgba(120,120,128,0.8);
     --accent: #409CFF; --accent-fill: #004FA8;
     --danger: #FF6961; --success: #4CE077; --warning: #FFB340;
+    --accent-on-grey: #80BFFF;
   }
-  :root[data-mode="seller"] { --accent: #A5A3FF; --accent-fill: #3634A3; }
+  :root[data-mode="seller"] { --accent: #A5A3FF; --accent-fill: #3634A3; --accent-on-grey: #C0BFFF; }
 }
 
 /* §9 Tailwind mapping, Tailwind 4 syntax: the default palette, radii and font sizes are replaced, not extended.
@@ -74,6 +78,7 @@
   --color-separator: var(--separator);
   --color-accent: var(--accent);
   --color-accent-fill: var(--accent-fill);
+  --color-accent-on-grey: var(--accent-on-grey);
   --color-on-accent: var(--on-accent);
   --color-danger: var(--danger);
   --color-success: var(--success);

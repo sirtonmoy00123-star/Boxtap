@@ -118,7 +118,7 @@ What changed:
 
 Rulings made while applying it (cost if wrong):
 
-20. **Secondary buttons use surface + hairline, not surface-2.** Accent text on surface-2 is 4.4:1, below WCAG AA (§8); axe failed it. Surface with a hairline border passes. Same for the banner action. Cost: a slightly different look from the mockup; the owner may prefer a darker accent instead.
+20. **Secondary buttons: grey fill with `--accent-on-grey` (owner decision 2026-11-26).** Accent text on surface-2 is 4.4:1, below WCAG AA (§8), and axe failed it. A first fix used white with a hairline border. The owner chose instead to keep the grey fill (`--surface-2`) and add a darker label token, `--accent-on-grey`: light #004FA8 / Seller #4644B8, dark #409CFF / #9593FF, more contrast #003A80 / #2B2980, more contrast + dark #80BFFF / #C0BFFF. It is in `src/index.css`, the Tailwind theme (`text-accent-on-grey`) and DESIGN_SYSTEM §2 and §5. The banner action keeps its hairline border on white (not part of this decision).
 21. **Two extra fixed colours**: `scrim` (dimmed backdrop behind sheets) and `camera` (black scan view), defined as tokens in the theme, not themed.
 22. **Spacing keeps Tailwind 4's 4 px step** instead of a fixed list: it gives exactly §9's values (1=4px … 14=56px) and keeps the existing classes working.
 23. **Removing a single item still asks first** (confirm). Only the box delete moved to Undo, as approved. Cost: inconsistent with §5 until items get Undo too.
@@ -137,6 +137,8 @@ Tests (2026-11-26, this branch):
 - E2E `chromium` + `mobile-chrome`: 62 passed, 8 skipped (Pro tests need a preview build; the WebKit-only banner test), 0 failed. Before the change: 69 passed incl. WebKit, 1 WebKit failure (below).
 - E2E selectors changed only where the design moved things: the box screen waits for the "Saved" footnote instead of tapping Save (2 tests); the bin test opens the Bin from Settings and returns through the Boxes tab. New E2E tests: Undo after Move box to Bin; autosave when leaving at once; tabs, Rooms and Bangla digits; Seller indigo and tabs; scan view Close; an axe WCAG 2.2 AA check of the Box and Boxes screens (`@axe-core/playwright`, dev only).
 - E2E `webkit` (it ran before, so it was run again): 22 passed, 12 skipped (no OPFS in the Windows build, Chromium-only tests), 1 flaky: "export CSV, then erase all data" timed out waiting for the download once and passed on its allowed retry (ruling 18). The same kind of WebKit download timeout failed the removalist test in the run before this change; that test passes now.
+
+Re-run after the `--accent-on-grey` change (ruling 20), 2026-11-26: `npm run check` passed (250 unit tests, 0 lint errors); E2E chromium + mobile-chrome + webkit together: 85 passed, 20 skipped, 0 failed, 0 flaky, including the axe WCAG 2.2 AA check.
 
 ## Test environment limits (not counted as passes)
 
