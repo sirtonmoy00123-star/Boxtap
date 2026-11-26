@@ -4,6 +4,7 @@ import { useApp } from '../context';
 import { navigate } from '../router';
 import { Button, Field, Page, inputClass } from '../ui';
 import { formatPrice } from '../../core/catalogue/layout';
+import { deliverFile } from '../../core/backup/backupFile';
 import { WorkerError } from '../../core/db/client';
 import { asciiDigits, type Key } from '../../i18n/i18n';
 import type { CatalogueCandidate, Order, OrderStatus, SalesReport, StockValue } from '../../core/repo';
@@ -47,6 +48,19 @@ export function ReportsPage() {
   }, [db, ws.id, period]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const maxDay = Math.max(1, ...(rep?.byDay.map((d) => d.revenueMinor) ?? [1]));
+  // Excel file of the shop: items with stock, price and cost; sales in this period; all orders.
+  const downloadExcel = async () => {
+    const [from, to] = periodRange(period, Date.now());
+    try {
+      const sheets = await db.excelWorkbook(ws.id, from, to, -new Date().getTimezoneOffset());
+      const { buildXlsx } = await import('../../core/xlsx/xlsx');
+      const stamp = new Date().toISOString().slice(0, 10);
+      await deliverFile(new File([new Uint8Array(buildXlsx(sheets))], `BoxTap-${ws.name.replace(/[^p{L}p{N}]+/gu, '-').slice(0, 40) || 'shop'}-${stamp}.xlsx`,
+        { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    } catch (e) {
+      if (!blocked(e)) throw e;
+    }
+  };
   return (
     <Page title={t('rep.title')} back={() => navigate('/')}>
       <div className="grid grid-cols-4 gap-1" role="group">
@@ -101,6 +115,8 @@ export function ReportsPage() {
           <p className="text-subhead">{t('rep.atPrice', { v: money(value.atPriceMinor) })}</p>
         </section>
       )}
+      <Button variant="secondary" className="mt-6 w-full" onClick={downloadExcel}>{t('rep.excel')}</Button>
+      <p className="mt-1 text-footnote text-text-2">{t('rep.excelHint')}</p>
     </Page>
   );
 }

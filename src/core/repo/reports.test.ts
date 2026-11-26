@@ -87,3 +87,22 @@ describe('report days are local (review finding 11)', () => {
     expect(r.byDay.map((d) => d.day)).toEqual(['2026-11-21']);
   });
 });
+
+describe('Excel workbook data (Pro)', () => {
+  it('has Items, Sales and Orders sheets with numbers in taka/dollars', () => {
+    const ring = item('Ring', 100000, 60000);
+    R.recordStock(ctx, ring.id, 'restock', 5);
+    R.recordStock(ctx, ring.id, 'sold', 2);
+    const o = R.createOrder(ctx, ws.id, { customer: 'Nusrat', phone: '017' });
+    R.addOrderLine(ctx, o.id, ring.id, 1);
+    const wb = R.excelWorkbook(ctx, ws.id, '2026-11-01T00:00:00Z', '2026-12-01T00:00:00Z', 360);
+    expect(wb.map((s) => s.name)).toEqual(['Items', 'Sales', 'Orders']);
+    const items = wb[0]!.rows;
+    expect(items[0]).toEqual(['Box', 'Box name', 'Item', 'Variant', 'Other name', 'In stock', 'Booked', 'Sale price', 'Cost price', 'Value at cost', 'Low-stock level']);
+    expect(items[1]).toEqual([1, null, 'Ring', null, null, 2, 1, 1000, 600, 1800, null]);
+    const sales = wb[1]!.rows;
+    expect(sales[1]).toEqual(['2026-11-20', 'Ring', 'Sold', 2, 1000, 2000, 600, 800]);
+    const orders = wb[2]!.rows;
+    expect(orders[1]).toEqual([1, 'Nusrat', '017', 'open', '2026-11-20', '1 × Ring', 1000]);
+  });
+});

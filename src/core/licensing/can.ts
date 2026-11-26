@@ -26,7 +26,8 @@ export const DEFAULT_CONFIG: ConfigBody = {
     move_pass: { photos_per_parent: 5, offers: [{ months: 12, price: 'A$12.95', pay: '' }] },
     seller_pro: { photos_per_parent: 5, offers: [{ months: 1, price: '৳199', pay: '' }] },
   },
-  features: { catalogue_image: true, insurance_pdf: true, excel: false },
+  // Ruling (build, 2026-11-26): Excel export is built, so it is on by default for Seller Pro; the signed config can turn it off.
+  features: { catalogue_image: true, insurance_pdf: true, excel: true },
   revoked_keys: [],
   messages: { en: null, bn: null },
 };

@@ -120,6 +120,7 @@ export function createService(ctx: Ctx, entitlement: () => Entitlement = () => (
     },
     setVariantLabel: (itemId: string, label: string | null) => R.setVariantLabel(ctx, itemId, label),
     productVariants: (productId: string) => R.productVariants(ctx, productId),
+    excelWorkbook: (wsId: string, fromIso: string, toIso: string, tzOffsetMinutes = 0) => { gate('excel', wsId); return R.excelWorkbook(ctx, wsId, fromIso, toIso, tzOffsetMinutes); },
     /** For the UI: which Pro extras are open on this workspace. */
     proStatus: (wsId: string) => {
       const open = (f: Feature) => { try { gate(f, wsId); return true; } catch { return false; } };

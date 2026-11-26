@@ -63,6 +63,14 @@ test('Pro: cost price, an order that books and packs stock, then the report show
   await expect(page.getByTestId('report-totals')).toContainText('2');
   await expect(page.getByTestId('report-totals')).toContainText('৳2,000');
   await expect(page.getByTestId('report-totals')).toContainText('৳800');
+  // Excel export of the shop (a real .xlsx, i.e. a zip starting with PK)
+  await page.evaluate(() => { Object.defineProperty(navigator, 'canShare', { value: undefined }); });
+  const dl = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download Excel file' }).click();
+  const d = await dl;
+  expect(d.suggestedFilename()).toMatch(/.xlsx$/);
+  const { readFileSync } = await import('node:fs');
+  expect(readFileSync(await d.path()).subarray(0, 2).toString()).toBe('PK');
 });
 
 test('Pro: add a variant (size) with its own stock', async ({ page }) => {

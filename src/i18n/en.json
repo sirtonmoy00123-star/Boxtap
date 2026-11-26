@@ -366,5 +366,7 @@
   "scan.close": "Close",
   "scan.torch": "Torch",
   "scan.found": "Box {n} found",
-  "scan.opening": "Opening…"
+  "scan.opening": "Opening…",
+  "rep.excel": "Download Excel file",
+  "rep.excelHint": "Items with stock, price and cost; sales in this period; all orders."
 }
