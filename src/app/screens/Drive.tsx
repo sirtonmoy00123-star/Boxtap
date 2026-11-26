@@ -69,13 +69,13 @@ export function DriveRestore({ db, t, onDone, onCancel, folderId: knownFolder }:
 
   return (
     <div className="flex flex-col gap-2">
-      <h1 className="text-2xl font-bold">{t('drive.restoreTitle')}</h1>
-      <p className="text-sm text-amber-900">{t('restore.replaceWarning')}</p>
+      <h1 className="text-large-title font-bold">{t('drive.restoreTitle')}</h1>
+      <p className="text-subhead text-warning">{t('restore.replaceWarning')}</p>
       {!folder ? (
         <Button onClick={find} disabled={busy}>{busy ? t('drive.connecting') : t('drive.signIn')}</Button>
       ) : (
         <form className="flex flex-col gap-2" onSubmit={(e) => { e.preventDefault(); void go(); }}>
-          {email && <p className="text-sm text-slate-600">{t('drive.account', { email })}</p>}
+          {email && <p className="text-subhead text-text-2">{t('drive.account', { email })}</p>}
           <Field label={t('restore.code')}>
             <textarea className={`${inputClass} py-2 font-mono`} rows={3} autoCapitalize="none" autoComplete="off" spellCheck={false}
               value={code} onChange={(e) => setCode(e.target.value)} />
@@ -83,7 +83,7 @@ export function DriveRestore({ db, t, onDone, onCancel, folderId: knownFolder }:
           <Button type="submit" disabled={!code.trim() || busy}>{busy ? t('restore.working') : t('restore.go')}</Button>
         </form>
       )}
-      {error && <p role="alert" className="text-red-700">{error}</p>}
+      {error && <p role="alert" className="text-danger">{error}</p>}
       <Button variant="ghost" onClick={onCancel}>{t('box.back')}</Button>
     </div>
   );
@@ -168,8 +168,8 @@ export function DriveSettings({ onRestore }: { onRestore: (folderId: string) => 
   const status = link?.status;
   return (
     <section className="mt-6" aria-label={t('drive.title')}>
-      <h2 className="text-lg font-semibold">{t('drive.title')}</h2>
-      <p className="text-sm text-slate-600">{t('drive.explain')}</p>
+      <h2 className="text-headline font-semibold">{t('drive.title')}</h2>
+      <p className="text-subhead text-text-2">{t('drive.explain')}</p>
       {link === undefined ? null : !link ? (
         found ? (
           <div className="mt-3 flex flex-col gap-2">
@@ -182,16 +182,16 @@ export function DriveSettings({ onRestore }: { onRestore: (folderId: string) => 
         )
       ) : (
         <div className="mt-3 flex flex-col gap-2">
-          <p className="text-sm" data-testid="drive-status">
+          <p className="text-subhead" data-testid="drive-status">
             {link.lastSnapshotAt ? t('drive.backedUp', { when: new Date(link.lastSnapshotAt).toLocaleString() }) : t('drive.notYet')}
           </p>
-          {link.googleEmail && <p className="text-sm text-slate-600">{t('drive.account', { email: link.googleEmail })}</p>}
+          {link.googleEmail && <p className="text-subhead text-text-2">{t('drive.account', { email: link.googleEmail })}</p>}
           <label className="flex min-h-12 items-center gap-3">
             <input type="checkbox" className="h-5 w-5" checked={paused} onChange={async (e) => { await db.setPhotoUploadsPaused(e.target.checked); setPaused(e.target.checked); }} />
-            <span>{t('drive.pause')}<span className="block text-xs text-slate-500">{t('drive.pauseHint')}</span></span>
+            <span>{t('drive.pause')}<span className="block text-footnote text-text-2">{t('drive.pauseHint')}</span></span>
           </label>
-          {waiting > 0 && <p className="text-sm text-slate-600" data-testid="photos-waiting">{t('photos.waiting', { n: waiting })}</p>}
-          {status === 'lock_lost' && <p role="alert" className="text-amber-900">{t('drive.lockLost')}</p>}
+          {waiting > 0 && <p className="text-subhead text-text-2" data-testid="photos-waiting">{t('photos.waiting', { n: waiting })}</p>}
+          {status === 'lock_lost' && <p role="alert" className="text-warning">{t('drive.lockLost')}</p>}
           {status === 'lock_lost' && !newer && <Button variant="secondary" onClick={useHere} disabled={busy}>{t('drive.useHere')}</Button>}
           {status === 'lock_lost' && newer && (
             <>
@@ -201,17 +201,17 @@ export function DriveSettings({ onRestore }: { onRestore: (folderId: string) => 
             </>
           )}
           {status === 'folder_trashed' && (
-            <p role="alert" className="text-amber-900">{t('drive.trashed')} <a className="underline" href="https://drive.google.com/drive/trash" target="_blank" rel="noreferrer noopener">{t('drive.openTrash')}</a></p>
+            <p role="alert" className="text-warning">{t('drive.trashed')} <a className="underline" href="https://drive.google.com/drive/trash" target="_blank" rel="noreferrer noopener">{t('drive.openTrash')}</a></p>
           )}
-          {status === 'folder_missing' && <p role="alert" className="text-amber-900">{t('drive.missing')}</p>}
-          {status === 'quota_full' && <p role="alert" className="text-amber-900">{t('drive.quota')}</p>}
+          {status === 'folder_missing' && <p role="alert" className="text-warning">{t('drive.missing')}</p>}
+          {status === 'quota_full' && <p role="alert" className="text-warning">{t('drive.quota')}</p>}
           {status !== 'lock_lost' && (
             <Button onClick={backUpNow} disabled={busy}>{hasToken ? t('drive.syncNow') : t('drive.tapToBackUp')}</Button>
           )}
           <Button variant="secondary" onClick={disconnect} disabled={busy}>{t('drive.disconnect')}</Button>
         </div>
       )}
-      {error && <p role="alert" className="mt-2 text-red-700">{error}</p>}
+      {error && <p role="alert" className="mt-2 text-danger">{error}</p>}
     </section>
   );
 }

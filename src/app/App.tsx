@@ -4,9 +4,13 @@ import { deliverFile } from '../core/backup/backupFile';
 import { tryAcquire, takeOver, type TabLock } from '../core/pwa/tabLock';
 import { requestPersistence, storageStatus, type StorageStatus } from '../core/pwa/storage';
 import type { Workspace } from '../core/repo';
-import { AppContext, makeT, type AppState } from './context';
-import { useRoute } from './router';
-import { Banner, Button } from './ui';
+import { AppContext, makeDate, makeNum, makeT, type AppState, type ToastAction } from './context';
+import { navigate, useRoute } from './router';
+import { Banner, Button, TabBar, type Tab } from './ui';
+import { Bookmark, DoorOpen, Package, Settings as SettingsIcon } from 'lucide-react';
+import { platform } from '../core/pwa/install';
+import { RoomPage, RoomsPage } from './screens/Rooms';
+import { BookedPage } from './screens/Booked';
 import { Start } from './screens/Start';
 import { Home } from './screens/Home';
 import { BoxPage } from './screens/BoxPage';
@@ -36,7 +40,7 @@ export function App() {
   const [workspace, setWorkspaceState] = useState<Workspace | null>(null);
   const [storage, setStorage] = useState<StorageStatus | null>(null);
   const [upgrade, setUpgrade] = useState<string | null>(null);
-  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [toastMsg, setToastMsg] = useState<{ msg: string; action?: ToastAction; id: number } | null>(null);
   const lockRef = useRef<TabLock | null>(null);
   const toastRef = useRef<((m: string) => void) | null>(null);
   const route = useRoute();
@@ -102,10 +106,23 @@ export function App() {
 
   const lang: Lang = workspace?.language ?? guessLang();
   const t = useMemo(() => makeT(lang), [lang]);
+  const num = useMemo(() => makeNum(lang), [lang]);
+  const date = useMemo(() => makeDate(lang), [lang]);
 
-  const toast = useCallback((m: string) => {
-    setToastMsg(m);
-    setTimeout(() => setToastMsg(null), m.length > 60 ? 6000 : 2500);
+  // Seller accent (indigo) via data-mode on <html>; the page language drives :lang(bn) and screen readers;
+  // the platform decides whether the tab bar may blur (iPhone only, DESIGN_SYSTEM §7).
+  const mode = workspace?.type;
+  useEffect(() => {
+    const el = document.documentElement;
+    if (mode === 'seller') el.dataset.mode = 'seller'; else delete el.dataset.mode;
+    el.lang = lang;
+    el.dataset.platform = platform();
+  }, [mode, lang]);
+
+  const toast = useCallback((m: string, action?: ToastAction) => {
+    const id = Date.now() + Math.random();
+    setToastMsg({ msg: m, action, id });
+    setTimeout(() => setToastMsg((cur) => (cur?.id === id ? null : cur)), action ? 5000 : m.length > 60 ? 6000 : 2500);
   }, []);
   useEffect(() => { toastRef.current = toast; }, [toast]);
 
@@ -130,11 +147,11 @@ export function App() {
     const msg = { loading: t('boot.loading'), otherTab: t('boot.otherTab'), lost: t('boot.lost'), failed: t('boot.failed') }[boot.s];
     return (
       <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-4 px-6 text-center" data-boot={boot.s}>
-        <p className="text-lg">{msg}</p>
-        {boot.s === 'failed' && <p className="text-sm text-slate-500">{boot.msg}</p>}
+        <p className="text-headline">{msg}</p>
+        {boot.s === 'failed' && <p className="text-subhead text-text-2">{boot.msg}</p>}
         {boot.s === 'failed' && (
           <>
-            <p className="text-sm">{t('rescue.explain')}</p>
+            <p className="text-subhead">{t('rescue.explain')}</p>
             <Button variant="secondary" onClick={async () => {
               try {
                 const bytes = await rescueExport();
@@ -155,7 +172,7 @@ export function App() {
   }
 
   const state: AppState = {
-    db: boot.db, workspace, lang, t, toast,
+    db: boot.db, workspace, lang, t, num, date, toast,
     setWorkspace: (w) => {
       setWorkspaceState(w);
       if (w) localStorage.setItem(WS_KEY, w.id); else localStorage.removeItem(WS_KEY);
@@ -173,27 +190,53 @@ export function App() {
   else if (route.name === 'orders') screen = <OrdersPage />;
   else if (route.name === 'order') screen = <OrderPage id={route.id} />;
   else if (route.name === 'bin') screen = <Bin />;
+  else if (route.name === 'rooms') screen = <RoomsPage />;
+  else if (route.name === 'room') screen = <RoomPage id={route.id} />;
+  else if (route.name === 'booked') screen = <BookedPage />;
   else if (route.name === 'settings') screen = <Settings />;
   else if (route.name === 'scan') screen = <Scan />;
   else if (route.name === 'labels') screen = <PrintLabels />;
   else if (route.name === 'label') screen = <LabelRoute code={route.code} />;
   else screen = <Home />;
 
+  // Top-level screens show the tab bar and the Scan button (DESIGN_SYSTEM §4). Home: Boxes, Rooms, Settings;
+  // Seller: Stock, Booked, Settings. Detail screens push with a back button instead.
+  const seller = workspace?.type === 'seller';
+  const tabs: Tab[] = [
+    { id: 'home', label: t(seller ? 'nav.stock' : 'nav.boxes'), icon: Package, onClick: () => navigate('/') },
+    seller
+      ? { id: 'booked', label: t('nav.booked'), icon: Bookmark, onClick: () => navigate('/booked') }
+      : { id: 'rooms', label: t('nav.rooms'), icon: DoorOpen, onClick: () => navigate('/rooms') },
+    { id: 'settings', label: t('nav.settings'), icon: SettingsIcon, onClick: () => navigate('/settings') },
+  ];
+  const topLevel = ['home', 'rooms', 'booked', 'settings'];
+  const showTabs = !!workspace && topLevel.includes(route.name) && !(route.name === 'rooms' && seller) && !(route.name === 'booked' && !seller);
+
   return (
     <AppContext.Provider value={state}>
       {!boot.db.info.persistent && <Banner tone="danger">{t('banner.memory')}</Banner>}
       {boot.db.info.persistent && storage?.likelyPrivate && <Banner tone="danger">{t('banner.private')}</Banner>}
       {boot.db.info.persistent && storage && !storage.likelyPrivate && !storage.persisted && workspace && <Banner>{t('banner.notPersisted')}</Banner>}
-      {screen}
+      {showTabs ? <div className="lg:pl-56">{screen}</div> : screen}
+      {showTabs && <TabBar tabs={tabs} current={route.name} label={t('nav.main')} scanLabel={t('home.scan')} onScan={() => navigate('/scan')} />}
       {upgrade && <Upgrade reason={upgrade} onClose={() => setUpgrade(null)} />}
       {shareFile && (
-        <div role="dialog" aria-label={t('share.ready')} className="fixed inset-x-0 bottom-0 z-50 flex flex-col gap-2 bg-white p-4 shadow-2xl" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
+        <div role="dialog" aria-label={t('share.ready')} className="anim-in fixed inset-x-0 bottom-0 z-50 flex flex-col gap-2 rounded-t-lg bg-surface p-4 shadow-2xl" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
           <p className="font-medium">{t('share.ready')}: {shareFile.name}</p>
           <Button onClick={async () => { const f = shareFile; setShareFile(null); await navigator.share({ files: [f], title: f.name }).catch(() => {}); }}>{t('share.now')}</Button>
           <Button variant="ghost" onClick={() => setShareFile(null)}>{t('upgrade.later')}</Button>
         </div>
       )}
-      {toastMsg && <div role="status" className="fixed inset-x-0 bottom-24 mx-auto w-fit rounded-full bg-slate-900 px-4 py-2 text-white">{toastMsg}</div>}
+      {toastMsg && (
+        <div role="status" key={toastMsg.id} style={{ bottom: `calc(${showTabs ? '8.5rem' : '1.5rem'} + env(safe-area-inset-bottom))` }}
+          className="anim-in fixed inset-x-4 z-50 mx-auto flex max-w-md items-center justify-between gap-3 rounded-lg bg-text px-4 py-2 text-subhead text-bg shadow-lg">
+          <span className="py-1.5">{toastMsg.msg}</span>
+          {toastMsg.action && (
+            <button type="button" className="min-h-11 min-w-[60px] px-2 text-center font-semibold text-bg underline-offset-2 active:opacity-60"
+              onClick={() => { const a = toastMsg.action!; setToastMsg(null); void a.run(); }}>{toastMsg.action.label}</button>
+          )}
+        </div>
+      )}
     </AppContext.Provider>
   );
 }

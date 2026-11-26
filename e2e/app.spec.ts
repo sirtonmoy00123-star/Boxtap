@@ -59,7 +59,7 @@ test('add a box and items, search, and the data survives a reload (critical test
   await page.getByLabel('Add item').press('Enter');
   await expect(page.getByRole('list', { name: 'items' }).getByRole('listitem')).toHaveCount(2);
   await page.getByLabel('Name', { exact: true }).fill('Kitchen');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByTestId('autosave')).toHaveText('Saved'); // autosave, no Save button (ADR-023)
   await page.getByRole('button', { name: 'Back' }).click();
 
   await page.getByLabel('Search items or boxes').fill('kettle');
@@ -86,10 +86,77 @@ test('bin: a deleted box can be restored', async ({ page }) => {
   await page.getByRole('button', { name: 'Add box' }).click();
   await page.getByRole('button', { name: 'Move box to bin' }).click();
   await expect(page.getByText('No boxes yet')).toBeVisible();
-  await page.getByRole('button', { name: 'Bin' }).click();
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: /^Bin/ }).click();
   await page.getByRole('button', { name: 'Restore' }).click();
   await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: 'Boxes', exact: true }).click();
   await expect(page.getByRole('list', { name: 'boxes' })).toContainText('Box 1');
+});
+
+test('moving a box to the Bin shows a 5 s Undo, and Undo brings it back (ADR-023)', async ({ page }) => {
+  await newHome(page);
+  await page.getByRole('button', { name: 'Add box' }).click();
+  await page.getByRole('button', { name: 'Move box to Bin' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Box 1 moved to Bin' })).toBeVisible();
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.getByRole('list', { name: 'boxes' })).toContainText('Box 1');
+});
+
+test('the box screen saves typing by itself, even when leaving at once (ADR-023)', async ({ page }) => {
+  await newHome(page);
+  await page.getByRole('button', { name: 'Add box' }).click();
+  await expect(page.getByRole('button', { name: 'Save', exact: true })).toHaveCount(0);
+  await page.getByLabel('Where is it?').fill('Garage shelf');
+  await page.getByRole('button', { name: 'Back' }).click(); // before the 500 ms autosave
+  await expect(page.getByRole('list', { name: 'boxes' })).toContainText('Garage shelf');
+});
+
+test('tabs: Boxes, Rooms, Settings; a room lists its boxes; Bangla shows Bangla digits (ADR-023)', async ({ page }) => {
+  await newHome(page);
+  await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('button')).toHaveText(['Boxes', 'Rooms', 'Settings']);
+  await page.getByRole('button', { name: 'Add box' }).click();
+  page.removeAllListeners('dialog');
+  page.on('dialog', (d) => { void d.accept('Kitchen'); });
+  await page.getByLabel('Room').selectOption('__new');
+  await expect(page.getByLabel('Room')).toHaveValue(/[0-9a-f-]{36}/);
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: 'Rooms' }).click();
+  await page.getByRole('button', { name: 'Kitchen, 1 box' }).click();
+  await expect(page.getByRole('heading', { name: 'Kitchen' })).toBeVisible();
+  await expect(page.getByRole('list', { name: 'boxes' })).toContainText('Box 1');
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'বাংলা' }).click();
+  await page.getByRole('button', { name: 'বাক্স', exact: true }).click();
+  await expect(page.getByRole('list', { name: 'boxes' })).toContainText('বাক্স ১');
+});
+
+test('Seller mode uses the indigo accent and Stock, Booked, Settings tabs (ADR-023)', async ({ page }) => {
+  await newHome(page);
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Add another list' }).click();
+  await page.getByRole('button', { name: 'Create list' }).click();
+  await expect(page.getByRole('heading', { name: 'My shop' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.dataset.mode)).toBe('seller');
+  await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('button')).toHaveText(['Stock', 'Booked', 'Settings']);
+  await page.getByRole('button', { name: 'Booked' }).click();
+  await expect(page.getByText('Nothing is booked right now.')).toBeVisible();
+});
+
+test('accessibility: the Box and Boxes screens have no axe violations (WCAG 2.2 AA)', async ({ page }) => {
+  await newHome(page);
+  await page.getByRole('button', { name: 'Add box' }).click();
+  await page.getByLabel('Add item').fill('Kettle');
+  await page.getByLabel('Add item').press('Enter');
+  await expect(page.getByRole('list', { name: 'items' })).toContainText('Kettle');
+  const { default: AxeBuilder } = await import('@axe-core/playwright');
+  const tags = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
+  const list = (r: { violations: { id: string; nodes: { target: unknown[] }[] }[] }) => r.violations.map((v) => v.id + ': ' + v.nodes.map((n) => n.target.join(' ')).join(', '));
+  expect(list(await new AxeBuilder({ page }).withTags(tags).analyze())).toEqual([]);
+  await page.getByRole('button', { name: 'Back' }).click();
+  await expect(page.getByRole('list', { name: 'boxes' })).toContainText('1 item');
+  expect(list(await new AxeBuilder({ page }).withTags(tags).analyze())).toEqual([]);
 });
 
 test('label link: own box opens; unknown code says not mine (critical tests 6-7 via link)', async ({ page }) => {
@@ -184,7 +251,7 @@ test('print labels for all boxes produces a PDF (Phase 1 step 3)', async ({ page
   expect(readFileSync(await d.path()).subarray(0, 5).toString()).toBe('%PDF-');
 });
 
-test('scan screen without a camera explains how to allow it', async ({ page, browserName }) => {
+test('scan screen without a camera explains how to allow it, and closes back home', async ({ page, browserName }) => {
   test.skip(browserName !== 'chromium', 'camera denial is simulated in Chromium only');
   await page.addInitScript(() => {
     Object.defineProperty(navigator.mediaDevices, 'getUserMedia', { value: () => Promise.reject(new DOMException('denied', 'NotAllowedError')) });
@@ -192,6 +259,8 @@ test('scan screen without a camera explains how to allow it', async ({ page, bro
   await newHome(page);
   await page.getByRole('button', { name: 'Scan' }).click();
   await expect(page.getByRole('alert')).toContainText("BoxTap can't use the camera.");
+  await page.getByRole('button', { name: 'Close' }).click();
+  await expect(page.getByRole('heading', { name: 'My move' })).toBeVisible();
 });
 
 test('works offline after the first load (critical test 3)', async ({ page, context, browserName }) => {
@@ -400,7 +469,7 @@ test('labels: a Bangla box name prints as drawn text, not "?"', async ({ page })
   await newHome(page);
   await page.getByRole('button', { name: 'Add box' }).click();
   await page.getByLabel('Name', { exact: true }).fill('রান্নাঘর');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(page.getByTestId('autosave')).toHaveText('Saved');
   await page.getByRole('button', { name: 'Back' }).click();
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('button', { name: 'Print labels' }).click();

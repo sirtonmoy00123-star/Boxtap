@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useApp } from '../context';
 import { navigate } from '../router';
-import { Button, Field, Page, inputClass } from '../ui';
+import { Printer, Trash2, TriangleAlert } from 'lucide-react';
+import { Button, Field, Group, Icon, Page, Row, inputClass } from '../ui';
 import { isValidRecoveryCode, newRecoveryCode, normaliseRecoveryCode, WrongCodeError, BadFileError, FutureVersionError } from '../../core/backup/crypto';
 import { changeRecoveryCode, checkRecoveryCode, createBackupFile, deliverFile, hasBackupKey, replaceRecoveryCode, restoreBackupFile, setUpBackupKey } from '../../core/backup/backupFile';
 import type { Db } from '../../core/db/client';
@@ -43,14 +44,14 @@ export function RecoveryCodeSetup({ db, t, onDone, apply }: { db: Db; t: T; onDo
   if (step === 'confirm') {
     return (
       <form className="flex flex-col gap-2" onSubmit={(e) => { e.preventDefault(); void confirm(); }}>
-        <h1 className="text-2xl font-bold">{t('code.confirmTitle')}</h1>
+        <h1 className="text-large-title font-bold">{t('code.confirmTitle')}</h1>
         {ask.map((idx, i) => (
           <Field key={idx} label={t('code.confirmWord', { n: idx + 1 })}>
             <input className={inputClass} autoCapitalize="none" autoComplete="off" spellCheck={false} value={answers[i]}
               onChange={(e) => { const a = [...answers]; a[i] = e.target.value; setAnswers(a); setError(false); }} />
           </Field>
         ))}
-        {error && <p role="alert" className="text-red-700">{t('code.mismatch')}</p>}
+        {error && <p role="alert" className="text-danger">{t('code.mismatch')}</p>}
         <Button type="submit">{t('code.confirm')}</Button>
         <Button variant="ghost" onClick={() => setStep('show')}>{t('box.back')}</Button>
       </form>
@@ -58,10 +59,10 @@ export function RecoveryCodeSetup({ db, t, onDone, apply }: { db: Db; t: T; onDo
   }
   return (
     <div className="flex flex-col gap-3">
-      <h1 className="text-2xl font-bold">{t('code.title')}</h1>
-      <p className="text-slate-700">{t('code.explain')}</p>
-      <ol className="grid grid-cols-2 gap-2 rounded-xl border border-slate-300 p-3 font-mono text-lg sm:grid-cols-3" data-testid="recovery-code">
-        {words.map((w, i) => <li key={i}><span className="text-slate-400">{i + 1}.</span> {w}</li>)}
+      <h1 className="text-large-title font-bold">{t('code.title')}</h1>
+      <p className="text-text-2">{t('code.explain')}</p>
+      <ol className="grid grid-cols-2 gap-2 rounded-md border border-separator p-3 font-mono text-headline sm:grid-cols-3" data-testid="recovery-code">
+        {words.map((w, i) => <li key={i}><span className="text-text-2">{i + 1}.</span> {w}</li>)}
       </ol>
       <Button variant="secondary" onClick={() => window.print()}>{t('code.print')}</Button>
       <Button onClick={() => setStep('confirm')}>{t('code.written')}</Button>
@@ -93,8 +94,8 @@ export function RestoreFile({ db, t, onDone, onCancel }: { db: Db; t: T; onDone:
   };
   return (
     <form className="flex flex-col gap-2" onSubmit={(e) => { e.preventDefault(); void go(); }}>
-      <h1 className="text-2xl font-bold">{t('restore.title')}</h1>
-      <p className="text-sm text-amber-900">{t('restore.replaceWarning')}</p>
+      <h1 className="text-large-title font-bold">{t('restore.title')}</h1>
+      <p className="text-subhead text-warning">{t('restore.replaceWarning')}</p>
       <Field label={t('restore.pick')}>
         <input type="file" accept=".btbak,application/octet-stream" className="block py-2" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
       </Field>
@@ -102,7 +103,7 @@ export function RestoreFile({ db, t, onDone, onCancel }: { db: Db; t: T; onDone:
         <textarea className={`${inputClass} py-2 font-mono`} rows={3} autoCapitalize="none" autoComplete="off" spellCheck={false}
           value={code} onChange={(e) => setCode(e.target.value)} />
       </Field>
-      {error && <p role="alert" className="text-red-700">{error}</p>}
+      {error && <p role="alert" className="text-danger">{error}</p>}
       <Button type="submit" disabled={!file || !code.trim() || busy}>{busy ? t('restore.working') : t('restore.go')}</Button>
       <Button variant="ghost" onClick={onCancel}>{t('box.back')}</Button>
     </form>
@@ -110,7 +111,7 @@ export function RestoreFile({ db, t, onDone, onCancel }: { db: Db; t: T; onDone:
 }
 
 export function Settings() {
-  const { db, t, toast, setWorkspace, workspace, showUpgrade } = useApp();
+  const { db, t, date, toast, setWorkspace, workspace, showUpgrade } = useApp();
   const [last, setLast] = useState<string | null>(null);
   const [ready, setReady] = useState<boolean | null>(null);
   const [mode, setMode] = useState<'main' | 'restore' | 'setup' | 'driveRestore' | 'changeCode' | 'newCode'>('main');
@@ -128,18 +129,18 @@ export function Settings() {
 
   if (mode === 'changeCode') {
     return (
-      <div className="mx-auto max-w-md px-6 py-8">
+      <div className="mx-auto max-w-md px-6 py-8 pt-[max(2rem,env(safe-area-inset-top))]">
         {codeStep === 'old' ? (
           <form className="flex flex-col gap-2" onSubmit={async (e) => {
             e.preventDefault();
             const ok = isValidRecoveryCode(oldCode) && (await checkRecoveryCode(db, oldCode));
             if (ok) { setCodeError(null); setCodeStep('new'); } else setCodeError(t('code.wrongOld'));
           }}>
-            <h1 className="text-2xl font-bold">{t('code.changeTitle')}</h1>
+            <h1 className="text-large-title font-bold">{t('code.changeTitle')}</h1>
             <Field label={t('code.oldCode')}>
               <textarea className={`${inputClass} py-2 font-mono`} rows={3} autoCapitalize="none" autoComplete="off" spellCheck={false} value={oldCode} onChange={(e) => setOldCode(e.target.value)} />
             </Field>
-            {codeError && <p role="alert" className="text-red-700">{codeError}</p>}
+            {codeError && <p role="alert" className="text-danger">{codeError}</p>}
             <Button type="submit" disabled={!oldCode.trim()}>{t('code.next')}</Button>
             <Button variant="ghost" onClick={() => { setMode('main'); setOldCode(''); }}>{t('box.back')}</Button>
           </form>
@@ -152,12 +153,12 @@ export function Settings() {
   }
   if (mode === 'newCode') {
     return (
-      <div className="mx-auto max-w-md px-6 py-8">
+      <div className="mx-auto max-w-md px-6 py-8 pt-[max(2rem,env(safe-area-inset-top))]">
         <RecoveryCodeSetup db={db} t={t} apply={(code) => replaceRecoveryCode(db, code)} onDone={() => { setMode('main'); toast(t('code.replaced')); }} />
       </div>
     );
   }
-  if (mode === 'setup') return <div className="mx-auto max-w-md px-6 py-8"><RecoveryCodeSetup db={db} t={t} onDone={() => setMode('main')} /></div>;
+  if (mode === 'setup') return <div className="mx-auto max-w-md px-6 py-8 pt-[max(2rem,env(safe-area-inset-top))]"><RecoveryCodeSetup db={db} t={t} onDone={() => setMode('main')} /></div>;
   const afterRestore = async (msg: string) => {
     const list = await db.listWorkspaces();
     setWorkspace(list[0] ?? null);
@@ -165,11 +166,11 @@ export function Settings() {
     navigate('/', true);
   };
   if (mode === 'driveRestore') {
-    return <div className="mx-auto max-w-md px-6 py-8"><DriveRestore db={db} t={t} folderId={driveFolder} onCancel={() => setMode('main')} onDone={afterRestore} /></div>;
+    return <div className="mx-auto max-w-md px-6 py-8 pt-[max(2rem,env(safe-area-inset-top))]"><DriveRestore db={db} t={t} folderId={driveFolder} onCancel={() => setMode('main')} onDone={afterRestore} /></div>;
   }
   if (mode === 'restore') {
     return (
-      <div className="mx-auto max-w-md px-6 py-8">
+      <div className="mx-auto max-w-md px-6 py-8 pt-[max(2rem,env(safe-area-inset-top))]">
         <RestoreFile db={db} t={t} onCancel={() => setMode('main')} onDone={async (msg) => {
           const list = await db.listWorkspaces();
           setWorkspace(list[0] ?? null);
@@ -238,48 +239,56 @@ export function Settings() {
     }
   };
 
+  // Settings tab (ADR-023): this list, backup, Drive, labels, the Bin, lists and data, as inset grouped lists.
   return (
-    <Page title={t('settings.title')} back={() => navigate('/')}>
+    <Page title={t('settings.title')}>
       <ListSettings />
-      <h2 className="mt-6 text-lg font-semibold">{t('settings.backup')}</h2>
-      <p className="text-sm text-slate-600" data-testid="last-backup">{last ? t('settings.lastBackup', { when: new Date(last).toLocaleString() }) : t('settings.never')}</p>
-      <div className="mt-3 flex flex-col gap-2">
-        {ready === false
-          ? <Button onClick={() => setMode('setup')}>{t('settings.setupBackup')}</Button>
-          : <Button onClick={backup} disabled={busy || !ready}>{t('settings.backupNow')}</Button>}
-        <Button variant="secondary" onClick={() => setMode('restore')}>{t('settings.restore')}</Button>
-        {ready && <Button variant="ghost" onClick={() => setMode('changeCode')}>{t('code.change')}</Button>}
-        {ready && <Button variant="ghost" onClick={() => { if (confirm(t('code.lostConfirm'))) setMode('newCode'); }}>{t('code.lost')}</Button>}
-      </div>
-      {!isInstalled() && <Button variant="secondary" className="mt-6 w-full" onClick={() => setGuide(true)}>{t('install.settings')}</Button>}
+      <section className="mt-6">
+        <h2 className="px-4 pb-1.5 text-footnote text-text-2">{t('settings.backup')}</h2>
+        <div className="rounded-md bg-surface p-4">
+          <p className="flex items-center gap-2 text-subhead text-text-2" data-testid="last-backup">
+            {!last && <Icon as={TriangleAlert} size={18} className="text-warning" />}
+            {last ? t('settings.lastBackup', { when: date(last, true) }) : t('settings.never')}
+          </p>
+          {ready === false
+            ? <Button className="mt-3 w-full" onClick={() => setMode('setup')}>{t('settings.setupBackup')}</Button>
+            : <Button className="mt-3 w-full" onClick={backup} disabled={busy || !ready}>{t('settings.backupNow')}</Button>}
+        </div>
+      </section>
+      <Group>
+        <Row title={t('settings.restore')} onClick={() => setMode('restore')} />
+        {ready && <Row title={t('code.change')} onClick={() => setMode('changeCode')} />}
+        {ready && <Row title={t('code.lost')} onClick={() => { if (confirm(t('code.lostConfirm'))) setMode('newCode'); }} />}
+        {!isInstalled() && <Row title={t('install.settings')} onClick={() => setGuide(true)} />}
+      </Group>
       {guide && <InstallGuide onClose={() => setGuide(false)} />}
       <DriveSettings onRestore={(f) => { setDriveFolder(f); setMode('driveRestore'); }} />
-      <h2 className="mt-6 text-lg font-semibold">{t('labels.title')}</h2>
-      <div className="mt-3 flex flex-col gap-2">
-        <Button variant="secondary" onClick={() => navigate('/labels')}>{t('labels.title')}</Button>
-      </div>
+      <Group title={t('settings.more')}>
+        <Row title={t('labels.title')} lead={<Icon as={Printer} className="text-text-2" />} onClick={() => navigate('/labels')} />
+        <Row title={t('bin.title')} detail={t('settings.binHint')} lead={<Icon as={Trash2} className="text-text-2" />} onClick={() => navigate('/bin')} />
+      </Group>
       {workspace?.type === 'seller' && (
-        <label className="mt-6 flex min-h-12 items-center gap-3">
-          <input type="checkbox" className="h-5 w-5" checked={workspace.jewelleryFields}
-            onChange={async (e) => { await db.setJewelleryFields(workspace.id, e.target.checked); setWorkspace({ ...workspace, jewelleryFields: e.target.checked }); }} />
-          <span>{t('settings.jewellery')}</span>
-        </label>
+        <div className="mt-6 rounded-md bg-surface px-4">
+          <label className="flex min-h-11 items-center gap-3 py-2">
+            <input type="checkbox" className="h-5 w-5 accent-accent-fill" checked={workspace.jewelleryFields}
+              onChange={async (e) => { await db.setJewelleryFields(workspace.id, e.target.checked); setWorkspace({ ...workspace, jewelleryFields: e.target.checked }); }} />
+            <span className="text-body">{t('settings.jewellery')}</span>
+          </label>
+        </div>
       )}
       {workspace?.type === 'home' && (
-        <>
-          <h2 className="mt-6 text-lg font-semibold">{t('lists.title')}</h2>
-          <div className="mt-3 flex flex-col gap-2">
-            <Button variant="secondary" disabled={busy} onClick={() => void shareList('removalist')}>{t('lists.removalist')}</Button>
-            <Button variant="secondary" disabled={busy} onClick={() => void shareList('family')}>{t('lists.family')}</Button>
-            <Button variant="secondary" disabled={busy} onClick={() => void shareList('insurance')}>{t('lists.insurance')}</Button>
-          </div>
-        </>
+        <Group title={t('lists.title')}>
+          <Row title={t('lists.removalist')} disabled={busy} onClick={() => shareList('removalist')} />
+          <Row title={t('lists.family')} disabled={busy} onClick={() => shareList('family')} />
+          <Row title={t('lists.insurance')} disabled={busy} onClick={() => shareList('insurance')} />
+        </Group>
       )}
-      <h2 className="mt-6 text-lg font-semibold">{t('settings.data')}</h2>
-      <div className="mt-3 flex flex-col gap-2">
-        <Button variant="secondary" onClick={exportCsv}>{t('settings.exportCsv')}</Button>
-        <Button variant="danger" onClick={eraseAll}>{t('settings.erase')}</Button>
-      </div>
+      <Group title={t('settings.data')}>
+        <Row title={t('settings.exportCsv')} onClick={exportCsv} />
+      </Group>
+      <Group>
+        <Row title={t('settings.erase')} tone="danger" chevron={false} onClick={eraseAll} />
+      </Group>
     </Page>
   );
 }

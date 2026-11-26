@@ -15,12 +15,12 @@ function showUpdateBar(apply: () => void): void {
   const bar = document.createElement('div');
   bar.id = 'bt-update';
   bar.setAttribute('role', 'status');
-  bar.className = 'fixed inset-x-0 top-0 z-50 flex items-center justify-between gap-3 bg-blue-800 px-4 py-3 text-white';
+  bar.className = 'fixed inset-x-0 top-0 z-50 flex items-center justify-between gap-3 bg-accent-fill px-4 py-3 text-on-accent';
   const text = document.createElement('span');
   text.textContent = navigator.language?.startsWith('bn') ? 'নতুন সংস্করণ এসেছে' : 'New version available';
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.className = 'rounded-lg bg-white px-3 py-2 font-medium text-blue-900';
+  btn.className = 'rounded-md bg-surface px-3 py-2 font-medium text-accent';
   btn.textContent = navigator.language?.startsWith('bn') ? 'আপডেট করুন' : 'Tap to update';
   btn.onclick = apply;
   bar.append(text, btn);

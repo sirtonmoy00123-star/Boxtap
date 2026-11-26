@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../context';
 import { navigate } from '../router';
-import { Button, Page, inputClass } from '../ui';
+import { Button, Sheet, Page, inputClass } from '../ui';
 import { WorkerError } from '../../core/db/client';
 import { DEFAULT_CONFIG } from '../../core/licensing/can';
 import type { BinBox, BinItem, Box } from '../../core/repo';
@@ -19,23 +19,23 @@ export function Bin() {
   };
   const empty = bin && bin.boxes.length === 0 && bin.items.length === 0;
   return (
-    <Page title={t('bin.title')} back={() => navigate('/')}>
-      <p className="text-sm text-slate-500">{t('bin.hint')}</p>
-      {empty && <p className="py-10 text-center text-slate-500">{t('bin.empty')}</p>}
-      <ul className="divide-y">
+    <Page title={t('bin.title')} back={() => navigate('/settings')}>
+      <p className="px-1 pt-2 text-footnote text-text-2">{t('bin.hint')}</p>
+      {empty && <p className="py-10 text-center text-body text-text-2">{t('bin.empty')}</p>}
+      {!empty && <ul className="group-list mt-4 overflow-hidden rounded-md bg-surface">
         {bin?.boxes.map((b) => (
-          <li key={b.id} className="flex items-center justify-between py-2">
+          <li key={b.id} className="flex min-h-11 items-center justify-between gap-3 px-4 py-1.5 text-body">
             <span>{b.name || t('box.title', { n: b.number })}</span>
             <Button variant="secondary" onClick={() => restore(() => db.restoreBox(b.id))}>{t('bin.restore')}</Button>
           </li>
         ))}
         {bin?.items.map((i) => (
-          <li key={i.id} className="flex items-center justify-between py-2">
-            <span>{i.name} <span className="text-slate-500">· {t('box.title', { n: i.boxNumber })}</span></span>
+          <li key={i.id} className="flex min-h-11 items-center justify-between gap-3 px-4 py-1.5 text-body">
+            <span>{i.name} <span className="text-text-2">· {t('box.title', { n: i.boxNumber })}</span></span>
             <Button variant="secondary" onClick={() => restore(() => db.restoreItem(i.id))}>{t('bin.restore')}</Button>
           </li>
         ))}
-      </ul>
+      </ul>}
     </Page>
   );
 }
@@ -104,7 +104,7 @@ export function NoDataLabel() {
   const { t } = useApp();
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-4 px-6 text-center">
-      <h1 className="text-2xl font-semibold">{t('label.noData')}</h1>
+      <h1 className="text-large-title font-semibold">{t('label.noData')}</h1>
       <Button onClick={() => navigate('/', true)}>{t('label.openApp')}</Button>
     </div>
   );
@@ -115,15 +115,15 @@ export function Upgrade({ reason, onClose }: { reason: string; onClose: () => vo
   const limits = DEFAULT_CONFIG.free_limits;
   const n = reason === 'limit_boxes' ? limits.home_boxes : limits.seller_items;
   return (
-    <div role="dialog" aria-modal="true" aria-labelledby="upgrade-title" className="fixed inset-0 z-50 grid place-items-end bg-black/40 sm:place-items-center">
-      <div className="w-full max-w-md rounded-t-2xl bg-white p-6 sm:rounded-2xl">
-        <h2 id="upgrade-title" className="text-xl font-semibold">{t('upgrade.title')}</h2>
+    <Sheet labelledBy="upgrade-title" onClose={onClose}>
+      <div>
+        <h2 id="upgrade-title" className="text-title2 font-semibold">{t('upgrade.title')}</h2>
         <p className="mt-2" data-testid="upgrade-reason">{t(`upgrade.${reason}` as Key, { n })}</p>
         <p className="mt-2">{t(workspace?.type === 'seller' ? 'upgrade.sellerPro' : 'upgrade.movePass')}</p>
-        <p className="mt-2 text-sm font-medium text-amber-900">{t('upgrade.soon')}</p>
-        <p className="mt-3 text-sm text-slate-600">{t('upgrade.never')}</p>
+        <p className="mt-2 text-subhead font-medium text-warning">{t('upgrade.soon')}</p>
+        <p className="mt-3 text-subhead text-text-2">{t('upgrade.never')}</p>
         <Button variant="secondary" className="mt-4 w-full" onClick={onClose}>{t('upgrade.later')}</Button>
       </div>
-    </div>
+    </Sheet>
   );
 }

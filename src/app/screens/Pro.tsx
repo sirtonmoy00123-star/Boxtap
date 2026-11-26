@@ -51,7 +51,7 @@ export function ReportsPage() {
     <Page title={t('rep.title')} back={() => navigate('/')}>
       <div className="grid grid-cols-4 gap-1" role="group">
         {(['today', 'week', 'month', 'thisMonth'] as const).map((p) => (
-          <Button key={p} variant={period === p ? 'primary' : 'secondary'} className="px-1 text-sm" aria-pressed={period === p} onClick={() => setPeriod(p)}>
+          <Button key={p} variant={period === p ? 'primary' : 'secondary'} className="px-1 text-subhead" aria-pressed={period === p} onClick={() => setPeriod(p)}>
             {t(`rep.${p}` as Key)}
           </Button>
         ))}
@@ -59,20 +59,20 @@ export function ReportsPage() {
       {rep && (
         <>
           <dl className="mt-4 grid grid-cols-3 gap-2 text-center" data-testid="report-totals">
-            <div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-500">{t('rep.units')}</dt><dd className="text-xl font-semibold">{rep.unitsSold}</dd></div>
-            <div className="rounded-xl bg-slate-50 p-3"><dt className="text-xs text-slate-500">{t('rep.sales')}</dt><dd className="text-xl font-semibold">{money(rep.revenueMinor)}</dd></div>
-            <div className="rounded-xl bg-green-50 p-3"><dt className="text-xs text-slate-500">{t('rep.profit')}</dt><dd className="text-xl font-semibold text-green-800">{money(rep.profitMinor)}</dd></div>
+            <div className="rounded-md bg-surface-2 p-3"><dt className="text-footnote text-text-2">{t('rep.units')}</dt><dd className="text-title2 font-semibold">{rep.unitsSold}</dd></div>
+            <div className="rounded-md bg-surface-2 p-3"><dt className="text-footnote text-text-2">{t('rep.sales')}</dt><dd className="text-title2 font-semibold">{money(rep.revenueMinor)}</dd></div>
+            <div className="rounded-md bg-surface-2 p-3"><dt className="text-footnote text-text-2">{t('rep.profit')}</dt><dd className="text-title2 font-semibold text-success">{money(rep.profitMinor)}</dd></div>
           </dl>
-          {rep.unitsWithoutCost > 0 && <p className="mt-2 text-sm text-amber-900">{t('rep.noCost', { n: rep.unitsWithoutCost })}</p>}
-          {rep.unitsSold === 0 && <p className="py-6 text-center text-slate-500">{t('rep.none')}</p>}
+          {rep.unitsWithoutCost > 0 && <p className="mt-2 text-subhead text-warning">{t('rep.noCost', { n: rep.unitsWithoutCost })}</p>}
+          {rep.unitsSold === 0 && <p className="py-6 text-center text-text-2">{t('rep.none')}</p>}
           {rep.bestSellers.length > 0 && (
             <section className="mt-6">
-              <h2 className="text-lg font-semibold">{t('rep.best')}</h2>
-              <ol className="divide-y" aria-label="best sellers">
+              <h2 className="text-headline font-semibold">{t('rep.best')}</h2>
+              <ol className="divide-y divide-separator" aria-label="best sellers">
                 {rep.bestSellers.map((b) => (
                   <li key={b.itemId} className="flex justify-between py-2">
                     <button type="button" className="text-left" onClick={() => navigate(`/item/${b.itemId}`)}>{b.name}</button>
-                    <span className="text-slate-600">{b.units} · {money(b.revenueMinor)}</span>
+                    <span className="text-text-2">{b.units} · {money(b.revenueMinor)}</span>
                   </li>
                 ))}
               </ol>
@@ -80,12 +80,12 @@ export function ReportsPage() {
           )}
           {rep.byDay.length > 1 && (
             <section className="mt-6">
-              <h2 className="text-lg font-semibold">{t('rep.byDay')}</h2>
+              <h2 className="text-headline font-semibold">{t('rep.byDay')}</h2>
               <ul className="mt-2 space-y-1" aria-label="sales by day">
                 {rep.byDay.map((d) => (
-                  <li key={d.day} className="flex items-center gap-2 text-sm">
-                    <span className="w-24 shrink-0 text-slate-600">{new Date(`${d.day}T12:00:00`).toLocaleDateString(ws.language === 'bn' ? 'bn-BD' : 'en-AU', { day: 'numeric', month: 'short' })}</span>
-                    <span className="h-4 rounded bg-blue-600" style={{ width: `${Math.max(2, (d.revenueMinor / maxDay) * 60)}%` }} />
+                  <li key={d.day} className="flex items-center gap-2 text-subhead">
+                    <span className="w-24 shrink-0 text-text-2">{new Date(`${d.day}T12:00:00`).toLocaleDateString(ws.language === 'bn' ? 'bn-BD' : 'en-AU', { day: 'numeric', month: 'short' })}</span>
+                    <span className="h-4 rounded-md bg-accent-fill" style={{ width: `${Math.max(2, (d.revenueMinor / maxDay) * 60)}%` }} />
                     <span>{money(d.revenueMinor)}</span>
                   </li>
                 ))}
@@ -95,10 +95,10 @@ export function ReportsPage() {
         </>
       )}
       {value && (
-        <section className="mt-6 rounded-xl border p-3">
+        <section className="mt-6 rounded-md border border-separator p-3">
           <h2 className="font-semibold">{t('rep.stock')}: {t('rep.stockUnits', { n: value.unitsInStock })}</h2>
-          <p className="text-sm">{t('rep.atCost', { v: money(value.atCostMinor) })}</p>
-          <p className="text-sm">{t('rep.atPrice', { v: money(value.atPriceMinor) })}</p>
+          <p className="text-subhead">{t('rep.atCost', { v: money(value.atCostMinor) })}</p>
+          <p className="text-subhead">{t('rep.atPrice', { v: money(value.atPriceMinor) })}</p>
         </section>
       )}
     </Page>
@@ -140,15 +140,15 @@ export function OrdersPage() {
           <Button className="w-full" onClick={() => setForm({ customer: '', phone: '', note: '' })}>{t('ord.new')}</Button>
           <div className="mt-3 flex gap-1 overflow-x-auto" role="group">
             {STATUSES.map((s) => (
-              <Button key={s} variant={tab === s ? 'primary' : 'secondary'} className="px-3 text-sm" aria-pressed={tab === s} onClick={() => setTab(s)}>{t(`ord.${s}` as Key)}</Button>
+              <Button key={s} variant={tab === s ? 'primary' : 'secondary'} className="px-3 text-subhead" aria-pressed={tab === s} onClick={() => setTab(s)}>{t(`ord.${s}` as Key)}</Button>
             ))}
           </div>
-          {orders?.length === 0 && <p className="py-10 text-center text-slate-500">{t('ord.none')}</p>}
-          <ul className="mt-2 divide-y" aria-label="orders">
+          {orders?.length === 0 && <p className="py-10 text-center text-text-2">{t('ord.none')}</p>}
+          <ul className="mt-2 divide-y divide-separator" aria-label="orders">
             {orders?.map((o) => (
               <li key={o.id}>
                 <button type="button" className="flex w-full justify-between py-3 text-left" onClick={() => navigate(`/order/${o.id}`)}>
-                  <span><span className="font-medium">{t('ord.number', { n: o.number })} · {o.customer}</span><br /><span className="text-sm text-slate-500">{t('ord.lines', { n: o.lines.reduce((s, l) => s + l.qty, 0) })} · {t(`ord.${o.status}` as Key)}</span></span>
+                  <span><span className="font-medium">{t('ord.number', { n: o.number })} · {o.customer}</span><br /><span className="text-subhead text-text-2">{t('ord.lines', { n: o.lines.reduce((s, l) => s + l.qty, 0) })} · {t(`ord.${o.status}` as Key)}</span></span>
                   <span>{formatPrice(o.totalMinor, ws.currency)}</span>
                 </button>
               </li>
@@ -197,19 +197,19 @@ export function OrderPage({ id }: { id: string }) {
 
   return (
     <Page title={`${t('ord.number', { n: order.number })} · ${order.customer}`} back={() => navigate('/orders')}>
-      <p className="text-sm text-slate-600" data-testid="order-status">{t(`ord.${order.status}` as Key)}{order.phone ? ` · ${order.phone}` : ''}{order.note ? ` · ${order.note}` : ''}</p>
-      <ul className="mt-3 divide-y" aria-label="order lines">
+      <p className="text-subhead text-text-2" data-testid="order-status">{t(`ord.${order.status}` as Key)}{order.phone ? ` · ${order.phone}` : ''}{order.note ? ` · ${order.note}` : ''}</p>
+      <ul className="mt-3 divide-y divide-separator" aria-label="order lines">
         {order.lines.map((l) => (
           <li key={l.id} className="flex items-center justify-between py-2">
             <span>{l.qty} × {l.name}</span>
             <span className="flex items-center gap-2">
-              {l.unitPriceMinor != null && <span className="text-slate-600">{money(l.unitPriceMinor * l.qty)}</span>}
+              {l.unitPriceMinor != null && <span className="text-text-2">{money(l.unitPriceMinor * l.qty)}</span>}
               {open && <Button variant="ghost" className="min-h-12 px-2" onClick={() => void run(() => db.removeOrderLine(l.id))}>{t('ord.remove')}</Button>}
             </span>
           </li>
         ))}
       </ul>
-      <p className="mt-2 text-right text-lg font-semibold" data-testid="order-total">{t('ord.total', { v: money(order.totalMinor) })}</p>
+      <p className="mt-2 text-right text-headline font-semibold" data-testid="order-total">{t('ord.total', { v: money(order.totalMinor) })}</p>
 
       {open && (
         <section className="mt-4">
