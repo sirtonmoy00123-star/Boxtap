@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { PackageOpen, TriangleAlert, X } from 'lucide-react';
+import { PackageOpen, Sofa, TriangleAlert, X } from 'lucide-react';
 import { useApp } from '../context';
 import { navigate } from '../router';
 import { Button, Field, Icon, IconButton, LabelTag, Page, inputClass } from '../ui';
 import { WorkerError } from '../../core/db/client';
-import type { Box, Item, ItemThumb, Room } from '../../core/repo';
+import type { Box, Item, ItemThumb, JobRow, Room, VolumeItem } from '../../core/repo';
+import { showJobNumber } from './removalist/Jobs';
+import type { Key } from '../../i18n/i18n';
 import { ItemThumbButton, PhotoStrip } from './Photos';
 import { SellerItems } from './Seller';
 
@@ -15,7 +17,7 @@ type Draft = { name: string; spot: string; notes: string };
  * right away when leaving the screen or the app, so nothing typed is lost.
  */
 export function BoxPage({ id }: { id: string }) {
-  const { db, workspace, t, num, showUpgrade, toast } = useApp();
+  const { db, workspace, t, num, lang, showUpgrade, toast } = useApp();
   const [box, setBox] = useState<Box | null | undefined>(undefined);
   const [items, setItems] = useState<Item[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -23,6 +25,10 @@ export function BoxPage({ id }: { id: string }) {
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [newItem, setNewItem] = useState('');
   const [thumbs, setThumbs] = useState<Record<string, ItemThumb>>({});
+  // Removalist: the job this box or piece belongs to, and the box sizes / furniture types to pick from.
+  const [job, setJob] = useState<JobRow | null>(null);
+  const [sizes, setSizes] = useState<VolumeItem[]>([]);
+  const [volumeItemId, setVolumeItemId] = useState<string | null>(null);
   const pending = useRef<Draft | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const live = useRef(true);
@@ -39,7 +45,15 @@ export function BoxPage({ id }: { id: string }) {
     if (b) {
       if (resetDraft) setDraft({ name: b.name ?? '', spot: b.spot ?? '', notes: b.notes ?? '' });
       await reloadItems();
-      setRooms(await db.listRooms(b.workspaceId));
+      if (b.jobId) {
+        const [j, rs, cat, piece] = await Promise.all([db.getJob(b.jobId), db.listJobRooms(b.jobId), db.listVolumeCatalogue(b.workspaceId), db.getJobPiece(id)]);
+        setJob(j ?? null);
+        setRooms(rs);
+        setSizes(cat.filter((c) => c.kind === (b.isPiece ? 'furniture' : 'box')));
+        setVolumeItemId(piece?.volumeItemId ?? null);
+      } else {
+        setRooms(await db.listRooms(b.workspaceId));
+      }
     }
   }, [db, id, reloadItems]);
   useEffect(() => { void load(true); }, [load]);
@@ -100,11 +114,16 @@ export function BoxPage({ id }: { id: string }) {
     if (value === '__new') {
       const name = prompt(t('box.newRoomName'))?.trim();
       if (!name) return;
-      roomId = (await db.createRoom(box.workspaceId, name)).id;
+      // A job box only uses its own job's rooms (rooms.job_id).
+      roomId = (box.jobId ? await db.createJobRoom(box.jobId, name) : await db.createRoom(box.workspaceId, name)).id;
     }
-    await db.updateBox(id, { roomId });
+    if (box.jobId) await db.setPieceRoom(id, roomId); else await db.updateBox(id, { roomId });
     await load();
   };
+  const jobWhat = box.jobId && box.jobSeq != null ? t(box.isPiece ? 'rm.piece.n' : 'rm.box.n', { n: box.jobSeq }) : null;
+  const shownNumber = box.jobSeq ?? box.number;
+  const backTo = box.jobId ? `/job/${box.jobId}` : '/';
+  const volumeName = (v: VolumeItem) => (lang === 'bn' ? v.nameBn ?? v.nameEn : v.nameEn ?? v.nameBn) ?? '';
   const addItem = async () => {
     if (!newItem.trim()) return;
     try {
@@ -127,7 +146,18 @@ export function BoxPage({ id }: { id: string }) {
     try {
       await flush();
       await db.deleteBox(id);
-      navigate('/', true);
+      navigate(backTo, true);
+      if (jobWhat) {
+        toast(t('rm.piece.binned', { what: jobWhat }), {
+          label: t('stock.undo'),
+          run: async () => {
+            await db.restoreBox(id);
+            window.dispatchEvent(new Event('boxtap:boxes-changed'));
+            toast(t('rm.piece.restored', { what: jobWhat }));
+          },
+        });
+        return;
+      }
       toast(t('box.binned', { n: box.number }), {
         label: t('stock.undo'),
         run: async () => {
@@ -137,15 +167,19 @@ export function BoxPage({ id }: { id: string }) {
         },
       });
     } catch (e) {
-      toast(t('error.generic', { msg: (e as Error).message }));
+      // A box in a job with a signed report can't be binned (database trigger): say why.
+      toast(/job_signed_archive_only/.test((e as Error).message) ? t('rm.piece.signedNoBin') : t('error.generic', { msg: (e as Error).message }));
     }
   };
 
   const toggleClass = (on: boolean) => `inline-flex min-h-11 items-center gap-1.5 rounded-full border px-4 text-subhead ${on ? 'border-accent bg-accent-fill text-on-accent' : 'border-separator bg-surface text-text'}`;
 
   return (
-    <Page title={draft.name || t('box.title', { n: box.number })} lead={<LabelTag n={num(box.number)} />} back={() => navigate('/')}>
-      <p className="px-1 pt-2 text-footnote text-text-2">{t('box.title', { n: box.number })} · {t('box.label')} <span className="font-mono" data-testid="label-code">{box.labelCode}</span></p>
+    <Page title={draft.name || jobWhat || t('box.title', { n: box.number })} back={() => navigate(backTo)}
+      lead={box.isPiece ? <Icon as={Sofa} size={28} className="text-accent" /> : <LabelTag n={num(shownNumber)} />}>
+      <p className="px-1 pt-2 text-footnote text-text-2" data-testid="box-context">
+        {jobWhat && job ? t('rm.box.inJob', { what: jobWhat, job: showJobNumber(job.number, num), name: job.customerLabelName }) : t('box.title', { n: box.number })} · {t('box.label')} <span className="font-mono" data-testid="label-code">{box.labelCode}</span>
+      </p>
 
       <div className="mt-3 flex flex-wrap gap-2">
         <button type="button" aria-pressed={box.isFragile} className={toggleClass(box.isFragile)} onClick={() => void toggle('isFragile')}>
@@ -191,7 +225,15 @@ export function BoxPage({ id }: { id: string }) {
           <Field label={t('box.name')}>
             <input className={inputClass} value={draft.name} maxLength={80} onChange={(e) => edit({ name: e.target.value })} />
           </Field>
-          <Field label={t('box.room')}>
+          {box.jobId && (
+            <Field label={t(box.isPiece ? 'rm.piece.type' : 'rm.box.size')}>
+              <select className={inputClass} value={volumeItemId ?? ''} onChange={async (e) => { const v = e.target.value || null; await db.setPieceVolumeItem(id, v); setVolumeItemId(v); }}>
+                {box.isPiece && <option value="">{t('rm.piece.typeNone')}</option>}
+                {sizes.map((v) => <option key={v.id} value={v.id}>{volumeName(v)}</option>)}
+              </select>
+            </Field>
+          )}
+          <Field label={t((box.jobId ? 'rm.box.room' : 'box.room') as Key)}>
             <select className={inputClass} value={box.roomId ?? ''} onChange={(e) => void setRoom(e.target.value)}>
               <option value="">{t('box.noRoom')}</option>
               {rooms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
@@ -229,7 +271,7 @@ export function BoxPage({ id }: { id: string }) {
       )}
 
       <div className="mt-10 text-center">
-        <Button variant="danger" onClick={remove}>{t('box.delete')}</Button>
+        <Button variant="danger" onClick={remove}>{t(box.jobId ? 'rm.piece.delete' : 'box.delete')}</Button>
       </div>
     </Page>
   );

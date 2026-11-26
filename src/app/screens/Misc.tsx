@@ -4,12 +4,13 @@ import { navigate } from '../router';
 import { Button, Sheet, Page, inputClass } from '../ui';
 import { WorkerError } from '../../core/db/client';
 import { DEFAULT_CONFIG } from '../../core/licensing/can';
-import type { BinBox, BinItem, Box } from '../../core/repo';
+import type { BinBox, BinItem, BinJob, Box } from '../../core/repo';
+import { showJobNumber } from './removalist/Jobs';
 import type { Key } from '../../i18n/i18n';
 
 export function Bin() {
-  const { db, workspace, t, showUpgrade } = useApp();
-  const [bin, setBin] = useState<{ boxes: BinBox[]; items: BinItem[] } | null>(null);
+  const { db, workspace, t, num, showUpgrade } = useApp();
+  const [bin, setBin] = useState<{ boxes: BinBox[]; items: BinItem[]; jobs: BinJob[] } | null>(null);
   const load = () => db.listBin(workspace!.id).then(setBin);
   useEffect(() => { void db.listBin(workspace!.id).then(setBin); }, [db, workspace]);
   const restore = async (fn: () => Promise<void>) => {
@@ -17,15 +18,21 @@ export function Bin() {
       if (e instanceof WorkerError && e.reason) showUpgrade(e.reason); else throw e;
     }
   };
-  const empty = bin && bin.boxes.length === 0 && bin.items.length === 0;
+  const empty = bin && bin.boxes.length === 0 && bin.items.length === 0 && bin.jobs.length === 0;
   return (
     <Page title={t('bin.title')} back={() => navigate('/settings')}>
       <p className="px-1 pt-2 text-footnote text-text-2">{t('bin.hint')}</p>
       {empty && <p className="py-10 text-center text-body text-text-2">{t('bin.empty')}</p>}
       {!empty && <ul className="group-list mt-4 overflow-hidden rounded-md bg-surface">
+        {bin?.jobs.map((j) => (
+          <li key={j.id} className="flex min-h-11 items-center justify-between gap-3 px-4 py-1.5 text-body">
+            <span><span className="num">{showJobNumber(j.number, num)}</span> · {j.customerName}</span>
+            <Button variant="secondary" onClick={() => restore(() => db.restoreJob(j.id))}>{t('bin.restore')}</Button>
+          </li>
+        ))}
         {bin?.boxes.map((b) => (
           <li key={b.id} className="flex min-h-11 items-center justify-between gap-3 px-4 py-1.5 text-body">
-            <span>{b.name || t('box.title', { n: b.number })}</span>
+            <span>{b.job ? `${t(b.job.isPiece ? 'rm.piece.n' : 'rm.box.n', { n: b.job.seq })} · ${showJobNumber(b.job.number, num)}${b.name ? ` · ${b.name}` : ''}` : b.name || t('box.title', { n: b.number })}</span>
             <Button variant="secondary" onClick={() => restore(() => db.restoreBox(b.id))}>{t('bin.restore')}</Button>
           </li>
         ))}
@@ -42,9 +49,10 @@ export function Bin() {
 
 /** /b/:code opened from a camera app or link (API_CONTRACTS §5). Shows nothing about the code otherwise. */
 export function LabelRoute({ code }: { code: string }) {
-  const { db, workspace, setWorkspace, t, toast } = useApp();
+  const { db, workspace, setWorkspace, t, num, toast } = useApp();
   const [state, setState] = useState<'looking' | 'notMine' | 'spare'>('looking');
   const [boxes, setBoxes] = useState<Box[]>([]);
+  const [jobNos, setJobNos] = useState<Record<string, string>>({});
   const [target, setTarget] = useState('');
   const c = code.toUpperCase();
   useEffect(() => {
@@ -60,7 +68,11 @@ export function LabelRoute({ code }: { code: string }) {
         setWorkspace(other);
       }
       if (st.kind === 'box') { navigate(`/box/${st.boxId}`, true); return; }
-      setBoxes(await db.listBoxes(st.workspaceId));
+      const list = await db.listBoxes(st.workspaceId);
+      const jobIds = [...new Set(list.map((b) => b.jobId).filter((x): x is string => !!x))];
+      const jobs = await Promise.all(jobIds.map((j) => db.getJob(j)));
+      setJobNos(Object.fromEntries(jobs.filter((j) => !!j).map((j) => [j!.id, showJobNumber(j!.number, num)])));
+      setBoxes(list);
       setState('spare');
     })();
     return () => { live = false; };
@@ -85,7 +97,7 @@ export function LabelRoute({ code }: { code: string }) {
         <p className="py-2">{t('spare.explain')}</p>
         <select className={inputClass} aria-label={t('spare.pick')} value={target} onChange={(e) => setTarget(e.target.value)}>
           <option value="">{t('spare.pick')}</option>
-          {boxes.map((b) => <option key={b.id} value={b.id}>{t('box.title', { n: b.number })}{b.name ? ` · ${b.name}` : ''}</option>)}
+          {boxes.map((b) => <option key={b.id} value={b.id}>{b.jobId && b.jobSeq != null ? `${t(b.isPiece ? 'rm.piece.n' : 'rm.box.n', { n: b.jobSeq })} · ${jobNos[b.jobId] ?? ''}` : t('box.title', { n: b.number })}{b.name ? ` · ${b.name}` : ''}</option>)}
         </select>
         <Button className="mt-2 w-full" disabled={!target} onClick={() => void stick(target)}>{t('spare.stick')}</Button>
         <Button variant="secondary" className="mt-2 w-full" onClick={() => void newBox()}>{t('spare.newBox')}</Button>
@@ -113,13 +125,13 @@ export function NoDataLabel() {
 export function Upgrade({ reason, onClose }: { reason: string; onClose: () => void }) {
   const { t, workspace } = useApp();
   const limits = DEFAULT_CONFIG.free_limits;
-  const n = reason === 'limit_boxes' ? limits.home_boxes : limits.seller_items;
+  const n = reason === 'limit_boxes' ? limits.home_boxes : reason === 'limit_jobs' ? limits.removalist_active_jobs ?? 2 : limits.seller_items;
   return (
     <Sheet labelledBy="upgrade-title" onClose={onClose}>
       <div>
         <h2 id="upgrade-title" className="text-title2 font-semibold">{t('upgrade.title')}</h2>
         <p className="mt-2" data-testid="upgrade-reason">{t(`upgrade.${reason}` as Key, { n })}</p>
-        <p className="mt-2">{t(workspace?.type === 'seller' ? 'upgrade.sellerPro' : 'upgrade.movePass')}</p>
+        <p className="mt-2">{t(workspace?.type === 'seller' ? 'upgrade.sellerPro' : workspace?.type === 'removalist' ? 'upgrade.removalistPro' : 'upgrade.movePass')}</p>
         <p className="mt-2 text-subhead font-medium text-warning">{t('upgrade.soon')}</p>
         <p className="mt-3 text-subhead text-text-2">{t('upgrade.never')}</p>
         <Button variant="secondary" className="mt-4 w-full" onClick={onClose}>{t('upgrade.later')}</Button>

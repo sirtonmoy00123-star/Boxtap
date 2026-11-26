@@ -8,3 +8,4 @@ export * from './stock';
 export * from './reports';
 export * from './orders';
 export * from './variants';
+export * from './removalist';

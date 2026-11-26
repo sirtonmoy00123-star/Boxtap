@@ -9,6 +9,7 @@ import type { Db } from '../../core/db/client';
 import type { Key } from '../../i18n/i18n';
 import { DriveRestore, DriveSettings } from './Drive';
 import { ListSettings } from './Lists';
+import { RemovalistSettingsRows } from './removalist/Settings';
 import { InstallGuide } from './Install';
 import { isInstalled } from '../../core/pwa/install';
 import { removePhotoFile } from '../../core/photos/store';
@@ -243,6 +244,7 @@ export function Settings() {
   return (
     <Page title={t('settings.title')}>
       <ListSettings />
+      {workspace?.type === 'removalist' && <RemovalistSettingsRows />}
       <section className="mt-6">
         <h2 className="px-4 pb-1.5 text-footnote text-text-2">{t('settings.backup')}</h2>
         <div className="rounded-md bg-surface p-4">
@@ -264,6 +266,7 @@ export function Settings() {
       {guide && <InstallGuide onClose={() => setGuide(false)} />}
       <DriveSettings onRestore={(f) => { setDriveFolder(f); setMode('driveRestore'); }} />
       <Group title={t('settings.more')}>
+        {/* Removalist: job labels are printed from the job; this row prints blank spare labels. */}
         <Row title={t('labels.title')} lead={<Icon as={Printer} className="text-text-2" />} onClick={() => navigate('/labels')} />
         <Row title={t('bin.title')} detail={t('settings.binHint')} lead={<Icon as={Trash2} className="text-text-2" />} onClick={() => navigate('/bin')} />
       </Group>

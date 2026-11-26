@@ -44,6 +44,9 @@ npx tsx tools/config.ts sign          # writes public/config/v1.json
 | 1b Paid keys (licence entry, payment links, renewal reminders) | Skipped for now by the owner (2026-11-25) | |
 | 2 Seller: stock ledger (sell, restock, booked, packed, cancel, damaged, returned, undo 24 h, count, move), item details incl. jewellery fields, low-stock list | Done, with the in-stock catalogue picture and Bangla text on labels (drawn by the browser, placed in the PDF) | stock tests, Seller E2E |
 | 3 Seller Pro extras: cost/profit, reports, orders, variants | Built ahead of the pilot at the owner's request (2026-11-26), including Excel export (Items, Sales, Orders sheets) | reports/orders/variants/xlsx tests; Pro E2E on a preview build |
+| Removalist Phase 1 (foundation): schema v6, `can()` per type, teal, onboarding, Jobs tab, job Bin/archive | Done on branch `feature/removalist-mode` (not merged, not pushed) | v6 migration and trigger tests, jobs/licensing tests, `e2e/removalist.spec.ts` incl. axe |
+| Removalist Phase 2 (boxes and furniture pieces in a job, job rooms, quick add, job labels) | Done on branch `feature/removalist-mode` (not merged, not pushed) | `pieces.test.ts`, `jobLabels.test.ts` (fit on both sheets), `e2e/removalist.spec.ts` |
+| Removalist Phases 3-7 (load check, condition and sign-off, volume, PDFs/crew mode, finish) | Not started | `docs/removalist-plan.md` §10 |
 | 1.8 Offline, update prompt, launch | Update prompt and precache done; offline E2E and launch not yet | |
 
 ## Rulings made during the build (deviations from the docs, with cost if wrong)
@@ -96,7 +99,7 @@ Deferred (recorded, not fixed yet):
 - Purge may report photo file names from a rolled-back savepoint (finding 8). It matters once photos exist.
 - Restore holds the backup in memory 4–5 times (finding 13). It must stream before photos go into backups (iPhone memory).
 - "Undo restore" button using the kept safety copy. A recovery screen that exports the raw database when it can't open.
-- `migrate()` must make a safety copy before any migration once schema v2 exists (DATABASE_SCHEMA §2, L9).
+- ~~`migrate()` must make a safety copy before any migration~~ Done in Removalist Phase 1: the worker keeps `/before-migrate.sqlite3`.
 - `pack()` does not bound name or entry sizes on write.
 - Licensing end to end (licence keys and signed config in `can()`) is Phase 1b and not wired yet.
 
@@ -141,6 +144,81 @@ Tests (2026-11-26, this branch):
 - E2E `webkit` (it ran before, so it was run again): 22 passed, 12 skipped (no OPFS in the Windows build, Chromium-only tests), 1 flaky: "export CSV, then erase all data" timed out waiting for the download once and passed on its allowed retry (ruling 18). The same kind of WebKit download timeout failed the removalist test in the run before this change; that test passes now.
 
 Re-run after the `--accent-on-grey` change (ruling 20), 2026-11-26: `npm run check` passed (250 unit tests, 0 lint errors); E2E chromium + mobile-chrome + webkit together: 85 passed, 20 skipped, 0 failed, 0 flaky, including the axe WCAG 2.2 AA check.
+
+## Removalist mode, Phase 1 (2026-11-26)
+
+Plan: `docs/removalist-plan.md` (approved by the owner, answers in §11). Branch `feature/removalist-mode`, made from local main with its 3 unpushed commits. Not merged, not pushed, not deployed.
+
+Built:
+
+- **Schema v6** (`src/core/db/schemaV6.ts`). `workspaces` (type adds `removalist`) and `entitlements` (plan adds `removalist_pro`) are rebuilt. `migrate()` has a rebuild path: foreign keys OFF outside the transaction, the rebuild, a `foreign_key_check` before commit, then foreign keys back ON. Triggers whose body names `workspaces` (`sm_no_delete`, `ws_no_live_delete`) are dropped and re-created from their own stored SQL, so they stay identical. All Removalist tables from plan §4.2 and all triggers from §4.3 are in v6 now, so later phases should need no new migration.
+- **Safety copy before migrating**: the worker copies the database to `/before-migrate.sqlite3` when `user_version` is below the app's, and puts it back if migration fails. Erase all data removes it. The OPFS pool reserves 14 slots (was 12).
+- **Bin**: jobs are binned with their boxes and pieces at one timestamp and restored together (never gated). The Bin lists jobs; a job's own boxes are not listed separately. The purge removes jobs binned over 30 days ago and skips anything a lock protects.
+- **Licensing**: `can()` picks the plan from an explicit table (`PLAN_FOR`), with no fallback to Seller. New: `add_job` (Free: 2 active jobs), `add_condition_photo` (3 Free / 10 Pro per piece per stage), `logo_branding` (Pro). The new config fields are optional, with built-in defaults, so configs signed before v6 still verify. `VITE_PREVIEW_PAID_PLANS=1` also unlocks `removalist_pro`. Removalist PDFs and sharing, boxes, items, viewing, search, export, backup, restore and Bin restore are never gated.
+- **UI**: teal under `data-mode="removalist"`: light #00737A (5.6:1 on white), on-grey #00666C (5.4:1 on #E5E5EA), dark #40C8E0 text with #00737A fills, more contrast #00585E. axe passes. The third Start card is "Removalist business". Onboarding steps: business details (name and phone required) → country (AU: AUD and m³; BD: BDT, ft³ by default or m³) → data warning → recovery code (skipped if this phone already has a backup key) → optional trucks (three editable example rows, 20/30/45 m³). The 22 starter volume items are seeded, and Standard carton is the default box size. Tabs: Jobs · Scan · Settings. Jobs list: filters, search, status chip, piece/loaded progress. New/edit job form. The job screen has the Overview (tel: and maps links, status change behind a confirm). The other sections are placeholders marked "Coming in the next update". Settings has Business details, Trucks, the Volume list ("Starter values — adjust to your own experience") and "Add another list → Removalist business".
+
+Rulings (cost if wrong):
+
+25. **Extra v6 columns not in plan §4.2:** `volume_catalogue.kind` (box/furniture), `business_profile.default_box_item_id` and `jobs.truck_id`. Added now so Phases 2 and 5 need no migration. Cost: none if unused.
+26. **`locations.job_id`, `rooms.job_id` and the event/record links to a box are `ON DELETE CASCADE`**, so the 30-day purge of a binned job removes its pieces in one step. A live job can't be hard-deleted (`jobs_no_live_delete`).
+27. **`job_events` is append-only while its job is live.** Once the job has been in the Bin for 30 days, the purge may remove its events with it. Cost: the load history of a deleted job goes with the job, as the Bin promises.
+28. **A rebuild migration fails only on new broken links** (count before vs after), so a link that was already broken can't block every future upgrade.
+29. **Move date** is stored as local date and time without a zone ("2026-12-03T08:30"). "Today" uses the phone's local date.
+30. **Job filters:** no chip selected = all open jobs; Upcoming = Booked; Today = moving today and not Closed; In progress = Packing, Loaded or Delivered; Closed = Closed or archived. Archived and Closed jobs don't count toward the free limit. Status can be set to any value by hand, after a confirm.
+31. **Removalist Settings** hides Print labels (job labels come in Phase 2) and the list-name field (the business name is edited in Business details, which renames the list too).
+32. **Truck capacity** is always typed and stored in m³, also when the unit is ft³. On-screen ft³ comes with Volume (Phase 5).
+33. **Removalist CSV export** uses the Home CSV for now. The job CSV comes in Phase 6.
+34. **Piece photo limit** (owner: decide later) is the config value `removalist_photos_per_piece`, with a placeholder of 3 Free / 10 Pro.
+
+Not tested automatically: the worker's put-back of `/before-migrate.sqlite3`, which runs only in a browser with an old database file. The unit tests show that a failing v6 migration changes nothing (one transaction) and that foreign keys come back ON.
+
+Tests (2026-11-26):
+
+- Before (main + plan commit): `npm run check` 256 unit tests passed, lint 0 errors / 9 warnings. E2E chromium + webkit + mobile-chrome: 85 passed, 20 skipped, 0 failed.
+- After: `npm run check` passed, 289 unit tests (then 290 with the failing-migration test, unit run only), lint 0 errors / the same 9 warnings. E2E chromium + webkit + mobile-chrome: 103 passed, 20 skipped, 0 failed, 0 flaky. The 18 new runs are the 6 tests in `e2e/removalist.spec.ts` × 3 browsers (onboarding + job create/search/filter/status/Bin/restore; free job limit; Settings pages; adding Removalist from Settings skips the code; Home and Seller first launch unchanged; axe on the Jobs, job and new-job screens). All existing Home and Seller tests pass unchanged.
+
+**Bangla strings for native review (Removalist):** `setup.removalist`, `setup.removalistHint`, `nav.jobs`, every `rm.*` key, `upgrade.limit_jobs`, `upgrade.removalistPro`, and the 22 Bangla names in `src/core/repo/removalist/catalogue.ts`. All were written by Claude.
+
+## Removalist mode, Phase 2 (2026-11-27)
+
+The owner said "go" for Phase 2 (pieces and labels). Branch `feature/removalist-mode`; not merged, not pushed.
+
+Built:
+
+- **Boxes and furniture pieces in a job** (`src/core/repo/removalist/pieces.ts`). Each one is a normal `locations` row with `job_id`, `is_piece` and `job_seq`, so the Home box screen, contents, photos, autosave, labels and the Bin all work unchanged. Numbers restart per job and per kind ("Box 1, Box 2…" and "Piece 1, Piece 2…"); the workspace-wide number stays internal.
+  - New boxes get the default box size (Standard carton), which can be changed. A furniture piece can link to a furniture type from the volume list.
+  - Adding the first box or piece moves the job from Booked to Packing.
+- **Quick add**: "+ 10 boxes" makes 10 numbered empty boxes in one transaction, through `can()` (Removalist has no box limit).
+- **Rooms per job**: `rooms.job_id`. The box screen of a job box lists and adds only that job's rooms ("Destination room"). The repo refuses a room from another job.
+- **Box screen in job context**: "Box 3 · J-0042 · Khan", the box-size or furniture-type picker, and Back to the job. Furniture shows a sofa icon. Moving a box of a signed job to the Bin shows "This job has a signed report, so its boxes and furniture can't be moved to the Bin."
+- **Job screen**: a Boxes and furniture section with counts, the list, "+ Box", "+ Furniture piece", "+ 10 boxes" and Print labels. A warning appears when boxes changed after the last print.
+- **Job labels** (`buildJobLabelPdf` in `src/core/labels/pdf.ts`, same pdf-lib code and QR format as Home). Each label has:
+  - business name (or the logo: Pro only, L7165 only, only if it fits)
+  - "Box 12 of 45" / "Piece 3 of 7", in the list's language
+  - "Khan · J-0042"
+  - destination room
+  - FRAGILE / OPEN FIRST
+  - the code
+
+  Non-Latin text is drawn by the browser as a picture, as on Home labels. Print all or chosen boxes, on the default sheet from Business details (new "Label sheet" setting), with a start position.
+- **Scanning**: a job box's `/b/<code>` link or a scan opens the box screen in job context. The scan view shows the box's number in the job.
+- **Settings → Print labels** is back in Removalist mode and prints blank spare labels. A spare can be stuck onto a job box: the picker names job boxes "Box 3 · J-0042". Bin rows of single job boxes show "Box 3 · J-0042".
+
+Rulings (cost if wrong):
+
+35. **Box name on job labels: L7165 only** (owner, 2026-11-26). It goes under "Khan · J-0042" and is drawn as a picture when it isn't Latin; L7163 has no room for it. FRAGILE / OPEN FIRST stay in English, as on Home labels; "Box 12 of 45" follows the list's language. The fit tests include a long Bangla box name.
+36. **"of N" is the number of live boxes (or pieces) of that kind in the job when printing.** Numbers are never reused (the unique index includes binned boxes), so after a box is binned, "Box 12 of 11" is possible. The stale-labels warning covers it.
+37. **Totals at the last print** are kept in `meta` (key `job_labels_printed:<jobId>`), so no schema change was needed. They travel in backups.
+38. **Logo**: the label PDF draws it with Pro on L7165 when the business has one. There is no screen to add a logo yet. Owner decision (2026-11-26): the logo setup screen comes in Phase 6 (Settings; shown only with Removalist Pro).
+39. **Box or Furniture** is chosen with two add buttons ("+ Box", "+ Furniture piece") instead of a switch on a form. The kind can't change afterwards, because its number belongs to that kind.
+40. **The room line is dropped first** if a label runs out of room. The fit tests show it still fits on both sheets with long Latin and long Bangla text.
+
+**Bangla strings for native review (Phase 2):** `rm.box.*`, `rm.piece.*`, `rm.pieces.*`, `rm.add.*`, `rm.labels.*`, `rm.label.box`, `rm.label.piece`. All were written by Claude.
+
+Tests (2026-11-27):
+
+- Before (Phase 1 end): 290 unit tests, 103 browser passed, 20 skipped.
+- After: `npm run check` passed, 310 unit tests (+20: pieces, job rooms, quick add all-or-none, label data and "of N", label fit on both sheets with long and Bangla text, logo only on L7165), lint 0 errors / the same 9 warnings. E2E chromium + webkit + mobile-chrome: 114 passed, 21 skipped, 0 failed (the extra skip is the new job-box link test on Windows WebKit, which has no lasting storage; earlier runs showed two timing faults in the tests, now fixed by waiting for the screen to change). New: quick add + single box + 2 furniture pieces → labels PDF downloads, then the stale warning; a Bangla box name prints as a drawn picture on L7165; a job box link opens in job context; axe on the pieces section, a job box and the labels screen. All existing Home and Seller tests pass unchanged.
 
 ## Test environment limits (not counted as passes)
 

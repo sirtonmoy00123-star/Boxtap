@@ -12,7 +12,7 @@ import type { Plan } from '../licensing/licence';
 // Ruling (build): paid plans (licence keys) are skipped for now (owner, 2026-11-25). A build setting unlocks the
 // paid features for testing; it must stay unset for real customers. Free limits apply otherwise.
 const PREVIEW = import.meta.env.VITE_PREVIEW_PAID_PLANS === '1';
-const entitlement = () => ({ config: DEFAULT_CONFIG, plans: new Set<Plan>(PREVIEW ? ['move_pass', 'seller_pro'] : []) });
+const entitlement = () => ({ config: DEFAULT_CONFIG, plans: new Set<Plan>(PREVIEW ? ['move_pass', 'seller_pro', 'removalist_pro'] : []) });
 
 declare const self: DedicatedWorkerGlobalScope;
 
@@ -25,6 +25,8 @@ const DB_FILE = '/boxtap.sqlite3';
 const RESTORE_FILE = '/restore.sqlite3';
 /** The database as it was before the last restore (API_CONTRACTS §6: safety backup first). Kept until the next restore. */
 const SAFETY_FILE = '/before-restore.sqlite3';
+/** The database as it was before the last schema migration (DATABASE_SCHEMA §2, L9). Put back if a migration fails. */
+const MIGRATE_FILE = '/before-migrate.sqlite3';
 
 /** Errors that mean another tab still holds the storage handles: retry, never fall back to memory (review finding 1). */
 const isHandleBusy = (e: unknown) => ['NoModificationAllowedError', 'InvalidStateError'].includes((e as Error)?.name)
@@ -60,7 +62,7 @@ async function open(allowMemory: boolean): Promise<OpenInfo> {
   } else if (!pool) {
     try {
       pool = await sqlite3.installOpfsSAHPoolVfs({ name: 'boxtap-pool', initialCapacity: 12, preserveOnInitFailure: true });
-      await pool.reserveMinimumCapacity(12); // live DB, journal, restore copy, safety copy (DATABASE_SCHEMA §2)
+      await pool.reserveMinimumCapacity(14); // live DB, journal, restore copy, safety copies before restore and migration
     } catch (e) {
       if (!allowMemory || isHandleBusy(e)) throw e; // another tab still holds the files: the caller retries
       handle = memoryDb(e);
@@ -76,10 +78,30 @@ async function open(allowMemory: boolean): Promise<OpenInfo> {
       pool!.unlink(RESTORE_FILE);
     }
     handle = new pool!.OpfsSAHPoolDb(DB_FILE);
+    // Safety copy before any migration (v6 rebuilds tables; plan §3 C6). Fresh databases (version 0) need none.
+    const version = Number(handle.selectValue('PRAGMA user_version') ?? 0);
+    if (version > 0 && version < SCHEMA_VERSION) {
+      const before = sqlite3.capi.sqlite3_js_db_export(handle);
+      await pool!.importDb(MIGRATE_FILE, before);
+      try {
+        return info(attach(handle));
+      } catch (e) {
+        // Each migration step is its own transaction, but put the whole file back anyway: it is what the user had.
+        try { handle.close(); } catch { /* already closed */ }
+        db = undefined;
+        service = undefined;
+        await pool!.importDb(DB_FILE, before);
+        throw e;
+      }
+    }
   }
-  const migratedFrom = attach(handle);
-  return { persistent, schemaVersion: SCHEMA_VERSION, migratedFrom, sqliteVersion: sqlite3.version.libVersion };
+  return info(attach(handle));
 }
+
+function info(migratedFrom: number): OpenInfo {
+  return { persistent, schemaVersion: SCHEMA_VERSION, migratedFrom, sqliteVersion: sqlite3!.version.libVersion };
+}
+
 
 function close() {
   db?.close();
@@ -161,7 +183,7 @@ self.onmessage = async (ev: MessageEvent<Request>) => {
         value = fn(...req.args);
         if (req.method === 'eraseAll') {
           // Review finding 7: no copy of the erased data may stay behind (before-restore copy, free pages).
-          if (pool) { pool.unlink(SAFETY_FILE); pool.unlink(RESTORE_FILE); }
+          if (pool) { pool.unlink(SAFETY_FILE); pool.unlink(RESTORE_FILE); pool.unlink(MIGRATE_FILE); }
           db?.exec('VACUUM');
         }
         break;

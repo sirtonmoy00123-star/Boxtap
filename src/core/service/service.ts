@@ -25,7 +25,8 @@ export function createService(ctx: Ctx, entitlement: () => Entitlement = () => (
     const ws = R.getWorkspace(ctx, workspaceId);
     if (!ws) throw new Error('workspace not found');
     const e = entitlement();
-    const r = can(feature, { config: e.config, plans: e.plans, workspaceType: ws.type, counts: { ...R.counts(ctx, workspaceId), photosOnParent } });
+    const activeJobs = ws.type === 'removalist' ? R.activeJobCount(ctx, workspaceId) : 0;
+    const r = can(feature, { config: e.config, plans: e.plans, workspaceType: ws.type, counts: { ...R.counts(ctx, workspaceId), photosOnParent, activeJobs } });
     if (!r.allowed) throw new BlockedError(r.reason);
   };
 
@@ -42,6 +43,38 @@ export function createService(ctx: Ctx, entitlement: () => Entitlement = () => (
     listRooms: (wsId: string) => R.listRooms(ctx, wsId),
     renameRoom: (id: string, name: string) => R.renameRoom(ctx, id, name),
     deleteRoom: (id: string) => R.deleteRoom(ctx, id),
+
+    // Removalist (plan §4-§7). Reading, search, restore from the Bin and archive are never gated.
+    createRemovalistWorkspace: (s: R.RemovalistSetup) => R.createRemovalistWorkspace(ctx, s),
+    getBusinessProfile: (wsId: string) => R.getBusinessProfile(ctx, wsId),
+    updateBusinessProfile: (wsId: string, p: Parameters<typeof R.updateBusinessProfile>[2]) => R.updateBusinessProfile(ctx, wsId, p),
+    listTrucks: (wsId: string) => R.listTrucks(ctx, wsId),
+    addTruck: (wsId: string, tr: R.TruckInput) => R.addTruck(ctx, wsId, tr),
+    updateTruck: (id: string, tr: R.TruckInput) => R.updateTruck(ctx, id, tr),
+    deleteTruck: (id: string) => R.deleteTruck(ctx, id),
+    listVolumeCatalogue: (wsId: string) => R.listVolumeCatalogue(ctx, wsId),
+    createJob: (wsId: string, j: R.JobInput) => { gate('add_job', wsId); return R.createJob(ctx, wsId, j); },
+    getJob: (id: string) => R.getJobRow(ctx, id),
+    listJobs: (wsId: string, opts: Parameters<typeof R.listJobs>[2]) => R.listJobs(ctx, wsId, opts),
+    updateJob: (id: string, j: R.JobInput) => R.updateJob(ctx, id, j),
+    setJobStatus: (id: string, status: R.JobStatus) => R.setJobStatus(ctx, id, status),
+    binJob: (id: string) => R.binJob(ctx, id),
+    restoreJob: (id: string) => R.restoreJob(ctx, id),
+    archiveJob: (id: string, archived: boolean) => R.archiveJob(ctx, id, archived),
+    // Phase 2: boxes and furniture pieces in a job, its rooms, its labels. Removalist has no box limit (can()).
+    addJobBox: (jobId: string, b?: R.JobBoxInput) => { const j = R.getJob(ctx, jobId); if (!j) throw new Error('job not found'); gate('add_box', j.workspaceId); return R.addJobBox(ctx, jobId, b); },
+    quickAddBoxes: (jobId: string, n = 10) => { const j = R.getJob(ctx, jobId); if (!j) throw new Error('job not found'); gate('add_box', j.workspaceId); return R.quickAddBoxes(ctx, jobId, n); },
+    getJobPiece: (id: string) => R.getJobPiece(ctx, id),
+    listJobPieces: (jobId: string) => R.listJobPieces(ctx, jobId),
+    setPieceVolumeItem: (boxId: string, volumeItemId: string | null) => R.setPieceVolumeItem(ctx, boxId, volumeItemId),
+    listJobRooms: (jobId: string) => R.listJobRooms(ctx, jobId),
+    createJobRoom: (jobId: string, name: string) => R.createJobRoom(ctx, jobId, name),
+    setPieceRoom: (boxId: string, roomId: string | null) => R.setPieceRoom(ctx, boxId, roomId),
+    jobLabels: (jobId: string, ids?: string[]) => R.jobLabels(ctx, jobId, ids),
+    markJobLabelsPrinted: (jobId: string) => R.markJobLabelsPrinted(ctx, jobId),
+    jobLabelsStatus: (jobId: string) => R.jobLabelsStatus(ctx, jobId),
+    /** The logo for labels: only with Removalist Pro (logo_branding). */
+    labelLogo: (wsId: string) => { try { gate('logo_branding', wsId); } catch { return null; } return R.getBusinessLogo(ctx, wsId); },
 
     // Boxes and labels
     createBox: (wsId: string, b: R.BoxInput) => { gate('add_box', wsId); return R.createBox(ctx, wsId, b); },

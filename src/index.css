@@ -32,6 +32,8 @@
   --accent-on-grey: #004FA8; /* accent text on --surface-2 (secondary buttons), owner decision 2026-11-26 */
 }
 :root[data-mode="seller"] { --accent: #5856D6; --accent-fill: #5856D6; --accent-on-grey: #4644B8; }
+/* Removalist teal (plan §6): 5.6:1 on white, darker on-grey label for secondary buttons. Distinct from success green. */
+:root[data-mode="removalist"] { --accent: #00737A; --accent-fill: #00737A; --accent-on-grey: #00666C; }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #000000; --surface: #1C1C1E; --surface-2: #2C2C2E;
@@ -42,6 +44,7 @@
     --accent-on-grey: #409CFF;
   }
   :root[data-mode="seller"] { --accent: #7D7AFF; --accent-fill: #5856D6; --accent-on-grey: #9593FF; }
+  :root[data-mode="removalist"] { --accent: #40C8E0; --accent-fill: #00737A; --accent-on-grey: #40C8E0; }
 }
 @media (prefers-contrast: more) {
   :root {
@@ -51,6 +54,7 @@
     --accent-on-grey: #003A80;
   }
   :root[data-mode="seller"] { --accent: #3634A3; --accent-fill: #3634A3; --accent-on-grey: #2B2980; }
+  :root[data-mode="removalist"] { --accent: #00585E; --accent-fill: #00585E; --accent-on-grey: #00585E; }
 }
 @media (prefers-contrast: more) and (prefers-color-scheme: dark) {
   :root {
@@ -60,6 +64,7 @@
     --accent-on-grey: #80BFFF;
   }
   :root[data-mode="seller"] { --accent: #A5A3FF; --accent-fill: #3634A3; --accent-on-grey: #C0BFFF; }
+  :root[data-mode="removalist"] { --accent: #7FDDEB; --accent-fill: #00585E; --accent-on-grey: #7FDDEB; }
 }
 
 /* §9 Tailwind mapping, Tailwind 4 syntax: the default palette, radii and font sizes are replaced, not extended.
