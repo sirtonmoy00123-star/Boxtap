@@ -46,6 +46,7 @@ Free plan: up to 12 boxes in Home mode, or 50 items in Seller mode. When you rea
 - **Photos**: **Add photo** opens the camera or your photo library. Photos are shrunk to about 200 KB. Tap a photo to see it large, or to **Delete photo**. Free plan: 1 photo per box.
   - "Still downloading…": after a restore from Drive, the photo is on its way.
   - "This photo wasn't backed up": the photo didn't reach your backup before the phone was lost.
+  - Once a week the app checks that your photos are still in Google Drive, and uploads again any that were deleted there.
 - **Room**: choose a room, or **New room…** to make one. **Rename room** fixes a room's name (for every box in it).
 - **Where is it?**: for example "Garage, top shelf".
 - **Notes**: anything else.
@@ -78,6 +79,7 @@ Marked **Pro**. They need the Seller Pro plan; while paid plans are skipped they
 
 - **Cost price** on the item page: what you paid for one. Each sale remembers its price and cost, so changing a price later never changes past profit.
 - **Reports**: Today, 7 days, 30 days or This month. Items sold, sales, profit, best sellers, sales by day, and the value of the stock you hold (at cost and at sale price). Items without a cost price are counted in sales but not in profit, and the report says how many.
+  - **Download Excel file**: an .xlsx file for the chosen period with three sheets: Items (stock, prices, value at cost), Sales (each sale and return with profit) and Orders.
 - **Orders**: **New order** with the customer's name (phone and note optional), then **Add item** with a number. Adding an item books that stock.
   - **Mark packed** takes the stock out and counts it as sold.
   - **Mark delivered** when it has reached the customer.

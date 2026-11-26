@@ -61,8 +61,9 @@ async function photoHost(db: Db): Promise<PhotoHost> {
     failed: (id, err) => db.outboxFailed(id, err),
     photo: async (id) => {
       const p = await db.getPhoto(id);
-      return p ? { id: p.id, fileName: p.fileName, deleted: p.deletedAt != null, mime: p.mime } : null;
+      return p ? { id: p.id, fileName: p.fileName, deleted: p.deletedAt != null, mime: p.mime, driveFileId: p.driveFileId } : null;
     },
+    requeueUpload: async () => { await db.queueMissingUploads(); },
     readFile: async (name) => { const b = await readPhotoFile(name); return b ? new Uint8Array(await b.arrayBuffer()) : null; },
     writePhoto: async (id, bytes) => {
       const p = await db.getPhoto(id);
@@ -77,12 +78,23 @@ async function photoHost(db: Db): Promise<PhotoHost> {
   };
 }
 
+const PHOTO_CHECK_KEY = 'boxtap.photoCheckAt';
+const WEEK_MS = 7 * 24 * 60 * 60_000;
+
 /** One pass over the photo queue, if Drive is connected and a token is held. */
 export async function runPhotoQueue(db: Db): Promise<PhotoRun | null> {
   if (!currentToken()) return null;
   const link = await db.getDriveLink();
   if (!link || link.status === 'lock_lost' || link.status === 'folder_trashed') return null;
-  const run = await new PhotoSync(driveApi(), await photoHost(db), link.photosFolderId).run({ max: 30 });
+  const ps = new PhotoSync(driveApi(), await photoHost(db), link.photosFolderId);
+  // Weekly (DATABASE_SCHEMA §5 step 5): re-upload photos whose Drive copy was deleted outside the app.
+  if (Date.now() - Number(localStorage.getItem(PHOTO_CHECK_KEY) ?? 0) > WEEK_MS) {
+    try {
+      await ps.checkPhotos((await db.allLivePhotos()).filter((p) => p.driveFileId).map((p) => p.id));
+      localStorage.setItem(PHOTO_CHECK_KEY, String(Date.now()));
+    } catch (e) { console.warn('weekly photo check failed', e); }
+  }
+  const run = await ps.run({ max: 30 });
   if (run.quotaFull && link.status !== 'quota_full') await db.setDriveLink({ ...link, status: 'quota_full' });
   // Photos just reached Drive: snapshot now so the Drive copy records them (review finding 1).
   if (run.uploaded > 0 || run.downloaded > 0) await (await makeSync(db)).snapshotNow().catch((e) => console.warn('snapshot after photos failed', e));

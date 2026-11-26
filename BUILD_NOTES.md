@@ -40,10 +40,10 @@ npx tsx tools/config.ts sign          # writes public/config/v1.json
 | 1.5 Search | Done | 400 items < 1 s test |
 | 1.6 Free limits via `can()` | Done (built-in config; signed config fetch is Phase 1b) | service tests, E2E critical test 12 |
 | 1.7 Backup and restore (file), CSV export, Erase all data | Done, with photos | crypto/snapshot tests, E2E round trip |
-| 1.7b Google Drive backup (snapshots + photos) | Done against a fake Drive; real Google check on devices pending; "Use this device instead" and the iPhone redirect fallback not yet | sync/photo queue tests |
+| 1.7b Google Drive backup (snapshots + photos) | Done against a fake Drive; real Google check on devices pending; "Use this device instead" and the iPhone redirect fallback not yet | sync/photo queue tests; weekly photo check re-uploads photos deleted in Drive |
 | 1b Paid keys (licence entry, payment links, renewal reminders) | Skipped for now by the owner (2026-11-25) | |
 | 2 Seller: stock ledger (sell, restock, booked, packed, cancel, damaged, returned, undo 24 h, count, move), item details incl. jewellery fields, low-stock list | Done, with the in-stock catalogue picture and Bangla text on labels (drawn by the browser, placed in the PDF) | stock tests, Seller E2E |
-| 3 Seller Pro extras: cost/profit, reports, orders, variants | Built ahead of the pilot at the owner's request (2026-11-26); Excel export not built (config switch is off) | reports/orders/variants tests; Pro E2E on a preview build |
+| 3 Seller Pro extras: cost/profit, reports, orders, variants | Built ahead of the pilot at the owner's request (2026-11-26), including Excel export (Items, Sales, Orders sheets) | reports/orders/variants/xlsx tests; Pro E2E on a preview build |
 | 1.8 Offline, update prompt, launch | Update prompt and precache done; offline E2E and launch not yet | |
 
 ## Rulings made during the build (deviations from the docs, with cost if wrong)
@@ -70,6 +70,8 @@ npx tsx tools/config.ts sign          # writes public/config/v1.json
 17. **Sales before schema v2** have no stored price or cost, so reports count them with no revenue. The ledger is append-only, so they can't be backfilled. Only affects test data from 2026-11-25.
 18. **WebKit E2E retry**: Playwright's Windows WebKit build sometimes drops the tap on Print labels after scrolling; one retry is allowed there only. Chromium and phone-sized Chrome pass without retries.
 19. **Owner step for the full-page sign-in**: the Google client needs the redirect URI <site>/oauth (for example https://boxtap.sirtonmoy00123.workers.dev/oauth) under Authorized redirect URIs.
+20. **Excel on by default**: features.excel is true in the built-in config now that Excel export exists; a signed config can still turn it off.
+21. **Weekly photo check** (DATABASE_SCHEMA §5 step 5): once a week per device, the app lists the Drive photos folder and re-queues uploads for photos whose Drive copy is gone. It never deletes Drive files it doesn't recognise, because an older snapshot may still point at them. Cost if wrong: orphan photo files use some of the customer's Drive space.
 
 ## Second independent review, 2026-11-26
 

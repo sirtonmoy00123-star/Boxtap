@@ -25,7 +25,8 @@ class Host implements PhotoHost {
   async reserve(photoId: string, fileId: string) { this.queue.get(photoId)!.driveFileId = fileId; }
   async done(photoId: string) { this.queue.delete(photoId); }
   async failed(photoId: string) { const q = this.queue.get(photoId); if (q) { q.attempts++; q.nextTry = this.now + 30; } }
-  async photo(id: string) { const p = this.photos.get(id); return p ? { id: p.id, fileName: p.fileName, deleted: p.deleted, mime: 'image/webp' as const } : null; }
+  async photo(id: string) { const p = this.photos.get(id); return p ? { id: p.id, fileName: p.fileName, deleted: p.deleted, mime: 'image/webp' as const, driveFileId: p.driveFileId } : null; }
+  async requeueUpload(id: string) { this.queue.set(id, { photoId: id, op: 'upload', driveFileId: null, attempts: 0, nextTry: 0 }); }
   async readFile(name: string) { return this.files.get(name) ?? null; }
   async writePhoto(id: string, bytes: Uint8Array) { this.files.set(this.photos.get(id)!.fileName, bytes); }
   async setDriveFile(id: string, fileId: string | null) { this.photos.get(id)!.driveFileId = fileId; }
@@ -141,5 +142,24 @@ describe('Drive photo queue (audit B10, critical tests 25 and 37)', () => {
     await ps.run();
     expect([...fake.files.values()].filter((x) => x.name.endsWith('.btph'))).toHaveLength(0);
     expect(h.queue.size).toBe(1);
+  });
+});
+
+describe('weekly photo check (DATABASE_SCHEMA §5 step 5)', () => {
+  it('re-queues photos whose Drive copy is gone, and leaves the others alone', async () => {
+    const h = new Host(key);
+    h.addLocal('p1', bytes(100, 1));
+    h.addLocal('p2', bytes(100, 2));
+    const fid = await folder();
+    const ps = new PhotoSync(api, h, fid);
+    await ps.run();
+    const gone = h.photos.get('p2')!.driveFileId!;
+    fake.files.delete(gone); // e.g. deleted in the Drive website
+    const r = await ps.checkPhotos(['p1', 'p2']);
+    expect(r).toEqual({ missing: 1 });
+    expect(h.photos.get('p2')!.driveFileId).toBeNull();
+    expect([...h.queue.values()].map((q) => [q.photoId, q.op])).toEqual([['p2', 'upload']]);
+    await ps.run();
+    expect(h.photos.get('p2')!.driveFileId).not.toBeNull();
   });
 });

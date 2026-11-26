@@ -16,7 +16,9 @@ export interface PhotoHost {
   reserve(photoId: string, fileId: string): Promise<void>;
   done(photoId: string): Promise<void>;
   failed(photoId: string, error: string): Promise<void>;
-  photo(id: string): Promise<{ id: string; fileName: string; deleted: boolean; mime: 'image/webp' | 'image/jpeg' } | null>;
+  photo(id: string): Promise<{ id: string; fileName: string; deleted: boolean; mime: 'image/webp' | 'image/jpeg'; driveFileId: string | null } | null>;
+  /** Queue a fresh upload (its Drive copy was found missing). */
+  requeueUpload(id: string): Promise<void>;
   readFile(name: string): Promise<Uint8Array | null>;
   /** Writes the photo file and rebuilds its thumbnail. */
   writePhoto(id: string, bytes: Uint8Array): Promise<void>;
@@ -69,6 +71,23 @@ export class PhotoSync {
       }
     }
     return r;
+  }
+
+  /**
+   * Weekly check (DATABASE_SCHEMA §5 step 5): list the Drive photos folder once and re-queue any live photo whose
+   * Drive copy is gone (e.g. deleted in the Drive website). Drive files are never deleted here.
+   */
+  async checkPhotos(livePhotoIds: readonly string[]): Promise<{ missing: number }> {
+    const inDrive = new Set((await this.api.listChildren(this.folderId)).map((f) => f.id));
+    let missing = 0;
+    for (const id of livePhotoIds) {
+      const p = await this.host.photo(id);
+      if (!p || p.deleted || !p.driveFileId || inDrive.has(p.driveFileId)) continue;
+      await this.host.setDriveFile(id, null);
+      await this.host.requeueUpload(id);
+      missing++;
+    }
+    return { missing };
   }
 
   private async upload(row: QueueRow): Promise<boolean> {
