@@ -350,6 +350,7 @@ Rulings (cost if wrong):
 54. **A line keeps the size it had when added.** Editing the item in the volume list changes future lines and the box and furniture counts, but not lines already in a job. The counts use the item's current size.
 55. **"Add" for an item already in the job adds one more** to the same line, instead of making a second line.
 56. **Found while testing:** quick taps on + / − could miss one, because each tap used the count from before the previous tap was saved. + / − now changes the count in the database (`bumpVolumeLine`).
+57. **Also found while testing:** tapping Back straight after "+ Box" could still open the new box once it was made, because the job screen had become slower with more sections. Now the new box opens only if you are still on the job screen. Two browser tests also wait for the screen, or for a toast to go, before going on.
 
 **Bangla strings for native review (Phase 5):** `rm.vol.*`, `rm.cat.*`, `rm.truck.capacityIn`. All were written by Claude.
 
