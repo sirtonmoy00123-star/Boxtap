@@ -7,7 +7,7 @@ import type { Workspace } from '../core/repo';
 import { AppContext, makeDate, makeNum, makeT, type AppState, type ToastAction } from './context';
 import { navigate, useRoute } from './router';
 import { Banner, Button, TabBar, type Tab } from './ui';
-import { Bookmark, DoorOpen, Package, Settings as SettingsIcon } from 'lucide-react';
+import { Bookmark, DoorOpen, Package, Settings as SettingsIcon, Truck } from 'lucide-react';
 import { platform } from '../core/pwa/install';
 import { RoomPage, RoomsPage } from './screens/Rooms';
 import { BookedPage } from './screens/Booked';
@@ -20,6 +20,9 @@ import { PrintLabels, Scan } from './screens/ScanLabels';
 import { ItemPage, LowStockPage } from './screens/Seller';
 import { CataloguePage } from './screens/Catalogue';
 import { OrderPage, OrdersPage, ReportsPage } from './screens/Pro';
+import { JobForm, JobPage, JobsPage } from './screens/removalist/Jobs';
+import { BusinessPage, TrucksPage, VolumeCataloguePage } from './screens/removalist/Settings';
+import { AddRemovalistPage } from './screens/removalist/AddRemovalist';
 import { startSchedule } from '../core/drive/browserSync';
 import { adoptRedirectToken } from '../core/drive/googleAuth';
 import { removeOrphans, removePhotoFile } from '../core/photos/store';
@@ -114,7 +117,7 @@ export function App() {
   const mode = workspace?.type;
   useEffect(() => {
     const el = document.documentElement;
-    if (mode === 'seller') el.dataset.mode = 'seller'; else delete el.dataset.mode;
+    if (mode === 'seller' || mode === 'removalist') el.dataset.mode = mode; else delete el.dataset.mode;
     el.lang = lang;
     el.dataset.platform = platform();
   }, [mode, lang]);
@@ -197,12 +200,24 @@ export function App() {
   else if (route.name === 'scan') screen = <Scan />;
   else if (route.name === 'labels') screen = <PrintLabels />;
   else if (route.name === 'label') screen = <LabelRoute code={route.code} />;
-  else screen = <Home />;
+  else if (route.name === 'jobNew') screen = <JobForm />;
+  else if (route.name === 'job') screen = <JobPage id={route.id} />;
+  else if (route.name === 'jobEdit') screen = <JobForm id={route.id} />;
+  else if (route.name === 'business') screen = <BusinessPage />;
+  else if (route.name === 'trucks') screen = <TrucksPage />;
+  else if (route.name === 'volumeCatalogue') screen = <VolumeCataloguePage />;
+  else if (route.name === 'addRemovalist') screen = <AddRemovalistPage />;
+  else screen = workspace.type === 'removalist' ? <JobsPage /> : <Home />;
 
   // Top-level screens show the tab bar and the Scan button (DESIGN_SYSTEM §4). Home: Boxes, Rooms, Settings;
   // Seller: Stock, Booked, Settings. Detail screens push with a back button instead.
   const seller = workspace?.type === 'seller';
-  const tabs: Tab[] = [
+  const removalist = workspace?.type === 'removalist';
+  // Removalist: Jobs and Settings, with the Scan button between (plan §6).
+  const tabs: Tab[] = removalist ? [
+    { id: 'home', label: t('nav.jobs'), icon: Truck, onClick: () => navigate('/') },
+    { id: 'settings', label: t('nav.settings'), icon: SettingsIcon, onClick: () => navigate('/settings') },
+  ] : [
     { id: 'home', label: t(seller ? 'nav.stock' : 'nav.boxes'), icon: Package, onClick: () => navigate('/') },
     seller
       ? { id: 'booked', label: t('nav.booked'), icon: Bookmark, onClick: () => navigate('/booked') }
@@ -210,7 +225,7 @@ export function App() {
     { id: 'settings', label: t('nav.settings'), icon: SettingsIcon, onClick: () => navigate('/settings') },
   ];
   const topLevel = ['home', 'rooms', 'booked', 'settings'];
-  const showTabs = !!workspace && topLevel.includes(route.name) && !(route.name === 'rooms' && seller) && !(route.name === 'booked' && !seller);
+  const showTabs = !!workspace && topLevel.includes(route.name) && !(route.name === 'rooms' && (seller || removalist)) && !(route.name === 'booked' && !seller);
 
   return (
     <AppContext.Provider value={state}>

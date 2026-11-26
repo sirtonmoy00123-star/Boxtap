@@ -118,6 +118,19 @@ describe('v5 -> v6 migration (plan §4.4)', () => {
     expect(safe.selectValue('SELECT count(*) FROM stock_movements')).toBeGreaterThan(0);
   });
 
+  it('a v6 migration that fails part-way changes nothing and leaves foreign keys on', async () => {
+    const db = await v5Db();
+    seedV5(db);
+    const before = new Map(tables(db).map((t) => [t, cols(db, t)]));
+    const data = dump(db, before);
+    db.exec('CREATE TABLE trucks (x)'); // makes v6's CREATE TABLE trucks fail after workspaces was rebuilt
+    expect(() => migrate(db as unknown as SqlDb)).toThrow(/trucks/);
+    expect(db.selectValue('PRAGMA user_version')).toBe(5);
+    expect(db.selectValue('PRAGMA foreign_keys')).toBe(1);
+    expect(dump(db, before)).toEqual(data);
+    expect(String(db.selectValue(`SELECT sql FROM sqlite_master WHERE name='workspaces'`))).toContain(`'home','seller')`);
+  });
+
   it('a fresh v6 database and a migrated v5 one have the same schema', async () => {
     const fresh = await openTestDb();
     const old = await v5Db();

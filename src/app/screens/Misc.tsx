@@ -4,12 +4,13 @@ import { navigate } from '../router';
 import { Button, Sheet, Page, inputClass } from '../ui';
 import { WorkerError } from '../../core/db/client';
 import { DEFAULT_CONFIG } from '../../core/licensing/can';
-import type { BinBox, BinItem, Box } from '../../core/repo';
+import type { BinBox, BinItem, BinJob, Box } from '../../core/repo';
+import { showJobNumber } from './removalist/Jobs';
 import type { Key } from '../../i18n/i18n';
 
 export function Bin() {
-  const { db, workspace, t, showUpgrade } = useApp();
-  const [bin, setBin] = useState<{ boxes: BinBox[]; items: BinItem[] } | null>(null);
+  const { db, workspace, t, num, showUpgrade } = useApp();
+  const [bin, setBin] = useState<{ boxes: BinBox[]; items: BinItem[]; jobs: BinJob[] } | null>(null);
   const load = () => db.listBin(workspace!.id).then(setBin);
   useEffect(() => { void db.listBin(workspace!.id).then(setBin); }, [db, workspace]);
   const restore = async (fn: () => Promise<void>) => {
@@ -17,12 +18,18 @@ export function Bin() {
       if (e instanceof WorkerError && e.reason) showUpgrade(e.reason); else throw e;
     }
   };
-  const empty = bin && bin.boxes.length === 0 && bin.items.length === 0;
+  const empty = bin && bin.boxes.length === 0 && bin.items.length === 0 && bin.jobs.length === 0;
   return (
     <Page title={t('bin.title')} back={() => navigate('/settings')}>
       <p className="px-1 pt-2 text-footnote text-text-2">{t('bin.hint')}</p>
       {empty && <p className="py-10 text-center text-body text-text-2">{t('bin.empty')}</p>}
       {!empty && <ul className="group-list mt-4 overflow-hidden rounded-md bg-surface">
+        {bin?.jobs.map((j) => (
+          <li key={j.id} className="flex min-h-11 items-center justify-between gap-3 px-4 py-1.5 text-body">
+            <span><span className="num">{showJobNumber(j.number, num)}</span> · {j.customerName}</span>
+            <Button variant="secondary" onClick={() => restore(() => db.restoreJob(j.id))}>{t('bin.restore')}</Button>
+          </li>
+        ))}
         {bin?.boxes.map((b) => (
           <li key={b.id} className="flex min-h-11 items-center justify-between gap-3 px-4 py-1.5 text-body">
             <span>{b.name || t('box.title', { n: b.number })}</span>
@@ -113,13 +120,13 @@ export function NoDataLabel() {
 export function Upgrade({ reason, onClose }: { reason: string; onClose: () => void }) {
   const { t, workspace } = useApp();
   const limits = DEFAULT_CONFIG.free_limits;
-  const n = reason === 'limit_boxes' ? limits.home_boxes : limits.seller_items;
+  const n = reason === 'limit_boxes' ? limits.home_boxes : reason === 'limit_jobs' ? limits.removalist_active_jobs ?? 2 : limits.seller_items;
   return (
     <Sheet labelledBy="upgrade-title" onClose={onClose}>
       <div>
         <h2 id="upgrade-title" className="text-title2 font-semibold">{t('upgrade.title')}</h2>
         <p className="mt-2" data-testid="upgrade-reason">{t(`upgrade.${reason}` as Key, { n })}</p>
-        <p className="mt-2">{t(workspace?.type === 'seller' ? 'upgrade.sellerPro' : 'upgrade.movePass')}</p>
+        <p className="mt-2">{t(workspace?.type === 'seller' ? 'upgrade.sellerPro' : workspace?.type === 'removalist' ? 'upgrade.removalistPro' : 'upgrade.movePass')}</p>
         <p className="mt-2 text-subhead font-medium text-warning">{t('upgrade.soon')}</p>
         <p className="mt-3 text-subhead text-text-2">{t('upgrade.never')}</p>
         <Button variant="secondary" className="mt-4 w-full" onClick={onClose}>{t('upgrade.later')}</Button>
