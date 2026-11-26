@@ -138,7 +138,7 @@ test('Seller mode uses the indigo accent and Stock, Booked, Settings tabs (ADR-0
   await page.getByRole('button', { name: 'Add another list' }).click();
   await page.getByRole('button', { name: 'Create list' }).click();
   await expect(page.getByRole('heading', { name: 'My shop' })).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.dataset.mode)).toBe('seller');
+  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.mode)).toBe('seller'); // set in an effect after render
   await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('button')).toHaveText(['Stock', 'Booked', 'Settings']);
   await page.getByRole('button', { name: 'Booked' }).click();
   await expect(page.getByText('Nothing is booked right now.')).toBeVisible();
