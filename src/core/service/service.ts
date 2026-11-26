@@ -74,6 +74,16 @@ export function createService(ctx: Ctx, entitlement: () => Entitlement = () => (
     markJobLabelsPrinted: (jobId: string) => R.markJobLabelsPrinted(ctx, jobId),
     jobLabelsStatus: (jobId: string) => R.jobLabelsStatus(ctx, jobId),
     /** The logo for labels: only with Removalist Pro (logo_branding). */
+    // Phase 5: volume estimate. Never gated; no prices.
+    jobVolume: (jobId: string) => R.jobVolume(ctx, jobId),
+    addVolumeLine: (jobId: string, l: Parameters<typeof R.addVolumeLine>[2]) => R.addVolumeLine(ctx, jobId, l),
+    setVolumeLineQty: (lineId: string, qty: number) => R.setVolumeLineQty(ctx, lineId, qty),
+    bumpVolumeLine: (lineId: string, delta: 1 | -1) => R.bumpVolumeLine(ctx, lineId, delta),
+    setBufferPct: (wsId: string, pct: number) => R.setBufferPct(ctx, wsId, pct),
+    addVolumeItem: (wsId: string, i: R.VolumeItemInput) => R.addVolumeItem(ctx, wsId, i),
+    updateVolumeItem: (id: string, i: R.VolumeItemInput) => R.updateVolumeItem(ctx, id, i),
+    hideVolumeItem: (id: string) => R.hideVolumeItem(ctx, id),
+    moveVolumeItem: (id: string, dir: -1 | 1) => R.moveVolumeItem(ctx, id, dir),
     // Phase 4: condition reports and sign-off. Condition photos are limited per piece per stage (can()).
     stageSummary: (jobId: string, stage: R.Stage) => R.stageSummary(ctx, jobId, stage),
     getConditionRecord: (jobId: string, boxId: string, stage: R.Stage) => R.getConditionRecord(ctx, jobId, boxId, stage),

@@ -4,6 +4,7 @@ import { MapPin, Phone, Plus, Search, X } from 'lucide-react';
 import { PiecesSection } from './Pieces';
 import { ChecksSection } from './LoadCheck';
 import { ConditionSection } from './Condition';
+import { VolumeSection } from './Volume';
 import { useApp } from '../../context';
 import { navigate } from '../../router';
 import { Button, Field, Group, Icon, IconButton, Page, Row, inputClass } from '../../ui';
@@ -251,9 +252,10 @@ export function JobPage({ id }: { id: string }) {
       <PiecesSection jobId={job.id} onChanged={() => void load()} />
       <ChecksSection job={job} />
       <ConditionSection job={job} />
+      <VolumeSection job={job} />
 
       <Group title={t('rm.job.sections')} footer={t('rm.section.soon')}>
-        {(['rm.section.volume', 'rm.section.share'] as const).map((k) => (
+        {(['rm.section.share'] as const).map((k) => (
           <Row key={k} title={t(k)} chevron={false} disabled aria-disabled="true" />
         ))}
       </Group>

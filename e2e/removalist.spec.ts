@@ -285,11 +285,14 @@ test('accessibility: the job Pieces section, a job box and the labels screen hav
   await newRemovalist(page);
   await newJob(page, 'Ayesha Khan');
   await page.getByRole('button', { name: '+ 10 boxes' }).click();
+  await expect(page.getByTestId('piece-counts')).toHaveText('10 boxes · 0 furniture');
   await page.getByRole('button', { name: '+ Furniture piece' }).click();
   await expect(page.getByTestId('box-context')).toContainText('Piece 1');
   expect(await axe(page)).toEqual([]);
   await page.getByRole('button', { name: 'Back' }).click();
   await expect(page.getByTestId('piece-counts')).toHaveText('10 boxes · 1 furniture');
+  // Wait for the "10 boxes added" toast to go: axe would measure the button text against the toast over it.
+  await expect(page.getByRole('status').filter({ hasText: '10 boxes added' })).toHaveCount(0);
   expect(await axe(page)).toEqual([]);
   await page.getByRole('button', { name: 'Print labels' }).click();
   expect(await axe(page)).toEqual([]);

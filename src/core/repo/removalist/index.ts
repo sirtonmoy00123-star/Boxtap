@@ -4,3 +4,4 @@ export { STARTER_CATALOGUE } from './catalogue';
 export * from './pieces';
 export * from './events';
 export * from './condition';
+export * from './volume';

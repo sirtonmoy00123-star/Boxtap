@@ -179,6 +179,7 @@ test('Bangla: the condition screens and the disclaimer are in Bangla', async ({ 
   await page.getByLabel('গ্রাহকের নাম').fill('আয়েশা খান');
   await page.getByRole('button', { name: 'কাজ সংরক্ষণ করুন' }).click();
   await page.getByRole('button', { name: '+ বাক্স' }).click();
+  await expect(page.getByTestId('box-context')).toBeVisible();
   await page.getByRole('button', { name: 'পেছনে', exact: true }).click();
   await page.getByRole('button', { name: /মাল তোলার সময়ের অবস্থা/ }).click();
   await expect(page.getByTestId('cond-summary')).toHaveText('১টি জিনিস · ০টিতে আগে থেকে ক্ষতি');

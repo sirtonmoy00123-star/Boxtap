@@ -32,7 +32,8 @@ export function PiecesSection({ jobId, onChanged }: { jobId: string; onChanged: 
       if (e instanceof WorkerError && e.reason) showUpgrade(e.reason); else toast(t('error.generic', { msg: (e as Error).message }));
     }
   };
-  const addOne = (isPiece: boolean) => run(async () => { const p = await db.addJobBox(jobId, { isPiece }); navigate(`/box/${p.id}`); });
+  // Opens the new box, unless the user has already left this screen while it was being made.
+  const addOne = (isPiece: boolean) => run(async () => { const here = location.pathname; const p = await db.addJobBox(jobId, { isPiece }); if (location.pathname === here) navigate(`/box/${p.id}`); });
   const addTen = () => run(async () => { await db.quickAddBoxes(jobId, 10); toast(t('rm.add.tenDone')); });
   const boxes = pieces?.filter((p) => !p.isPiece).length ?? 0;
   const furniture = (pieces?.length ?? 0) - boxes;

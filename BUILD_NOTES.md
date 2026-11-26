@@ -48,7 +48,8 @@ npx tsx tools/config.ts sign          # writes public/config/v1.json
 | Removalist Phase 2 (boxes and furniture pieces in a job, job rooms, quick add, job labels) | Done on branch `feature/removalist-mode` (not merged, not pushed) | `pieces.test.ts`, `jobLabels.test.ts` (fit on both sheets), `e2e/removalist.spec.ts` |
 | Removalist Phase 3 (load and unload check: continuous scan, counter, wrong-job warning, manual tick, missing reasons, status) | Done on branch `feature/removalist-mode` (pushed; not merged) | `events.test.ts`, `continuous.test.ts`, `e2e/loadcheck.spec.ts` (scan-hook build + fake-camera speed test) |
 | Removalist Phase 4 (condition reports, in-app camera, captions, hashes, signature pad, sign-off, locks, amendments, refused signature, delivery comparison, auto-close) | Done on branch `feature/removalist-mode` (pushed; not merged) | `condition.test.ts`, caption test, `e2e/condition.spec.ts` |
-| Removalist Phases 5-7 (volume, PDFs/crew mode, finish) | Not started | `docs/removalist-plan.md` §10 |
+| Removalist Phase 5 (volume estimate: counted boxes and furniture, lines, buffer, suggested truck, m³ / ft³, volume list editor) | Done on branch `feature/removalist-mode` (pushed; not merged) | `volumeMath.test.ts`, `volume.test.ts`, `e2e/volume.spec.ts` |
+| Removalist Phases 6-7 (PDFs/sharing/crew mode/job CSV/logo screen, finish) | Not started | `docs/removalist-plan.md` §10 |
 | Deploy of Removalist Phases 1-2 | **Live since 2026-11-27**: the owner pushed main (merge 57fbc71); Workers Builds production build 3d46df30 succeeded (version c88f904b). Removalist Phases 1–2 live; Phases 3–7 pending (Phase 3 is on the feature branch only). | Smoke check of https://boxtap.sirtonmoy00123.workers.dev in a throwaway profile, no data made: HTTP 200, the real CSP header, no console or CSP errors, Home / Seller / Removalist cards, the served JS is the new build |
 | 1.8 Offline, update prompt, launch | Update prompt and precache done; offline E2E and launch not yet | |
 
@@ -169,7 +170,7 @@ Rulings (cost if wrong):
 29. **Move date** is stored as local date and time without a zone ("2026-12-03T08:30"). "Today" uses the phone's local date.
 30. **Job filters:** no chip selected = all open jobs; Upcoming = Booked; Today = moving today and not Closed; In progress = Packing, Loaded or Delivered; Closed = Closed or archived. Archived and Closed jobs don't count toward the free limit. Status can be set to any value by hand, after a confirm.
 31. **Removalist Settings** hides Print labels (job labels come in Phase 2) and the list-name field (the business name is edited in Business details, which renames the list too).
-32. **Truck capacity** is always typed and stored in m³, also when the unit is ft³. On-screen ft³ comes with Volume (Phase 5).
+32. **Truck capacity** is stored in m³. Since Phase 5 it is shown and typed in the business's unit (m³ or ft³), in Settings and in onboarding.
 33. **Removalist CSV export** uses the Home CSV for now. The job CSV comes in Phase 6.
 34. **Piece photo limit** (owner: decide later) is the config value `removalist_photos_per_piece`, with a placeholder of 3 Free / 10 Pro.
 
@@ -323,6 +324,46 @@ Tests (2026-11-27):
   - delivery, with "Box 1: OK at pickup → Dented at delivery" in the comparison
   - a customer who refused to sign at delivery, the job Closed and archive-only
   - axe on the condition piece and sign-off screens, and the Bangla screens and disclaimer
+
+## Removalist mode, Phase 5 (2026-11-27)
+
+The owner said "go" for Phase 5 (volume estimate). Branch `feature/removalist-mode`.
+
+Built:
+
+- **The maths** (`src/core/removalist/volumeMath.ts`, pure, with unit tests):
+  - totals, the buffer, m³ ↔ ft³ (1 m³ = 35.3147 ft³)
+  - rounding to 2 places in m³ and 1 place in ft³, without binary noise
+  - parsing typed sizes in the unit, including Bangla digits and a decimal comma
+  - truck choice: the smallest truck that fits, including an exact match; "Bigger than your largest truck"; no trucks
+- **Job Volume** (`/job/:id/volume`, `Volume.tsx`; the job screen shows "Volume estimate" with the total and the truck):
+  - boxes are counted by their box size and furniture by its linked type, with a note not to add these again as lines; furniture with no type is listed as "Not counted"
+  - lines from the volume list (a search box; adding an item again adds one more) and your own lines (name and size), with + / −
+  - the total in the business's unit, and the buffer % (default 10, saved per business)
+  - "Suggested truck: … (size)" = the smallest truck with capacity ≥ total × (1 + buffer); otherwise "Bigger than your largest truck"; with no trucks, only the total and a hint to add trucks
+  - the line "Volume only: BoxTap does not make prices or quotes."
+- **Volume list in Settings**: edit the names (English / Bangla) and the size, add an item, hide an item, move it up or down. The default box size can't be hidden, and hidden items still count for the boxes and lines that use them. "Starter values — adjust to your own experience" is shown.
+- **Unit**: the m³ / ft³ switch was already in Business details. Truck sizes are now shown and typed in that unit, in Settings and in onboarding (Bangladesh with ft³ sees the example trucks as 706.3 / 1059.4 / 1589.2 ft³).
+
+Rulings (cost if wrong):
+
+54. **A line keeps the size it had when added.** Editing the item in the volume list changes future lines and the box and furniture counts, but not lines already in a job. The counts use the item's current size.
+55. **"Add" for an item already in the job adds one more** to the same line, instead of making a second line.
+56. **Found while testing:** quick taps on + / − could miss one, because each tap used the count from before the previous tap was saved. + / − now changes the count in the database (`bumpVolumeLine`).
+
+**Bangla strings for native review (Phase 5):** `rm.vol.*`, `rm.cat.*`, `rm.truck.capacityIn`. All were written by Claude.
+
+Tests (2026-11-27):
+
+- Before (Phase 4 end): 331 unit tests, 126 browser passed, 29 skipped.
+- After: `npm run check` passed, 343 unit tests (+12: volume maths, job volume, lines, buffer, truck choice, volume list editing). Lint: 0 errors, the same 9 warnings.
+- E2E chromium + webkit + mobile-chrome: 136 passed, 29 skipped, 0 failed, 0 flaky (+10: 3 volume tests x 3 browsers, and the WebKit/phone runs that now pass). The new `e2e/volume.spec.ts` covers:
+  - 10 boxes and a sofa counted (2.50 m³, 2.75 m³ with the buffer, Truck 1)
+  - lines with search, + / − and a custom line (Truck 2), the buffer check and 0 %, and "Bigger than your largest truck"
+  - the ft³ switch: 51.50 m³ shows as 1818.7 ft³, and trucks show in ft³ (706.3)
+  - Bangla digits (১৮১৮.৭ ft³)
+  - the volume list editor: edit a size, add an item, move, hide, the default box size stays
+  - axe on the volume screen
 
 ## Test environment limits (not counted as passes)
 

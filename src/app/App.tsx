@@ -27,6 +27,7 @@ import { JobLabelsPage } from './screens/removalist/Pieces';
 import { LoadCheckPage, ScanJobPicker } from './screens/removalist/LoadCheck';
 import { ConditionPiecePage, ConditionStagePage } from './screens/removalist/Condition';
 import { SignOffPage } from './screens/removalist/SignOff';
+import { VolumePage } from './screens/removalist/Volume';
 import { startSchedule } from '../core/drive/browserSync';
 import { adoptRedirectToken } from '../core/drive/googleAuth';
 import { removeOrphans, removePhotoFile } from '../core/photos/store';
@@ -208,6 +209,7 @@ export function App() {
   else if (route.name === 'job') screen = <JobPage id={route.id} />;
   else if (route.name === 'jobEdit') screen = <JobForm id={route.id} />;
   else if (route.name === 'jobLabels') screen = <JobLabelsPage id={route.id} />;
+  else if (route.name === 'jobVolume') screen = <VolumePage id={route.id} />;
   else if (route.name === 'loadCheck') screen = <LoadCheckPage key={`${route.id}-${route.direction}`} id={route.id} direction={route.direction} />;
   else if (route.name === 'scanJob') screen = <ScanJobPicker />;
   else if (route.name === 'conditionStage') screen = <ConditionStagePage key={`${route.id}-${route.stage}`} id={route.id} stage={route.stage} />;

@@ -8,6 +8,7 @@ import type { Db } from '../../../core/db/client';
 import type { Workspace } from '../../../core/repo';
 import { asciiDigits, type Lang } from '../../../i18n/i18n';
 import { RecoveryCodeSetup } from '../Backup';
+import { parseVolume, roundFor, toUnit } from '../../../core/removalist/volumeMath';
 
 type Step = 'business' | 'country' | 'warning' | 'code' | 'trucks';
 interface TruckDraft { name: string; capacity: string }
@@ -35,8 +36,18 @@ export function RemovalistSetup({ db, lang, needCode, onDone, onCancel }: {
     setStep('country');
   };
 
+  // The example trucks (20, 30, 45 m³) are shown in the chosen unit: ft³ when Bangladesh chose ft³.
+  const goTrucks = () => {
+    const shown = country === 'AU' ? 'm3' : unit;
+    const ex = [20, 30, 45];
+    setTrucks((list) => list.map((tr, i) => (ex[i] != null && (tr.capacity === String(ex[i]) || tr.capacity === String(roundFor(toUnit(ex[i]!, 'ft3'), 'ft3')))
+      ? { ...tr, capacity: String(roundFor(toUnit(ex[i]!, shown), shown)) } : tr)));
+    setStep('trucks');
+  };
+
   const create = async (withTrucks: boolean) => {
-    const list = withTrucks ? trucks.map((tr) => ({ name: tr.name.trim(), capacityM3: parseCapacity(tr.capacity) })) : [];
+    const shown = country === 'AU' ? 'm3' : unit;
+    const list = withTrucks ? trucks.map((tr) => ({ name: tr.name.trim(), capacityM3: parseVolume(tr.capacity, shown) })) : [];
     if (list.some((tr) => !tr.name || !(tr.capacityM3 > 0) || tr.capacityM3 > 500)) { setError(t('rm.truck.bad')); return; }
     setError(null);
     setBusy(true);
@@ -116,14 +127,14 @@ export function RemovalistSetup({ db, lang, needCode, onDone, onCancel }: {
       <>
         <h1 className="text-large-title font-bold">{t('rm.setup.warningTitle')}</h1>
         <p className="rounded-md bg-surface-2 p-3 text-subhead text-warning">{t('rm.setup.warning')}</p>
-        <Button className="mt-3" onClick={() => setStep(needCode && !codeDone ? 'code' : 'trucks')}>{t('rm.setup.understood')}</Button>
+        <Button className="mt-3" onClick={() => (needCode && !codeDone ? setStep('code') : goTrucks())}>{t('rm.setup.understood')}</Button>
         {back('country')}
       </>,
     );
   }
 
   if (step === 'code') {
-    return <div className="mx-auto max-w-md px-6 py-8 pt-[max(2rem,env(safe-area-inset-top))]"><RecoveryCodeSetup db={db} t={t} onDone={() => { setCodeDone(true); setStep('trucks'); }} /></div>;
+    return <div className="mx-auto max-w-md px-6 py-8 pt-[max(2rem,env(safe-area-inset-top))]"><RecoveryCodeSetup db={db} t={t} onDone={() => { setCodeDone(true); goTrucks(); }} /></div>;
   }
 
   return wrap(
@@ -140,7 +151,7 @@ export function RemovalistSetup({ db, lang, needCode, onDone, onCancel }: {
                 onChange={(e) => setTrucks(trucks.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />
             </label>
             <label className="w-28">
-              <span className="mb-1 block text-footnote text-text-2">{t('rm.truck.capacity')}</span>
+              <span className="mb-1 block text-footnote text-text-2">{t('rm.truck.capacityIn', { unit: (country === 'AU' ? 'm3' : unit) === 'ft3' ? 'ft³' : 'm³' })}</span>
               <input className={inputClass} inputMode="decimal" value={tr.capacity}
                 onChange={(e) => setTrucks(trucks.map((x, j) => (j === i ? { ...x, capacity: e.target.value } : x)))} />
             </label>
