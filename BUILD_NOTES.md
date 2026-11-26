@@ -206,10 +206,10 @@ Built:
 
 Rulings (cost if wrong):
 
-35. **Job labels do not print the box's own name**, only the items in the Phase 2 list. FRAGILE / OPEN FIRST stay in English, as on Home labels; "Box 12 of 45" follows the list's language. Cost: a crew that wants the box name on the label needs one more line (it would fit on L7165).
+35. **Box name on job labels: L7165 only** (owner, 2026-11-26). It goes under "Khan · J-0042" and is drawn as a picture when it isn't Latin; L7163 has no room for it. FRAGILE / OPEN FIRST stay in English, as on Home labels; "Box 12 of 45" follows the list's language. The fit tests include a long Bangla box name.
 36. **"of N" is the number of live boxes (or pieces) of that kind in the job when printing.** Numbers are never reused (the unique index includes binned boxes), so after a box is binned, "Box 12 of 11" is possible. The stale-labels warning covers it.
 37. **Totals at the last print** are kept in `meta` (key `job_labels_printed:<jobId>`), so no schema change was needed. They travel in backups.
-38. **Logo**: the label PDF draws it with Pro on L7165 when the business has one. There is no screen to add a logo yet (the owner said no logo step in onboarding, and Phase 2 did not include a logo upload). Needs an owner decision on when to add it.
+38. **Logo**: the label PDF draws it with Pro on L7165 when the business has one. There is no screen to add a logo yet. Owner decision (2026-11-26): the logo setup screen comes in Phase 6 (Settings; shown only with Removalist Pro).
 39. **Box or Furniture** is chosen with two add buttons ("+ Box", "+ Furniture piece") instead of a switch on a form. The kind can't change afterwards, because its number belongs to that kind.
 40. **The room line is dropped first** if a label runs out of room. The fit tests show it still fits on both sheets with long Latin and long Bangla text.
 
@@ -218,7 +218,7 @@ Rulings (cost if wrong):
 Tests (2026-11-27):
 
 - Before (Phase 1 end): 290 unit tests, 103 browser passed, 20 skipped.
-- After: `npm run check` passed, 310 unit tests (+20: pieces, job rooms, quick add all-or-none, label data and "of N", label fit on both sheets with long and Bangla text, logo only on L7165), lint 0 errors / the same 9 warnings. E2E chromium + webkit + mobile-chrome: 114 passed, 21 skipped, 0 failed (the extra skip is the new job-box link test on Windows WebKit, which has no lasting storage; earlier runs showed two timing faults in the tests, now fixed by waiting for the screen to change). New: quick add + single box + 2 furniture pieces → labels PDF downloads, then the stale warning; a Bangla customer name prints as a drawn picture; a job box link opens in job context; axe on the pieces section, a job box and the labels screen. All existing Home and Seller tests pass unchanged.
+- After: `npm run check` passed, 310 unit tests (+20: pieces, job rooms, quick add all-or-none, label data and "of N", label fit on both sheets with long and Bangla text, logo only on L7165), lint 0 errors / the same 9 warnings. E2E chromium + webkit + mobile-chrome: 114 passed, 21 skipped, 0 failed (the extra skip is the new job-box link test on Windows WebKit, which has no lasting storage; earlier runs showed two timing faults in the tests, now fixed by waiting for the screen to change). New: quick add + single box + 2 furniture pieces → labels PDF downloads, then the stale warning; a Bangla box name prints as a drawn picture on L7165; a job box link opens in job context; axe on the pieces section, a job box and the labels screen. All existing Home and Seller tests pass unchanged.
 
 ## Test environment limits (not counted as passes)
 

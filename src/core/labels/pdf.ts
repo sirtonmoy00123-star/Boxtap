@@ -105,6 +105,8 @@ export interface JobLabelItem {
   big: string;
   /** The customer's last name with the job number: "Khan · J-0042" (owner, 2026-11-26). */
   owner: string;
+  /** The box's own name (owner, 2026-11-26): printed on L7165 only; L7163 has no room for it. */
+  name?: string | null;
   room: string | null;
   fragile: boolean;
   openFirst: boolean;
@@ -118,14 +120,14 @@ export interface JobLabelOptions {
   trace?: (label: number, box: Rect & { what: string }) => void;
 }
 
-const SIZES: Record<SheetId, { business: number; big: number; owner: number; room: number; flags: number; code: number; logo: number }> = {
-  L7165: { business: 8, big: 22, owner: 13, room: 11, flags: 10, code: 7, logo: 16 },
-  L7163: { business: 7, big: 15, owner: 10, room: 9, flags: 8, code: 6, logo: 0 },
+const SIZES: Record<SheetId, { business: number; big: number; owner: number; name: number; room: number; flags: number; code: number; logo: number }> = {
+  L7165: { business: 8, big: 22, owner: 13, name: 11, room: 11, flags: 10, code: 7, logo: 16 },
+  L7163: { business: 7, big: 15, owner: 10, name: 0, room: 9, flags: 8, code: 6, logo: 0 },
 };
 
 /**
  * One Removalist label: QR on the left (unchanged format), then business name (or logo), "Box 12 of 45",
- * "Khan · J-0042", destination room; Fragile / Open first and the code at the bottom. Lines are stacked in boxes
+ * "Khan · J-0042", the box's name (L7165 only), destination room; Fragile / Open first and the code at the bottom. Lines are stacked in boxes
  * of 1.2× their size; a line that would reach the bottom block is left out (the room first), never drawn over it.
  */
 async function drawJobLabel(doc: PDFDocument, page: PDFPage, r: Rect, l: JobLabelItem, sheet: SheetId, bold: PDFFont, regular: PDFFont,
@@ -186,6 +188,7 @@ async function drawJobLabel(doc: PDFDocument, page: PDFPage, r: Rect, l: JobLabe
   }
   await line(l.big, s.big, bold, 'big');
   await line(l.owner, s.owner, bold, 'owner');
+  if (l.name && s.name > 0) await line(l.name, s.name, regular, 'name');
   if (l.room) await line(l.room, s.room, regular, 'room');
 }
 

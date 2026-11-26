@@ -245,18 +245,18 @@ test('Removalist: quick add 10 boxes, a single box and 2 furniture pieces, then 
   await expect(page.getByTestId('labels-stale')).toContainText('old total (11 boxes, 2 furniture)');
 });
 
-test('Removalist labels: a Bangla customer name prints as drawn text, not "?"', async ({ page }) => {
+test('Removalist labels: a Bangla box name prints as drawn text on L7165, not "?"', async ({ page }) => {
   await page.addInitScript(() => { Object.defineProperty(navigator, 'canShare', { value: undefined }); });
   await newRemovalist(page);
   await page.getByRole('button', { name: 'New job' }).first().click();
-  await page.getByLabel('Customer name').fill('আয়েশা খান');
+  await page.getByLabel('Customer name').fill('Ayesha Khan'); // Latin, so the only drawn text is the box name
   await page.getByRole('button', { name: 'Save job' }).click();
   await page.getByRole('button', { name: '+ Box' }).click();
   await page.getByLabel('Name', { exact: true }).fill('রান্নাঘরের বাসন');
   await expect(page.getByTestId('autosave')).toHaveText('Saved');
   await page.getByRole('button', { name: 'Back' }).click();
   await page.getByRole('button', { name: 'Print labels' }).click();
-  await page.getByLabel('Label sheet').selectOption('L7163');
+  await expect(page.getByLabel('Label sheet')).toHaveValue('L7165');
   const dl = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Make PDF' }).click();
   const { readFileSync } = await import('node:fs');

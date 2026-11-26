@@ -115,7 +115,7 @@ export function JobLabelsPage({ id }: { id: string }) {
       const set = await db.jobLabels(id, chosen.size === pieces.length ? undefined : [...chosen]);
       const logo = await db.labelLogo(ws.id);
       const items = set.labels.map((l) => ({
-        code: l.code, room: l.room, fragile: l.fragile, openFirst: l.openFirst,
+        code: l.code, name: l.name, room: l.room, fragile: l.fragile, openFirst: l.openFirst,
         big: t(l.isPiece ? 'rm.label.piece' : 'rm.label.box', { n: l.seq, of: l.of }),
         owner: `${set.labelName} · ${set.jobNumber}`,
       }));

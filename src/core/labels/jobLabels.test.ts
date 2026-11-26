@@ -20,7 +20,7 @@ function widePng(w = 2000, h = 40): Uint8Array {
 }
 
 const item = (over: Partial<JobLabelItem> = {}): JobLabelItem => ({
-  code: 'K7Q2M9XR4T', big: 'Box 12 of 45', owner: 'Khan · J-0042', room: 'Kitchen', fragile: true, openFirst: true, ...over,
+  code: 'K7Q2M9XR4T', big: 'Box 12 of 45', owner: 'Khan · J-0042', name: 'Pots and pans', room: 'Kitchen', fragile: true, openFirst: true, ...over,
 });
 
 async function traced(sheet: SheetId, labels: JobLabelItem[], renderText?: boolean) {
@@ -42,9 +42,9 @@ describe.each(Object.keys(SHEETS) as SheetId[])('job labels on %s', (sheet) => {
   const cells = cellRects(SHEETS[sheet]);
   const cases: [string, JobLabelItem, boolean][] = [
     ['plain', item(), false],
-    ['long Latin text', item({ big: 'Piece 123 of 456', owner: 'Montgomery-Fitzwilliam · J-1234', room: 'Upstairs back bedroom with the balcony' }), false],
-    ['long Bangla text drawn by the browser', item({ big: 'বাক্স ১২ / ৪৫', owner: 'রহমান চৌধুরী খান · J-0042', room: 'দোতলার পেছনের শোবার ঘর বারান্দাসহ' }), true],
-    ['no room, no flags', item({ room: null, fragile: false, openFirst: false }), false],
+    ['long Latin text', item({ big: 'Piece 123 of 456', owner: 'Montgomery-Fitzwilliam · J-1234', name: 'Grandmother\'s good china, wrapped twice, this side up', room: 'Upstairs back bedroom with the balcony' }), false],
+    ['long Bangla text drawn by the browser', item({ big: 'বাক্স ১২ / ৪৫', owner: 'রহমান চৌধুরী খান · J-0042', name: 'রান্নাঘরের বাসনপত্র, কাঁচের জিনিস সাবধানে রাখুন', room: 'দোতলার পেছনের শোবার ঘর বারান্দাসহ' }), true],
+    ['no name, no room, no flags', item({ name: null, room: null, fragile: false, openFirst: false }), false],
   ];
   it.each(cases)('%s: every element stays inside its label and nothing overlaps', async (_name, l, bangla) => {
     const { boxes, seen } = await traced(sheet, [l], bangla);
@@ -62,6 +62,17 @@ describe.each(Object.keys(SHEETS) as SheetId[])('job labels on %s', (sheet) => {
     const n = cells.length;
     expect((await PDFDocument.load((await traced(sheet, Array.from({ length: n }, () => item()))).bytes)).getPageCount()).toBe(1);
     expect((await PDFDocument.load((await traced(sheet, Array.from({ length: n + 1 }, () => item()))).bytes)).getPageCount()).toBe(2);
+  });
+});
+
+describe('job label box name', () => {
+  it('is printed on L7165 (drawn when not Latin) and never on L7163', async () => {
+    const big = await traced('L7165', [item({ name: 'রান্নাঘরের বাসনপত্র' })], true);
+    expect(big.boxes.some((b) => b.box.what === 'name')).toBe(true);
+    expect(big.seen).toContain('রান্নাঘরের বাসনপত্র');
+    const small = await traced('L7163', [item({ name: 'রান্নাঘরের বাসনপত্র' })], true);
+    expect(small.boxes.some((b) => b.box.what === 'name')).toBe(false);
+    expect(small.seen).not.toContain('রান্নাঘরের বাসনপত্র');
   });
 });
 

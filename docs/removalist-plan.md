@@ -203,3 +203,8 @@ Answered by the owner on 26 Nov 2026:
 4. Ordinary piece photo limit? **Decide later.** It's a config value (placeholder: 3 free / 10 Pro, the same as condition photos) so it can change without code.
 5. English caption on photos: **OK.**
 6. Storage and restore: **builder's choice.** Decision: fix streaming restore in Phase 7, because a photo-heavy backup that can't be restored on an iPhone breaks the main promise. The "remove photos from old closed jobs" tool stays out of this build and is noted as follow-up work.
+
+Answered by the owner after Phase 2 (26 Nov 2026):
+
+7. Logo setup screen? **Yes, in Phase 6.** Settings gets a screen to add the business logo (shown on labels and reports only with Removalist Pro). Until then the label PDF can draw a logo but none can be added.
+8. Box name on labels? **Yes, on the large Avery L7165 sheet only** (not L7163). Non-Latin names are drawn as a picture, like other Bangla text.
