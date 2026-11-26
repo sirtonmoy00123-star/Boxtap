@@ -9,3 +9,6 @@ test-results/
 owner-private/
 *.keys.enc
 licences.csv
+
+# wrangler dev state and temp bundles
+.wrangler/
