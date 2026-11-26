@@ -24,6 +24,7 @@ import { JobForm, JobPage, JobsPage } from './screens/removalist/Jobs';
 import { BusinessPage, TrucksPage, VolumeCataloguePage } from './screens/removalist/Settings';
 import { AddRemovalistPage } from './screens/removalist/AddRemovalist';
 import { JobLabelsPage } from './screens/removalist/Pieces';
+import { LoadCheckPage, ScanJobPicker } from './screens/removalist/LoadCheck';
 import { startSchedule } from '../core/drive/browserSync';
 import { adoptRedirectToken } from '../core/drive/googleAuth';
 import { removeOrphans, removePhotoFile } from '../core/photos/store';
@@ -205,6 +206,8 @@ export function App() {
   else if (route.name === 'job') screen = <JobPage id={route.id} />;
   else if (route.name === 'jobEdit') screen = <JobForm id={route.id} />;
   else if (route.name === 'jobLabels') screen = <JobLabelsPage id={route.id} />;
+  else if (route.name === 'loadCheck') screen = <LoadCheckPage key={`${route.id}-${route.direction}`} id={route.id} direction={route.direction} />;
+  else if (route.name === 'scanJob') screen = <ScanJobPicker />;
   else if (route.name === 'business') screen = <BusinessPage />;
   else if (route.name === 'trucks') screen = <TrucksPage />;
   else if (route.name === 'volumeCatalogue') screen = <VolumeCataloguePage />;
@@ -235,7 +238,7 @@ export function App() {
       {boot.db.info.persistent && storage?.likelyPrivate && <Banner tone="danger">{t('banner.private')}</Banner>}
       {boot.db.info.persistent && storage && !storage.likelyPrivate && !storage.persisted && workspace && <Banner>{t('banner.notPersisted')}</Banner>}
       {showTabs ? <div className="lg:pl-56">{screen}</div> : screen}
-      {showTabs && <TabBar tabs={tabs} current={route.name} label={t('nav.main')} scanLabel={t('home.scan')} onScan={() => navigate('/scan')} />}
+      {showTabs && <TabBar tabs={tabs} current={route.name} label={t('nav.main')} scanLabel={t('home.scan')} onScan={() => navigate(removalist ? '/scan-job' : '/scan')} />}
       {upgrade && <Upgrade reason={upgrade} onClose={() => setUpgrade(null)} />}
       {shareFile && (
         <div role="dialog" aria-label={t('share.ready')} className="anim-in fixed inset-x-0 bottom-0 z-50 flex flex-col gap-2 rounded-t-lg bg-surface p-4 shadow-2xl" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>

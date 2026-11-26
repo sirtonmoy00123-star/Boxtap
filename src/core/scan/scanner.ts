@@ -47,7 +47,17 @@ interface TorchCapabilities extends MediaTrackCapabilities { torch?: boolean }
  * Starts the camera into `video` and calls onResult once per distinct decoded text. Only boxtap.app/b/<code>
  * links count as labels (SECURITY_MODEL: malicious QR codes are ignored, never opened).
  */
-export async function startScanner(video: HTMLVideoElement, onResult: (r: ScanResult) => void): Promise<ScannerHandle> {
+export interface ScannerOptions {
+  /** Pause between decode attempts (ms). Default 120. */
+  intervalMs?: number;
+  /**
+   * Continuous scanning: after this long with no code in view, the same code counts again (so a box scanned twice
+   * gets "Already loaded"). Default: a code repeats only after a different one was seen.
+   */
+  repeatAfterMs?: number;
+}
+
+export async function startScanner(video: HTMLVideoElement, onResult: (r: ScanResult, seenAt: number) => void, opts: ScannerOptions = {}): Promise<ScannerHandle> {
   const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }, audio: false });
   video.srcObject = stream;
   video.setAttribute('playsinline', 'true'); // iPhone: no fullscreen takeover
@@ -60,11 +70,14 @@ export async function startScanner(video: HTMLVideoElement, onResult: (r: ScanRe
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
   let stopped = false;
   let last = '';
+  let lastSeen = 0;
+  const interval = opts.intervalMs ?? 120;
 
   const tick = async () => {
     if (stopped) return;
     try {
       if (video.readyState >= 2 && video.videoWidth) {
+        const seenAt = performance.now(); // when this frame was taken
         let texts: string[];
         if (native) {
           texts = await decode(video);
@@ -76,16 +89,18 @@ export async function startScanner(video: HTMLVideoElement, onResult: (r: ScanRe
           texts = await decode(ctx.getImageData(0, 0, canvas.width, canvas.height));
         }
         const text = texts[0];
+        if (!text && opts.repeatAfterMs != null && last && seenAt - lastSeen > opts.repeatAfterMs) last = '';
+        if (text) lastSeen = seenAt;
         if (text && text !== last) {
           last = text;
           const code = parseLabelUrl(text);
-          onResult(code ? { kind: 'label', code } : { kind: 'other', text });
+          onResult(code ? { kind: 'label', code } : { kind: 'other', text }, seenAt);
         }
       }
     } catch (e) {
       console.warn('scan frame failed', e);
     }
-    if (!stopped) setTimeout(() => void tick(), 120);
+    if (!stopped) setTimeout(() => void tick(), interval);
   };
   void tick();
 

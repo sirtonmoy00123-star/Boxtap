@@ -74,6 +74,12 @@ export function createService(ctx: Ctx, entitlement: () => Entitlement = () => (
     markJobLabelsPrinted: (jobId: string) => R.markJobLabelsPrinted(ctx, jobId),
     jobLabelsStatus: (jobId: string) => R.jobLabelsStatus(ctx, jobId),
     /** The logo for labels: only with Removalist Pro (logo_branding). */
+    // Phase 3: load and unload check. Never gated (plan §7).
+    recordScan: (jobId: string, d: R.Direction, code: string) => R.recordScan(ctx, jobId, d, code),
+    manualTick: (jobId: string, d: R.Direction, boxId: string) => R.manualTick(ctx, jobId, d, boxId),
+    checkState: (jobId: string, d: R.Direction) => R.checkState(ctx, jobId, d),
+    finishCheck: (jobId: string, d: R.Direction, reasons: Parameters<typeof R.finishCheck>[3]) => R.finishCheck(ctx, jobId, d, reasons),
+    checkCounts: (jobId: string) => R.checkCounts(ctx, jobId),
     labelLogo: (wsId: string) => { try { gate('logo_branding', wsId); } catch { return null; } return R.getBusinessLogo(ctx, wsId); },
 
     // Boxes and labels

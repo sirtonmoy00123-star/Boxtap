@@ -46,7 +46,9 @@ npx tsx tools/config.ts sign          # writes public/config/v1.json
 | 3 Seller Pro extras: cost/profit, reports, orders, variants | Built ahead of the pilot at the owner's request (2026-11-26), including Excel export (Items, Sales, Orders sheets) | reports/orders/variants/xlsx tests; Pro E2E on a preview build |
 | Removalist Phase 1 (foundation): schema v6, `can()` per type, teal, onboarding, Jobs tab, job Bin/archive | Done on branch `feature/removalist-mode` (not merged, not pushed) | v6 migration and trigger tests, jobs/licensing tests, `e2e/removalist.spec.ts` incl. axe |
 | Removalist Phase 2 (boxes and furniture pieces in a job, job rooms, quick add, job labels) | Done on branch `feature/removalist-mode` (not merged, not pushed) | `pieces.test.ts`, `jobLabels.test.ts` (fit on both sheets), `e2e/removalist.spec.ts` |
-| Removalist Phases 3-7 (load check, condition and sign-off, volume, PDFs/crew mode, finish) | Not started | `docs/removalist-plan.md` §10 |
+| Removalist Phase 3 (load and unload check: continuous scan, counter, wrong-job warning, manual tick, missing reasons, status) | Done on branch `feature/removalist-mode` (pushed; not merged) | `events.test.ts`, `continuous.test.ts`, `e2e/loadcheck.spec.ts` (scan-hook build + fake-camera speed test) |
+| Removalist Phases 4-7 (condition and sign-off, volume, PDFs/crew mode, finish) | Not started | `docs/removalist-plan.md` §10 |
+| Deploy of Removalist Phases 1-2 | Merged into local main (57fbc71), **not pushed**: this PC's permission check refuses `git push origin main` twice; GitHub main and the live site are still a4b421c. The owner pushes it. | |
 | 1.8 Offline, update prompt, launch | Update prompt and precache done; offline E2E and launch not yet | |
 
 ## Rulings made during the build (deviations from the docs, with cost if wrong)
@@ -219,6 +221,52 @@ Tests (2026-11-27):
 
 - Before (Phase 1 end): 290 unit tests, 103 browser passed, 20 skipped.
 - After: `npm run check` passed, 310 unit tests (+20: pieces, job rooms, quick add all-or-none, label data and "of N", label fit on both sheets with long and Bangla text, logo only on L7165), lint 0 errors / the same 9 warnings. E2E chromium + webkit + mobile-chrome: 114 passed, 21 skipped, 0 failed (the extra skip is the new job-box link test on Windows WebKit, which has no lasting storage; earlier runs showed two timing faults in the tests, now fixed by waiting for the screen to change). New: quick add + single box + 2 furniture pieces → labels PDF downloads, then the stale warning; a Bangla box name prints as a drawn picture on L7165; a job box link opens in job context; axe on the pieces section, a job box and the labels screen. All existing Home and Seller tests pass unchanged.
+
+## Removalist mode, Phase 3 (2026-11-27)
+
+The owner said "you start next part" (Phase 3, load and unload check). Branch `feature/removalist-mode`.
+
+Built:
+
+- **Rules in the database layer** (`src/core/repo/removalist/events.ts`). Every scan or tick is an append-only `job_events` row, and the counters and the missing list are worked out from those rows, so a reload loses nothing and works offline.
+  - **Loading** expects every live box and piece of the job. **Unloading** expects what was loaded (scanned or ticked).
+  - **What a scan can be:**
+    - a counted box
+    - "Already loaded" (not counted twice)
+    - a box of another job: the warning "This is Box 4 of J-0039, Khan", recorded as `wrong_job_scan`
+    - a box from a Home or Seller list (or a loose box) on this phone: "Not part of this job"
+    - another user's label or a spare label: "This box isn't in your BoxTap."
+    - a non-BoxTap QR code: refused, as before.
+  - **Manual tick** (`manual_loaded` / `manual_unloaded`) for damaged labels, shown with a hand icon.
+  - **Finish**: every missing piece needs a reason (Left behind on purpose · Customer is taking it · Not found · Other, which needs a note), recorded as `missing_ack`. Then load → Loaded and unload → Delivered.
+- **Continuous scan** (`src/core/scan/continuous.ts`, reusing `startScanner` with new interval and repeat options):
+  - scans are handled one at a time, and the same code held in view is ignored for 1.5 s
+  - a Web Audio beep (high = counted, soft = already, three low tones = warning), vibration on Android only
+  - the Wake Lock keeps the screen on where supported, and the screen says "Keep this screen on while loading"
+- **Screens**:
+  - The load or unload check opens from the job screen (new "Load and unload check" rows with progress) or from the round Scan button, which now asks "Scan for which job?" with Loading / Unloading, plus "Just find a box".
+  - Big counter "32 of 45 loaded", and the outcome message (warnings are `role=alert` on a red band).
+  - The box list with Tick buttons. Without a camera the screen still works by hand.
+- **Test-only scan hook**: `window.__boxtapScan(text)`, compiled in only with `VITE_E2E_SCAN_HOOK=1` (like the Pro preview build). Checked: the normal build has no hook. Run with: `VITE_E2E_SCAN_HOOK=1 npm run build && SCAN_E2E=1 npx playwright test e2e/loadcheck.spec.ts`.
+
+**Speed** (plan §8). The test uses Chromium's fake camera playing a Y4M video of real QR codes, made at test time from the job's label codes with the `qrcode` package already in the app, so no new package was needed. The time from the camera frame being read to the counter being painted, including the zxing decode and the database write, was **30–31 ms** on this PC (two runs) (desktop Chromium, zxing-wasm, 640×480). Not included: the camera's own delay, and up to 80 ms until the next frame is read. So it is about 0.1 s here, under the 0.5 s target; real phones still need checking (manual tests).
+
+Rulings (cost if wrong):
+
+41. **The same code within 1.5 s is ignored** (a label held in front of the camera). After that a repeat shows "Already loaded". Cost: two boxes with the same label can't exist, so none.
+42. **Unloading a box that was never marked as loaded** counts it and says "It wasn't marked as loaded". It is not refused, because the box is really there.
+43. **Status only moves forward**: finishing a load sets Loaded only from Booked or Packing; finishing an unload sets Delivered from Booked, Packing or Loaded; never past Closed. A check can be opened again after finishing; it keeps its history.
+44. **A wrong-job scan is recorded on the job being checked**, with the other job's box as its location.
+45. **Wake Lock**: the "Keep this screen on…" line is always shown. It is grey when the browser keeps the screen on, and in warning colour when it can't.
+
+**Bangla strings for native review (Phase 3):** `rm.load.*`, `rm.unload.*`, `rm.scan.*`, `rm.check.*`, `rm.reason.*`, `rm.section.checks`, `rm.pick.*`. All were written by Claude.
+
+Tests (2026-11-27):
+
+- Before (Phase 2 end): 311 unit tests, 114 browser passed, 21 skipped.
+- After: `npm run check` passed, 322 unit tests (+11: load/unload rules, scan queue). Lint: 0 errors, the same 9 warnings.
+- E2E chromium + webkit + mobile-chrome on the normal build: 118 passed, 29 skipped, 0 failed (+4 passed: axe on the load check in 3 browsers and the speed test, 30 ms in this run). The 2 load-check flow tests skip there, because they need the scan-hook build.
+- The scan-hook build, `e2e/loadcheck.spec.ts` in the 3 browsers: 10 passed, 2 skipped (the speed test runs only in desktop Chromium). These cover load and unload with the counter, Already loaded, wrong job, not BoxTap, unknown label, manual tick, missing reasons with Other + note, Loaded → Delivered, the Scan-button job picker, the count kept after a reload (not in Windows WebKit, which has no lasting storage), axe on the load check screen, and the fake-camera speed test.
 
 ## Test environment limits (not counted as passes)
 

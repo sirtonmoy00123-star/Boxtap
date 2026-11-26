@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState, type InputHTMLAttributes } from 'react';
 import { MapPin, Phone, Plus, Search, X } from 'lucide-react';
 import { PiecesSection } from './Pieces';
+import { ChecksSection } from './LoadCheck';
 import { useApp } from '../../context';
 import { navigate } from '../../router';
 import { Button, Field, Group, Icon, IconButton, Page, Row, inputClass } from '../../ui';
@@ -247,9 +248,10 @@ export function JobPage({ id }: { id: string }) {
       </Group>
 
       <PiecesSection jobId={job.id} onChanged={() => void load()} />
+      <ChecksSection job={job} />
 
       <Group title={t('rm.job.sections')} footer={t('rm.section.soon')}>
-        {(['rm.section.volume', 'rm.section.condition', 'rm.section.load', 'rm.section.share'] as const).map((k) => (
+        {(['rm.section.volume', 'rm.section.condition', 'rm.section.share'] as const).map((k) => (
           <Row key={k} title={t(k)} chevron={false} disabled aria-disabled="true" />
         ))}
       </Group>
