@@ -50,7 +50,8 @@ export function getPhoto(ctx: Ctx, id: string): Photo | undefined {
 
 export function listPhotos(ctx: Ctx, parent: { locationId?: string; itemId?: string }): Photo[] {
   const [col, val] = parent.locationId ? ['location_id', parent.locationId] : ['item_id', parent.itemId];
-  return ctx.db.selectObjects(`SELECT * FROM photos WHERE ${col}=? AND deleted_at IS NULL ORDER BY created_at`, [val]).map(toPhoto);
+  // Condition photos (Removalist) belong to the condition report, not to the box's own photo strip.
+  return ctx.db.selectObjects(`SELECT * FROM photos WHERE ${col}=? AND deleted_at IS NULL AND id NOT IN (SELECT photo_id FROM condition_photos) ORDER BY created_at`, [val]).map(toPhoto);
 }
 
 export interface ItemThumb { photoId: string; thumbName: string; fileName: string }

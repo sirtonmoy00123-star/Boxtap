@@ -74,6 +74,22 @@ export function createService(ctx: Ctx, entitlement: () => Entitlement = () => (
     markJobLabelsPrinted: (jobId: string) => R.markJobLabelsPrinted(ctx, jobId),
     jobLabelsStatus: (jobId: string) => R.jobLabelsStatus(ctx, jobId),
     /** The logo for labels: only with Removalist Pro (logo_branding). */
+    // Phase 4: condition reports and sign-off. Condition photos are limited per piece per stage (can()).
+    stageSummary: (jobId: string, stage: R.Stage) => R.stageSummary(ctx, jobId, stage),
+    getConditionRecord: (jobId: string, boxId: string, stage: R.Stage) => R.getConditionRecord(ctx, jobId, boxId, stage),
+    pieceAmendments: (jobId: string, boxId: string, stage: R.Stage) => R.pieceAmendments(ctx, jobId, boxId, stage),
+    saveCondition: (c: Parameters<typeof R.saveCondition>[1]) => R.saveCondition(ctx, c),
+    addAmendment: (a: Parameters<typeof R.addAmendment>[1]) => R.addAmendment(ctx, a),
+    conditionPhotoCount: (jobId: string, boxId: string, stage: R.Stage) => R.conditionPhotoCount(ctx, jobId, boxId, stage),
+    addConditionPhoto: (c: Parameters<typeof R.addConditionPhoto>[1]) => {
+      const j = R.getJob(ctx, c.jobId);
+      if (!j) throw new Error('job not found');
+      gate('add_condition_photo', j.workspaceId, R.conditionPhotoCount(ctx, c.jobId, c.locationId, c.stage));
+      return R.addConditionPhoto(ctx, c);
+    },
+    compareStages: (jobId: string) => R.compareStages(ctx, jobId),
+    signStage: (s: Parameters<typeof R.signStage>[1]) => R.signStage(ctx, s),
+    verifyStage: (jobId: string, stage: R.Stage) => R.verifyStage(ctx, jobId, stage),
     // Phase 3: load and unload check. Never gated (plan §7).
     recordScan: (jobId: string, d: R.Direction, code: string) => R.recordScan(ctx, jobId, d, code),
     manualTick: (jobId: string, d: R.Direction, boxId: string) => R.manualTick(ctx, jobId, d, boxId),

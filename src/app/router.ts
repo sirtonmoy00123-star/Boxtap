@@ -24,6 +24,9 @@ export type Route =
   | { name: 'jobLabels'; id: string }
   | { name: 'loadCheck'; id: string; direction: 'load' | 'unload' }
   | { name: 'scanJob' }
+  | { name: 'conditionStage'; id: string; stage: 'pickup' | 'delivery' }
+  | { name: 'conditionPiece'; id: string; stage: 'pickup' | 'delivery'; boxId: string }
+  | { name: 'signOff'; id: string; stage: 'pickup' | 'delivery' }
   | { name: 'business' }
   | { name: 'trucks' }
   | { name: 'volumeCatalogue' }
@@ -49,6 +52,10 @@ export function parseRoute(path: string): Route {
   if (path === '/scan') return { name: 'scan' };
   if (path === '/job/new') return { name: 'jobNew' };
   if (path === '/scan-job') return { name: 'scanJob' };
+  const cp = /^\/job\/([0-9a-f-]{36})\/condition\/(pickup|delivery)(?:\/([0-9a-f-]{36}))?$/i.exec(path);
+  if (cp) return cp[3] ? { name: 'conditionPiece', id: cp[1]!, stage: cp[2] as 'pickup' | 'delivery', boxId: cp[3] } : { name: 'conditionStage', id: cp[1]!, stage: cp[2] as 'pickup' | 'delivery' };
+  const sg = /^\/job\/([0-9a-f-]{36})\/sign\/(pickup|delivery)$/i.exec(path);
+  if (sg) return { name: 'signOff', id: sg[1]!, stage: sg[2] as 'pickup' | 'delivery' };
   const cm = /^\/job\/([0-9a-f-]{36})\/check\/(load|unload)$/i.exec(path);
   if (cm) return { name: 'loadCheck', id: cm[1]!, direction: cm[2] as 'load' | 'unload' };
   const jm = /^\/job\/([0-9a-f-]{36})(\/edit|\/labels)?$/i.exec(path);

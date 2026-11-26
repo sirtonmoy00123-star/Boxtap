@@ -57,12 +57,18 @@ export interface ScannerOptions {
   repeatAfterMs?: number;
 }
 
-export async function startScanner(video: HTMLVideoElement, onResult: (r: ScanResult, seenAt: number) => void, opts: ScannerOptions = {}): Promise<ScannerHandle> {
-  const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }, audio: false });
+/** Opens the back camera into `video` (shared by the scanner and the condition-photo camera). */
+export async function openCamera(video: HTMLVideoElement, width = 1280): Promise<MediaStream> {
+  const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: width } }, audio: false });
   video.srcObject = stream;
   video.setAttribute('playsinline', 'true'); // iPhone: no fullscreen takeover
   video.muted = true;
   await video.play();
+  return stream;
+}
+
+export async function startScanner(video: HTMLVideoElement, onResult: (r: ScanResult, seenAt: number) => void, opts: ScannerOptions = {}): Promise<ScannerHandle> {
+  const stream = await openCamera(video);
 
   const native = await nativeDecoder();
   const decode = native ?? (await zxingDecoder());

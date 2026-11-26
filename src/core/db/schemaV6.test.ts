@@ -137,7 +137,7 @@ describe('v5 -> v6 migration (plan §4.4)', () => {
     migrate(old as unknown as SqlDb);
     const schema = (d: TestDb) => d.selectValues(`SELECT sql FROM sqlite_master WHERE sql IS NOT NULL ORDER BY name`).map(String);
     expect(schema(old)).toEqual(schema(fresh));
-    expect(MIGRATIONS).toHaveLength(6);
+    expect(MIGRATIONS.length).toBeGreaterThanOrEqual(6);
   });
 
   it('a v5 backup restores into v6 with its data', async () => {

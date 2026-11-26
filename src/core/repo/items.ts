@@ -156,6 +156,6 @@ export function counts(ctx: Ctx, workspaceId: string): { boxes: number; items: n
 
 export function photosOnParent(ctx: Ctx, parent: { locationId?: string; itemId?: string }): number {
   return parent.locationId
-    ? num(ctx.db.selectValue(`SELECT count(*) FROM photos WHERE location_id=? AND deleted_at IS NULL`, [parent.locationId]))
+    ? num(ctx.db.selectValue(`SELECT count(*) FROM photos WHERE location_id=? AND deleted_at IS NULL AND id NOT IN (SELECT photo_id FROM condition_photos)`, [parent.locationId]))
     : num(ctx.db.selectValue(`SELECT count(*) FROM photos WHERE item_id=? AND deleted_at IS NULL`, [parent.itemId]));
 }

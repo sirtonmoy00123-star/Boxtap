@@ -290,7 +290,14 @@ const V5 = `ALTER TABLE stock_movements ADD COLUMN order_line_id TEXT;`;
 
 /** Ordered migrations. Index i migrates user_version i -> i+1. Never edit a released entry. */
 /** v6 (Removalist mode): see schemaV6.ts. */
-export const MIGRATIONS: readonly Migration[] = [V1, V2, V3, V4, V5, { rebuild: true, up: v6 }];
+/**
+ * v7 (Removalist Phase 4): a condition photo whose phone time was earlier than the latest time this phone had seen
+ * (time_guard.max_seen_at) is flagged, so reports can say "phone clock may have been wrong". time_guard is
+ * device-local and not in backups, so the flag is stored on the photo itself.
+ */
+const V7 = `ALTER TABLE condition_photos ADD COLUMN clock_suspect INTEGER NOT NULL DEFAULT 0 CHECK (clock_suspect IN (0,1));`;
+
+export const MIGRATIONS: readonly Migration[] = [V1, V2, V3, V4, V5, { rebuild: true, up: v6 }, V7];
 
 export const isRebuild = (m: Migration): m is { rebuild: true; up: Step } => typeof m === 'object' && m !== null && 'rebuild' in m;
 

@@ -30,3 +30,11 @@ describe('photo encoding (audit B12)', () => {
     await expect(encodeWithin(enc, MAX_PHOTO_BYTES)).rejects.toThrow(/too large/);
   });
 });
+
+import { conditionCaption } from './condition';
+describe('condition photo caption', () => {
+  it('reads "26 Nov 2026 14:32 · J-0042 · Box 7 · Pickup" in English, local time', () => {
+    expect(conditionCaption(new Date(2026, 10, 26, 14, 32), 'J-0042', false, 7, 'pickup')).toBe('26 Nov 2026 14:32 · J-0042 · Box 7 · Pickup');
+    expect(conditionCaption(new Date(2026, 0, 5, 9, 3), 'J-0001', true, 2, 'delivery')).toBe('5 Jan 2026 09:03 · J-0001 · Piece 2 · Delivery');
+  });
+});

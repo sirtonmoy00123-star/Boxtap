@@ -47,7 +47,8 @@ npx tsx tools/config.ts sign          # writes public/config/v1.json
 | Removalist Phase 1 (foundation): schema v6, `can()` per type, teal, onboarding, Jobs tab, job Bin/archive | Done on branch `feature/removalist-mode` (not merged, not pushed) | v6 migration and trigger tests, jobs/licensing tests, `e2e/removalist.spec.ts` incl. axe |
 | Removalist Phase 2 (boxes and furniture pieces in a job, job rooms, quick add, job labels) | Done on branch `feature/removalist-mode` (not merged, not pushed) | `pieces.test.ts`, `jobLabels.test.ts` (fit on both sheets), `e2e/removalist.spec.ts` |
 | Removalist Phase 3 (load and unload check: continuous scan, counter, wrong-job warning, manual tick, missing reasons, status) | Done on branch `feature/removalist-mode` (pushed; not merged) | `events.test.ts`, `continuous.test.ts`, `e2e/loadcheck.spec.ts` (scan-hook build + fake-camera speed test) |
-| Removalist Phases 4-7 (condition and sign-off, volume, PDFs/crew mode, finish) | Not started | `docs/removalist-plan.md` §10 |
+| Removalist Phase 4 (condition reports, in-app camera, captions, hashes, signature pad, sign-off, locks, amendments, refused signature, delivery comparison, auto-close) | Done on branch `feature/removalist-mode` (pushed; not merged) | `condition.test.ts`, caption test, `e2e/condition.spec.ts` |
+| Removalist Phases 5-7 (volume, PDFs/crew mode, finish) | Not started | `docs/removalist-plan.md` §10 |
 | Deploy of Removalist Phases 1-2 | **Live since 2026-11-27**: the owner pushed main (merge 57fbc71); Workers Builds production build 3d46df30 succeeded (version c88f904b). Removalist Phases 1–2 live; Phases 3–7 pending (Phase 3 is on the feature branch only). | Smoke check of https://boxtap.sirtonmoy00123.workers.dev in a throwaway profile, no data made: HTTP 200, the real CSP header, no console or CSP errors, Home / Seller / Removalist cards, the served JS is the new build |
 | 1.8 Offline, update prompt, launch | Update prompt and precache done; offline E2E and launch not yet | |
 
@@ -267,6 +268,61 @@ Tests (2026-11-27):
 - After: `npm run check` passed, 322 unit tests (+11: load/unload rules, scan queue). Lint: 0 errors, the same 9 warnings.
 - E2E chromium + webkit + mobile-chrome on the normal build: 118 passed, 29 skipped, 0 failed (+4 passed: axe on the load check in 3 browsers and the speed test, 30 ms in this run). The 2 load-check flow tests skip there, because they need the scan-hook build.
 - The scan-hook build, `e2e/loadcheck.spec.ts` in the 3 browsers: 10 passed, 2 skipped (the speed test runs only in desktop Chromium). These cover load and unload with the counter, Already loaded, wrong job, not BoxTap, unknown label, manual tick, missing reasons with Other + note, Loaded → Delivered, the Scan-button job picker, the count kept after a reload (not in Windows WebKit, which has no lasting storage), axe on the load check screen, and the fake-camera speed test.
+
+## Removalist mode, Phase 4 (2026-11-27)
+
+The owner said "go" for Phase 4 (condition report). Branch `feature/removalist-mode`.
+
+Built:
+
+- **Condition records** (`src/core/repo/removalist/condition.ts`). Each piece has one record per stage (pickup, delivery) with tags and an optional note.
+  - The tags are OK · Scratched · Dented · Chipped · Torn · Stained · Broken · Already damaged before move · Other, and several can be chosen.
+  - Photos are limited through `can()` to 3 per piece per stage on Free and 10 on Pro.
+- **Condition photos** go through the normal photo pipeline (`src/core/photos/condition.ts`). They are backed up and synced like any photo, but are kept out of the box's own photo strip and its photo limit. Each one:
+  - gets a caption burned in, always in English: "26 Nov 2026 14:32 · J-0042 · Box 7 · Pickup"
+  - stores its SHA-256 (of the stored bytes), `captured_at` (the phone's time) and `source`: `camera` from the in-app camera (`Camera.tsx`, sharing the scanner's `openCamera`), or `library` from Import, shown as "Imported photo — time not verified"
+  - is flagged "Phone clock may have been wrong" when its time is earlier than `time_guard.max_seen_at`
+- **Fast mode**: "Start: first piece not recorded", then "Next piece" goes through the pieces in order, with a "Not recorded yet: …" list.
+- **Sign-off** (`SignOff.tsx`, `SignaturePad.tsx`, a canvas with pointer events and no library):
+  - the summary "45 pieces · 6 with existing damage"
+  - the disclaimer "This record was made on the removalist's phone to document the condition of goods. It is not legal advice." (in Bangla too; no "legally binding" or "court-approved" anywhere)
+  - the customer's typed name, drawn signature and an automatic time, then the crew leader's (prefilled from the job)
+  - one transaction writes both `signoffs` rows and the `stage_locks` row with `report_hash`
+  - "Customer refused to sign" locks the stage with the crew signature only and says so on screen
+- **report_hash** is the SHA-256 (from `@noble/hashes`, already a dependency) of `canonicalJson` over:
+  - the job number, the stage and `customer_refused`
+  - every record, sorted by id: piece, tags, note, times, who, the amendment flag, and photo hashes with time and source
+  - the signer names and times, and the signature image hashes
+
+  `verifyStage` works it out again from what is stored now and compares.
+- **After the lock** only amendments can be added (`is_amendment=1`, a note is required, tags and photos are optional). They are shown with "Amendment after sign-off" in the reader's language. The v6 triggers enforce this in the database.
+- **Delivery against pickup** lists every piece whose condition changed ("Box 1: OK at pickup → Dented at delivery") and every piece missing at delivery: recorded at pickup but not at delivery, or given a missing reason in the unload check.
+- **Delivery sign-off closes the job** (owner's answer). The job screen then shows only "This job has a signed report, so it can only be archived, not deleted." (from Phase 1).
+
+Rulings (cost if wrong):
+
+46. **Schema v7** adds `condition_photos.clock_suspect` (a simple ADD COLUMN, with the pre-migration safety copy). v6 had nowhere to keep the flag, and `time_guard` is device-local and never in backups, so the flag must live on the photo. Cost: the live site (v6) runs one more small migration on its next deploy.
+47. **`time_guard.max_seen_at` is now written**: it is raised, never lowered, on each condition photo and sign-off. Licensing still doesn't read it.
+48. **The caption is drawn on the 1600 px picture** (decoded at that size, then captioned, encoded and hashed). It is not drawn on the full camera resolution first, which would cost a lot of memory on phones. The stored file, its hash and every backup carry the caption.
+49. **Amendments are not in the report hash**: they come after the signature. The hash covers what was signed.
+50. **Tags**: choosing OK clears the damage tags (but keeps "Already damaged before move"); choosing a damage tag clears OK. "With existing damage" counts pieces with any tag other than OK.
+51. **A condition photo can't be deleted before sign-off yet.** Follow-up: a delete for unlocked condition photos.
+52. **The in-app camera is not covered by the browser tests** (they have no camera). Photos are tested through Import; the camera needs the real-phone check.
+53. **Found while testing:** two quick taps on tags could overwrite each other, because the second save used the tags from before the first had finished. Tags are now kept on screen and saved one after another.
+
+**Bangla strings for native review (Phase 4):** `rm.stage.*`, `rm.cond.*`, `rm.tag.*`, `rm.cam.*`, `rm.sign.*`, including the disclaimer `rm.sign.disclaimer`. All were written by Claude.
+
+Tests (2026-11-27):
+
+- Before (Phase 3 end): 322 unit tests, 118 browser passed, 29 skipped.
+- After: `npm run check` passed, 331 unit tests (+9: condition rules, report hash, locks, refusal, comparison, auto-close, limits, clock flag, caption). Lint: 0 errors, the same 9 warnings.
+- E2E chromium + webkit + mobile-chrome: 126 passed, 1 flaky, 29 skipped, 0 failed (+9 new: 3 condition tests x 3 browsers). The flaky one is the existing Home lists PDF download in WebKit, which passed on its allowed retry (ruling 18, unrelated to this change). The new `e2e/condition.spec.ts` covers:
+  - pickup with OK / Scratched + Already damaged / a note / an imported photo, then Next piece and the "Not recorded yet" list
+  - the sign-off with both signatures drawn on the canvas, the disclaimer text, and the stage locking
+  - locked tags, an amendment with its note and its own photo
+  - delivery, with "Box 1: OK at pickup → Dented at delivery" in the comparison
+  - a customer who refused to sign at delivery, the job Closed and archive-only
+  - axe on the condition piece and sign-off screens, and the Bangla screens and disclaimer
 
 ## Test environment limits (not counted as passes)
 

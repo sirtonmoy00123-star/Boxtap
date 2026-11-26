@@ -72,9 +72,41 @@ export async function makeThumb(full: Blob): Promise<Blob> {
 
 export interface ProcessedPhoto { full: Blob; thumb: Blob; mime: 'image/webp' | 'image/jpeg'; sha256: string }
 
+/**
+ * Burns a one-line caption into the bottom of the picture (Removalist condition photos: date, job, box, stage).
+ * Drawn on the 1600 px picture before it is encoded and hashed, so the stored file, its hash and every copy carry it.
+ */
+async function withCaption(bmp: ImageBitmap, caption: string): Promise<ImageBitmap> {
+  const w = bmp.width, h = bmp.height;
+  const bar = Math.max(28, Math.round(Math.min(w, h) * 0.06));
+  const draw = (g: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D) => {
+    g.drawImage(bmp, 0, 0);
+    g.fillStyle = 'rgba(0,0,0,0.65)';
+    g.fillRect(0, h - bar, w, bar);
+    g.fillStyle = '#ffffff';
+    g.font = `600 ${Math.round(bar * 0.55)}px system-ui, "Segoe UI", Roboto, Arial, sans-serif`;
+    g.textBaseline = 'middle';
+    g.fillText(caption, Math.round(bar * 0.4), h - bar / 2, w - bar * 0.8);
+  };
+  let out: ImageBitmap;
+  if (typeof OffscreenCanvas !== 'undefined') {
+    const c = new OffscreenCanvas(w, h);
+    draw(c.getContext('2d')!);
+    out = await createImageBitmap(c);
+  } else {
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    draw(c.getContext('2d')!);
+    out = await createImageBitmap(c);
+  }
+  bmp.close();
+  return out;
+}
+
 /** 1600 px photo (~200 KB) + 400 px thumbnail, plus the SHA-256 of the saved photo (for the Drive manifest). */
-export async function processPhoto(file: Blob): Promise<ProcessedPhoto> {
-  const fullBmp = await bitmapAtWidth(file, FULL_WIDTH);
+export async function processPhoto(file: Blob, opts: { caption?: string } = {}): Promise<ProcessedPhoto> {
+  let fullBmp = await bitmapAtWidth(file, FULL_WIDTH);
+  if (opts.caption) fullBmp = await withCaption(fullBmp, opts.caption);
   let full: Blob;
 
   try {

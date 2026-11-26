@@ -25,6 +25,8 @@ import { BusinessPage, TrucksPage, VolumeCataloguePage } from './screens/removal
 import { AddRemovalistPage } from './screens/removalist/AddRemovalist';
 import { JobLabelsPage } from './screens/removalist/Pieces';
 import { LoadCheckPage, ScanJobPicker } from './screens/removalist/LoadCheck';
+import { ConditionPiecePage, ConditionStagePage } from './screens/removalist/Condition';
+import { SignOffPage } from './screens/removalist/SignOff';
 import { startSchedule } from '../core/drive/browserSync';
 import { adoptRedirectToken } from '../core/drive/googleAuth';
 import { removeOrphans, removePhotoFile } from '../core/photos/store';
@@ -208,6 +210,9 @@ export function App() {
   else if (route.name === 'jobLabels') screen = <JobLabelsPage id={route.id} />;
   else if (route.name === 'loadCheck') screen = <LoadCheckPage key={`${route.id}-${route.direction}`} id={route.id} direction={route.direction} />;
   else if (route.name === 'scanJob') screen = <ScanJobPicker />;
+  else if (route.name === 'conditionStage') screen = <ConditionStagePage key={`${route.id}-${route.stage}`} id={route.id} stage={route.stage} />;
+  else if (route.name === 'conditionPiece') screen = <ConditionPiecePage key={`${route.id}-${route.stage}-${route.boxId}`} id={route.id} stage={route.stage} boxId={route.boxId} />;
+  else if (route.name === 'signOff') screen = <SignOffPage key={`${route.id}-${route.stage}`} id={route.id} stage={route.stage} />;
   else if (route.name === 'business') screen = <BusinessPage />;
   else if (route.name === 'trucks') screen = <TrucksPage />;
   else if (route.name === 'volumeCatalogue') screen = <VolumeCataloguePage />;
